@@ -50,6 +50,7 @@ import {
   getHomework,
   getLeaves,
   getNotifications,
+  getResults,
   getStudentAttendance,
   getStudentById,
   getStudentFees,
@@ -62,6 +63,51 @@ import {
   saveLeaves,
   saveSuggestions,
 } from "@/store/data";
+
+// ============================================================
+// Rank Helper
+// ============================================================
+function getStudentClassRank(
+  studentId: string,
+  examName: string,
+  studentClass: string,
+): number {
+  const allResults = getResults();
+  const classResults = allResults.filter(
+    (r) =>
+      r.examName === examName &&
+      r.class === studentClass &&
+      r.status === "approved",
+  );
+
+  // Compute percentage for each student
+  const studentPercentages: { studentId: string; pct: number }[] =
+    classResults.map((r) => {
+      const totalAwarded = r.subjects.reduce((a, s) => a + s.marks, 0);
+      const totalMax = r.subjects.reduce((a, s) => a + s.maxMarks, 0);
+      const pct = totalMax > 0 ? (totalAwarded / totalMax) * 100 : 0;
+      return { studentId: r.studentId, pct };
+    });
+
+  // Sort descending by percentage
+  studentPercentages.sort((a, b) => b.pct - a.pct);
+
+  // Find the percentage of the target student
+  const targetEntry = studentPercentages.find((x) => x.studentId === studentId);
+  if (!targetEntry) return 0;
+
+  // Rank = position of first student with same or better percentage (1-based, ties share same rank)
+  let rank = 1;
+  for (const entry of studentPercentages) {
+    if (entry.pct > targetEntry.pct) {
+      rank++;
+    } else {
+      break;
+    }
+  }
+
+  return rank;
+}
 import { Calendar, FileText, Printer, User, UserCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -215,6 +261,7 @@ function MyResults({ studentId }: { studentId: string }) {
             const total = r.subjects.reduce((a, s) => a + s.marks, 0);
             const max = r.subjects.reduce((a, s) => a + s.maxMarks, 0);
             const pct = Math.round((total / max) * 100);
+            const rank = getStudentClassRank(studentId, r.examName, r.class);
             return (
               <div
                 key={r.id}
@@ -227,15 +274,35 @@ function MyResults({ studentId }: { studentId: string }) {
                       {formatDate(r.approvedAt ?? r.submittedAt)}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-foreground">
-                      {total}/{max}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">
+                  <div className="flex gap-4 items-center">
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                        Rank
+                      </p>
+                      <p className="text-2xl font-bold text-foreground">
+                        #{rank}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                        Marks
+                      </p>
+                      <p className="text-lg font-bold text-foreground">
+                        {total}/{max}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                        Percentage
+                      </p>
+                      <p className="text-lg font-bold text-foreground">
                         {pct}%
-                      </span>
-                      <Badge className="badge-success">{getGrade(pct)}</Badge>
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <Badge className="badge-success text-sm px-3 py-1">
+                        {getGrade(pct)}
+                      </Badge>
                     </div>
                   </div>
                 </div>
@@ -371,6 +438,11 @@ function MyProgress({ studentId }: { studentId: string }) {
                 const total = r.subjects.reduce((a, s) => a + s.marks, 0);
                 const max = r.subjects.reduce((a, s) => a + s.maxMarks, 0);
                 const pct = Math.round((total / max) * 100);
+                const rank = getStudentClassRank(
+                  studentId,
+                  r.examName,
+                  r.class,
+                );
                 return (
                   <div key={r.id} className="space-y-1">
                     <div className="flex justify-between text-sm">
@@ -378,7 +450,7 @@ function MyProgress({ studentId }: { studentId: string }) {
                         {r.examName}
                       </span>
                       <span className="text-muted-foreground">
-                        {pct}% · {getGrade(pct)}
+                        #{rank} · {pct}% · {getGrade(pct)}
                       </span>
                     </div>
                     <Progress value={pct} className="h-2" />
@@ -457,6 +529,21 @@ function MyTimetable({ studentClass }: { studentClass: string }) {
         <h2 className="section-title">My Timetable</h2>
         <div className="bg-card border border-border rounded-lg p-12 text-center text-muted-foreground">
           Timetable not uploaded yet by your class teacher
+        </div>
+      </div>
+    );
+  }
+
+  if (timetable.approvalStatus !== "approved") {
+    return (
+      <div>
+        <h2 className="section-title">My Timetable</h2>
+        <div className="bg-card border border-border rounded-lg p-12 text-center text-muted-foreground">
+          <p className="text-base font-medium">Timetable not yet approved</p>
+          <p className="text-sm mt-1">
+            The timetable has been submitted but is awaiting final approval from
+            the principal.
+          </p>
         </div>
       </div>
     );
@@ -841,6 +928,7 @@ function FeeStatus({ studentId }: { studentId: string }) {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Receipt No.</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Amount</TableHead>
               <TableHead>Date</TableHead>
@@ -861,6 +949,9 @@ function FeeStatus({ studentId }: { studentId: string }) {
             ) : (
               fees.map((f) => (
                 <TableRow key={f.id}>
+                  <TableCell className="font-medium text-xs">
+                    {f.receiptNumber || "—"}
+                  </TableCell>
                   <TableCell className="font-medium">{f.description}</TableCell>
                   <TableCell>₹{f.amount.toLocaleString()}</TableCell>
                   <TableCell className="text-muted-foreground">

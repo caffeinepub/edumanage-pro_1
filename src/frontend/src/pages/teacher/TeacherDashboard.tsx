@@ -66,6 +66,7 @@ import {
   getLeaves,
   getNotifications,
   getPortfolio,
+  getPrincipalProfile,
   getResults,
   getStudents,
   getStudentsByTeacher,
@@ -648,6 +649,7 @@ function FeeUpdates({ teacherId }: { teacherId: string }) {
     method: "",
     status: "paid" as FeeRecord["status"],
     description: "",
+    receiptNumber: "",
   });
 
   const getLatestFee = (studentId: string) =>
@@ -665,6 +667,7 @@ function FeeUpdates({ teacherId }: { teacherId: string }) {
       status: feeForm.status,
       method: feeForm.method,
       description: feeForm.description,
+      receiptNumber: feeForm.receiptNumber || undefined,
     };
     const updated = [...fees, newFee];
     saveFees(updated);
@@ -706,6 +709,7 @@ function FeeUpdates({ teacherId }: { teacherId: string }) {
               <TableHead>Roll No</TableHead>
               <TableHead>Latest Status</TableHead>
               <TableHead>Amount</TableHead>
+              <TableHead>Receipt No.</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -719,6 +723,9 @@ function FeeUpdates({ teacherId }: { teacherId: string }) {
                   <TableCell>{s.rollNo}</TableCell>
                   <TableCell>{statusBadge(latest?.status)}</TableCell>
                   <TableCell>{latest ? `₹${latest.amount}` : "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {latest?.receiptNumber || "—"}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {latest ? formatDate(latest.date) : "—"}
                   </TableCell>
@@ -810,6 +817,16 @@ function FeeUpdates({ teacherId }: { teacherId: string }) {
                 placeholder="Term fee, lab fee..."
               />
             </div>
+            <div className="space-y-1">
+              <Label>Receipt Number</Label>
+              <Input
+                value={feeForm.receiptNumber}
+                onChange={(e) =>
+                  setFeeForm((f) => ({ ...f, receiptNumber: e.target.value }))
+                }
+                placeholder="e.g. RPS-2026-005"
+              />
+            </div>
             <Button className="w-full" onClick={handleSaveFee}>
               Save Fee Record
             </Button>
@@ -840,9 +857,14 @@ function UploadMarks({
   const [marks, setMarks] = useState<Record<string, Record<string, string>>>(
     {},
   );
+  const [subjectMaxMarks, setSubjectMaxMarks] = useState<
+    Record<string, number>
+  >({});
   const [results] = useState<ExamResult[]>(
     getResults().filter((r) => r.teacherId === teacherId),
   );
+
+  const getSubjectMax = (sub: string) => subjectMaxMarks[sub] ?? 100;
 
   const handleMark = (studentId: string, subject: string, value: string) => {
     setMarks((prev) => ({
@@ -867,7 +889,7 @@ function UploadMarks({
       subjects: subjects.map((sub) => ({
         subject: sub,
         marks: Number(marks[s.id]?.[sub] ?? 0),
-        maxMarks: 100,
+        maxMarks: getSubjectMax(sub),
       })),
       submittedAt: now,
       status: "pending" as const,
@@ -939,6 +961,27 @@ function UploadMarks({
               </tr>
             </thead>
             <tbody>
+              <tr className="border-t border-border bg-muted/30">
+                <td className="py-2 px-3 font-semibold text-foreground text-sm">
+                  Total Marks
+                </td>
+                {subjects.map((sub) => (
+                  <td key={sub} className="py-2 px-3">
+                    <Input
+                      type="number"
+                      min="1"
+                      value={subjectMaxMarks[sub] ?? 100}
+                      onChange={(e) =>
+                        setSubjectMaxMarks((prev) => ({
+                          ...prev,
+                          [sub]: Number(e.target.value) || 100,
+                        }))
+                      }
+                      className="w-20 h-8 text-center font-semibold"
+                    />
+                  </td>
+                ))}
+              </tr>
               {students.map((s) => (
                 <tr key={s.id} className="border-t border-border">
                   <td className="py-2 px-3 font-medium text-foreground">
@@ -949,7 +992,7 @@ function UploadMarks({
                       <Input
                         type="number"
                         min="0"
-                        max="100"
+                        max={String(getSubjectMax(sub))}
                         value={marks[s.id]?.[sub] ?? ""}
                         onChange={(e) => handleMark(s.id, sub, e.target.value)}
                         className="w-20 h-8 text-center"
@@ -1347,7 +1390,9 @@ function UploadTimetable({
   teacherId,
   teacherClass,
 }: { teacherId: string; teacherClass: string }) {
-  const existing = getTimetables().find((t) => t.class === teacherClass);
+  const [existing, setExisting] = useState<Timetable | undefined>(() =>
+    getTimetables().find((t) => t.class === teacherClass),
+  );
   const [schedule, setSchedule] = useState<Timetable["schedule"]>(
     existing?.schedule ?? {},
   );
@@ -1379,12 +1424,23 @@ function UploadTimetable({
       schedule,
       updatedAt: new Date().toISOString().split("T")[0],
       updatedBy: teacherId,
+      approvalStatus: "pending",
+      approvalNote: undefined,
+      approvedBy: undefined,
+      approvedAt: undefined,
     };
     const updated =
       idx >= 0 ? tt.map((t, i) => (i === idx ? newTT : t)) : [...tt, newTT];
     saveTimetables(updated);
-    toast.success("Timetable saved");
+    setExisting(newTT);
+    toast.success("Timetable submitted for principal approval");
   };
+
+  const approvalStatus = existing?.approvalStatus;
+  const isRejected = approvalStatus === "rejected";
+  const buttonLabel = isRejected
+    ? "Re-submit for Approval"
+    : "Submit for Approval";
 
   return (
     <div>
@@ -1392,6 +1448,46 @@ function UploadTimetable({
       <p className="section-subtitle">
         Class {teacherClass} · Period-wise schedule
       </p>
+
+      {/* Approval status banner */}
+      {approvalStatus === "pending" && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4 mb-4">
+          <span className="text-lg shrink-0">⏳</span>
+          <div>
+            <p className="font-semibold text-sm">Awaiting Principal Approval</p>
+            <p className="text-sm mt-0.5">
+              Timetable submitted — awaiting principal approval. You can edit
+              and re-submit below.
+            </p>
+          </div>
+        </div>
+      )}
+      {approvalStatus === "approved" && (
+        <div className="flex items-start gap-3 bg-green-50 border border-green-200 text-green-800 rounded-lg p-4 mb-4">
+          <span className="text-lg shrink-0">✅</span>
+          <div>
+            <p className="font-semibold text-sm">Timetable Approved</p>
+            <p className="text-sm mt-0.5">
+              Timetable approved by the principal. Students can now view it.
+              Submit again to request a new review.
+            </p>
+          </div>
+        </div>
+      )}
+      {isRejected && (
+        <div className="flex items-start gap-3 bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 mb-4">
+          <span className="text-lg shrink-0">❌</span>
+          <div>
+            <p className="font-semibold text-sm">Timetable Rejected</p>
+            {existing?.approvalNote && (
+              <p className="text-sm mt-0.5">Note: {existing.approvalNote}</p>
+            )}
+            <p className="text-sm mt-0.5">
+              Please revise the timetable and re-submit for approval.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="overflow-x-auto bg-card border border-border rounded-lg p-4 mb-4">
         <table className="w-full text-xs min-w-[700px]">
@@ -1443,7 +1539,7 @@ function UploadTimetable({
       </div>
 
       <Button className="gap-1.5" onClick={handleSave}>
-        <Upload className="w-4 h-4" /> Save Timetable
+        <Upload className="w-4 h-4" /> {buttonLabel}
       </Button>
     </div>
   );
@@ -2612,6 +2708,604 @@ function TeacherProfile({ teacherId }: { teacherId: string }) {
 }
 
 // ============================================================
+// Progress Cards
+// ============================================================
+
+interface RankedStudent {
+  student: Student;
+  result: ExamResult;
+  totalAwarded: number;
+  totalMax: number;
+  percentage: number;
+  grade: string;
+  rank: number;
+}
+
+function computeRankedStudents(
+  teacherId: string,
+  examName: string,
+): RankedStudent[] {
+  const students = getStudentsByTeacher(teacherId);
+  const studentIds = new Set(students.map((s) => s.id));
+  const results = getResults().filter(
+    (r) =>
+      r.examName === examName &&
+      r.status === "approved" &&
+      studentIds.has(r.studentId),
+  );
+
+  const enriched = results
+    .map((r) => {
+      const student = students.find((s) => s.id === r.studentId);
+      if (!student) return null;
+      const totalAwarded = r.subjects.reduce((a, s) => a + s.marks, 0);
+      const totalMax = r.subjects.reduce((a, s) => a + s.maxMarks, 0);
+      const percentage =
+        totalMax > 0 ? Math.round((totalAwarded / totalMax) * 100) : 0;
+      const grade = getGrade(percentage);
+      return { student, result: r, totalAwarded, totalMax, percentage, grade };
+    })
+    .filter(Boolean) as Omit<RankedStudent, "rank">[];
+
+  enriched.sort((a, b) => b.percentage - a.percentage);
+
+  let rank = 1;
+  return enriched.map((item, idx, arr) => {
+    if (idx > 0 && item.percentage < arr[idx - 1].percentage) {
+      rank = idx + 1;
+    }
+    return { ...item, rank };
+  });
+}
+
+function ProgressCardPrint({
+  rankedStudent,
+  examName,
+  schoolName,
+  teacherName,
+  schoolLogo,
+}: {
+  rankedStudent: RankedStudent;
+  examName: string;
+  schoolName: string;
+  teacherName: string;
+  schoolLogo?: string;
+}) {
+  const { student, result, totalAwarded, totalMax, percentage, grade, rank } =
+    rankedStudent;
+
+  const gradeColor = (g: string) => {
+    if (g === "A+" || g === "A") return "#16a34a";
+    if (g === "B+" || g === "B") return "#2563eb";
+    if (g === "C") return "#d97706";
+    if (g === "D") return "#ea580c";
+    return "#dc2626";
+  };
+
+  return (
+    <div
+      style={{
+        width: "210mm",
+        minHeight: "148mm",
+        background: "#ffffff",
+        border: "2px solid #1e3a5f",
+        borderRadius: "8px",
+        overflow: "hidden",
+        fontFamily: "Georgia, serif",
+        marginBottom: "12px",
+        pageBreakAfter: "always",
+        breakAfter: "page",
+      }}
+    >
+      {/* Header band */}
+      <div
+        style={{
+          background: "linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)",
+          padding: "16px 24px",
+          display: "flex",
+          alignItems: "center",
+          gap: "16px",
+        }}
+      >
+        {schoolLogo && (
+          <img
+            src={schoolLogo}
+            alt="School Logo"
+            style={{
+              width: "52px",
+              height: "52px",
+              borderRadius: "50%",
+              objectFit: "contain",
+              background: "#fff",
+              padding: "3px",
+            }}
+          />
+        )}
+        <div style={{ flex: 1 }}>
+          <div
+            style={{
+              color: "#fff",
+              fontSize: "18px",
+              fontWeight: "bold",
+              letterSpacing: "0.5px",
+            }}
+          >
+            {schoolName}
+          </div>
+          <div style={{ color: "rgba(255,255,255,0.8)", fontSize: "11px" }}>
+            Akampadam · Excellence in Education
+          </div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div
+            style={{
+              color: "#fbbf24",
+              fontSize: "13px",
+              fontWeight: "bold",
+              textTransform: "uppercase",
+              letterSpacing: "1px",
+            }}
+          >
+            Progress Report Card
+          </div>
+          <div style={{ color: "rgba(255,255,255,0.8)", fontSize: "11px" }}>
+            {examName}
+          </div>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div style={{ padding: "16px 24px" }}>
+        {/* Student info row */}
+        <div style={{ display: "flex", gap: "20px", alignItems: "flex-start" }}>
+          {/* Photo */}
+          <div
+            style={{
+              width: "80px",
+              height: "80px",
+              borderRadius: "50%",
+              overflow: "hidden",
+              border: "3px solid #1e3a5f",
+              flexShrink: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "#e8f0fe",
+              fontSize: "28px",
+              fontWeight: "bold",
+              color: "#1e3a5f",
+            }}
+          >
+            {student.photo ? (
+              <img
+                src={student.photo}
+                alt={student.name}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            ) : (
+              student.name.charAt(0).toUpperCase()
+            )}
+          </div>
+
+          {/* Student details */}
+          <div style={{ flex: 1 }}>
+            <div
+              style={{
+                fontSize: "16px",
+                fontWeight: "bold",
+                color: "#1e3a5f",
+                marginBottom: "4px",
+              }}
+            >
+              {student.name}
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "2px 16px",
+                fontSize: "11px",
+                color: "#555",
+              }}
+            >
+              <span>
+                <strong>Class:</strong> {student.class}
+              </span>
+              <span>
+                <strong>Roll No:</strong> {student.rollNo || "—"}
+              </span>
+              <span>
+                <strong>Student ID:</strong> {student.id}
+              </span>
+              <span>
+                <strong>Academic Year:</strong> 2025–2026
+              </span>
+            </div>
+          </div>
+
+          {/* Rank badge */}
+          <div
+            style={{
+              textAlign: "center",
+              background: "linear-gradient(135deg, #fbbf24, #f59e0b)",
+              borderRadius: "10px",
+              padding: "10px 14px",
+              minWidth: "70px",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+            }}
+          >
+            <div
+              style={{ fontSize: "10px", color: "#92400e", fontWeight: "bold" }}
+            >
+              CLASS RANK
+            </div>
+            <div
+              style={{
+                fontSize: "28px",
+                fontWeight: "bold",
+                color: "#78350f",
+                lineHeight: 1,
+              }}
+            >
+              #{rank}
+            </div>
+          </div>
+        </div>
+
+        {/* Key stats row */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr 1fr",
+            gap: "10px",
+            margin: "14px 0",
+          }}
+        >
+          {[
+            {
+              label: "Total Marks",
+              value: `${totalAwarded}/${totalMax}`,
+              bg: "#eff6ff",
+              border: "#bfdbfe",
+              text: "#1d4ed8",
+            },
+            {
+              label: "Percentage",
+              value: `${percentage}%`,
+              bg: "#f0fdf4",
+              border: "#bbf7d0",
+              text: "#15803d",
+            },
+            {
+              label: "Overall Grade",
+              value: grade,
+              bg: "#fffbeb",
+              border: "#fde68a",
+              text: gradeColor(grade),
+            },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              style={{
+                background: stat.bg,
+                border: `1.5px solid ${stat.border}`,
+                borderRadius: "8px",
+                padding: "10px",
+                textAlign: "center",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "20px",
+                  fontWeight: "bold",
+                  color: stat.text,
+                }}
+              >
+                {stat.value}
+              </div>
+              <div
+                style={{ fontSize: "10px", color: "#666", marginTop: "2px" }}
+              >
+                {stat.label}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Subject marks table */}
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            fontSize: "11px",
+            marginBottom: "14px",
+          }}
+        >
+          <thead>
+            <tr style={{ background: "#1e3a5f", color: "#fff" }}>
+              {[
+                "Subject",
+                "Marks Awarded",
+                "Total Marks",
+                "Percentage",
+                "Grade",
+              ].map((h) => (
+                <th
+                  key={h}
+                  style={{
+                    padding: "6px 10px",
+                    textAlign: "left",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {result.subjects.map((sub, idx) => {
+              const subPct =
+                sub.maxMarks > 0
+                  ? Math.round((sub.marks / sub.maxMarks) * 100)
+                  : 0;
+              const subGrade = getGrade(subPct);
+              return (
+                <tr
+                  key={sub.subject}
+                  style={{
+                    background: idx % 2 === 0 ? "#f8fafc" : "#ffffff",
+                    borderBottom: "1px solid #e2e8f0",
+                  }}
+                >
+                  <td style={{ padding: "5px 10px", fontWeight: "600" }}>
+                    {sub.subject}
+                  </td>
+                  <td style={{ padding: "5px 10px", textAlign: "center" }}>
+                    {sub.marks}
+                  </td>
+                  <td style={{ padding: "5px 10px", textAlign: "center" }}>
+                    {sub.maxMarks}
+                  </td>
+                  <td style={{ padding: "5px 10px", textAlign: "center" }}>
+                    {subPct}%
+                  </td>
+                  <td
+                    style={{
+                      padding: "5px 10px",
+                      textAlign: "center",
+                      fontWeight: "bold",
+                      color: gradeColor(subGrade),
+                    }}
+                  >
+                    {subGrade}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        {/* Signatures */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            borderTop: "1px solid #e2e8f0",
+            paddingTop: "10px",
+            marginTop: "4px",
+          }}
+        >
+          <div style={{ textAlign: "center" }}>
+            <div
+              style={{
+                width: "120px",
+                borderBottom: "1.5px solid #1e3a5f",
+                marginBottom: "4px",
+              }}
+            />
+            <div style={{ fontSize: "10px", color: "#555" }}>Class Teacher</div>
+            <div style={{ fontSize: "10px", color: "#888" }}>{teacherName}</div>
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <div
+              style={{
+                width: "120px",
+                borderBottom: "1.5px solid #1e3a5f",
+                marginBottom: "4px",
+              }}
+            />
+            <div style={{ fontSize: "10px", color: "#555" }}>Principal</div>
+            <div style={{ fontSize: "10px", color: "#888" }}>
+              {getPrincipalProfile().name}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProgressCards({
+  teacherId,
+}: {
+  teacherId: string;
+  teacherClass: string;
+}) {
+  const teacher = getTeacherById(teacherId);
+  const profile = getPrincipalProfile();
+  const schoolName =
+    (profile as { schoolName?: string }).schoolName ||
+    "Rahmaniyya Public School";
+
+  // Get all approved exam names for this teacher's students
+  const students = getStudentsByTeacher(teacherId);
+  const studentIds = new Set(students.map((s) => s.id));
+  const approvedResults = getResults().filter(
+    (r) => r.status === "approved" && studentIds.has(r.studentId),
+  );
+  const examNames = [...new Set(approvedResults.map((r) => r.examName))];
+
+  const [selectedExam, setSelectedExam] = useState(examNames[0] ?? "");
+  const [selectedStudentId, setSelectedStudentId] = useState<string>("all");
+
+  const rankedStudents = selectedExam
+    ? computeRankedStudents(teacherId, selectedExam)
+    : [];
+
+  const displayCards =
+    selectedStudentId === "all"
+      ? rankedStudents
+      : rankedStudents.filter((r) => r.student.id === selectedStudentId);
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="section-title">Progress Cards</h2>
+          <p className="section-subtitle">
+            Preview and print student progress report cards
+          </p>
+        </div>
+        <Button
+          onClick={handlePrint}
+          className="gap-2 no-print"
+          disabled={displayCards.length === 0}
+        >
+          <Printer className="w-4 h-4" /> Print / Download
+        </Button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-4 mb-6 no-print">
+        <div className="space-y-1">
+          <Label>Select Exam</Label>
+          <Select value={selectedExam} onValueChange={setSelectedExam}>
+            <SelectTrigger className="w-56">
+              <SelectValue placeholder="Select exam" />
+            </SelectTrigger>
+            <SelectContent>
+              {examNames.length === 0 ? (
+                <SelectItem value="none" disabled>
+                  No approved results
+                </SelectItem>
+              ) : (
+                examNames.map((name) => (
+                  <SelectItem key={name} value={name}>
+                    {name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1">
+          <Label>Select Student</Label>
+          <Select
+            value={selectedStudentId}
+            onValueChange={setSelectedStudentId}
+          >
+            <SelectTrigger className="w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Students</SelectItem>
+              {rankedStudents.map((r) => (
+                <SelectItem key={r.student.id} value={r.student.id}>
+                  {r.student.name} (Rank #{r.rank})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Summary info bar */}
+      {selectedExam && rankedStudents.length > 0 && (
+        <div className="no-print flex gap-3 flex-wrap mb-5">
+          {[
+            {
+              label: "Students",
+              value: rankedStudents.length,
+              color: "bg-blue-50 border-blue-200 text-blue-700",
+            },
+            {
+              label: "Showing",
+              value: displayCards.length,
+              color: "bg-green-50 border-green-200 text-green-700",
+            },
+            {
+              label: "Top Score",
+              value: `${rankedStudents[0]?.percentage ?? 0}%`,
+              color: "bg-amber-50 border-amber-200 text-amber-700",
+            },
+            {
+              label: "Class Avg",
+              value: `${Math.round(rankedStudents.reduce((a, r) => a + r.percentage, 0) / rankedStudents.length)}%`,
+              color: "bg-purple-50 border-purple-200 text-purple-700",
+            },
+          ].map((s) => (
+            <div
+              key={s.label}
+              className={`border rounded-lg px-4 py-2 text-sm font-medium ${s.color}`}
+            >
+              <span className="font-bold">{s.value}</span>{" "}
+              <span className="opacity-70">{s.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {examNames.length === 0 && (
+        <div className="bg-card border border-border rounded-lg p-12 text-center">
+          <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-40" />
+          <p className="text-muted-foreground font-medium">
+            No approved results available
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Results need to be submitted and approved by the principal first.
+          </p>
+        </div>
+      )}
+
+      {selectedExam && rankedStudents.length === 0 && (
+        <div className="bg-card border border-border rounded-lg p-10 text-center">
+          <p className="text-muted-foreground">
+            No approved results found for &quot;{selectedExam}&quot;
+          </p>
+        </div>
+      )}
+
+      {/* Progress cards — same markup used for screen preview and printing */}
+      {displayCards.length > 0 && (
+        <div id="progress-cards-print" className="print-target space-y-4">
+          {displayCards.map((rs) => (
+            <div
+              key={rs.student.id}
+              className="border-2 border-border rounded-lg overflow-hidden shadow-sm"
+            >
+              <ProgressCardPrint
+                rankedStudent={rs}
+                examName={selectedExam}
+                schoolName={schoolName}
+                teacherName={teacher?.name ?? "Class Teacher"}
+                schoolLogo={profile.institutionLogo || undefined}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // Teacher Dashboard Root
 // ============================================================
 export default function TeacherDashboard({ user, onLogout }: Props) {
@@ -2691,6 +3385,11 @@ export default function TeacherDashboard({ user, onLogout }: Props) {
       icon: <Bell className="w-4 h-4" />,
     },
     {
+      id: "progresscards",
+      label: "Progress Cards",
+      icon: <FileText className="w-4 h-4" />,
+    },
+    {
       id: "profile",
       label: "My Profile",
       icon: <User className="w-4 h-4" />,
@@ -2735,6 +3434,10 @@ export default function TeacherDashboard({ user, onLogout }: Props) {
         return <TeacherLeaveApplication user={user} />;
       case "notifications":
         return <TeacherNotifications teacherClass={teacherClass} />;
+      case "progresscards":
+        return (
+          <ProgressCards teacherId={user.id} teacherClass={teacherClass} />
+        );
       case "profile":
         return <TeacherProfile teacherId={user.id} />;
       default:

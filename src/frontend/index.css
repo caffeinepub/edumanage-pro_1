@@ -72,7 +72,7 @@
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
 
-  /* Print styles for hall tickets */
+  /* Print styles for hall tickets and progress cards */
   @media print {
     .no-print {
       display: none !important;
@@ -82,6 +82,19 @@
     }
     body {
       background: white;
+    }
+    /* Hide entire app chrome, show only the print target */
+    body > *:not(#root) {
+      display: none !important;
+    }
+    /* Progress card page breaks */
+    .print-target > * {
+      page-break-after: always;
+      break-after: page;
+    }
+    .print-target > *:last-child {
+      page-break-after: avoid;
+      break-after: avoid;
     }
   }
 }

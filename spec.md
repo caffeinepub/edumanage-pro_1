@@ -1,38 +1,38 @@
 # EduManage Pro
 
 ## Current State
-New project. No existing code.
+Full-featured school management system with Principal, Teacher, and Student portals. Principal dashboard includes: Overview, Manage Teachers, Manage Students, Post Notifications, Academic Calendar, Publish Results, Hall Tickets, Leave Approvals, Teacher Attendance, Student Suggestions, Timetable Approval, My Profile.
+
+Student data model includes `parentPhone` and `parentName` fields.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Full school management web app with three user roles: Principal, Teacher, Student
-- Role-based login page with mock credentials stored/checked in localStorage
-- Principal dashboard: manage teachers/students, post notifications, academic calendar, publish results, leave approvals, school stats
-- Teacher dashboard: add/remove students, mark attendance, fee updates, upload marks, student progress, portfolio, timetable, homework, online exams, hall tickets, leave application, personal attendance
-- Student dashboard: results, progress charts, timetable, hall ticket, online exams, fee status, notifications, attendance, leave application, suggestions
-- Chart.js integration for progress visualization (bar, line, radar charts)
-- Toast notification system
-- Modal dialogs for all forms
-- Search/filter on all data tables
-- Pre-populated sample data: 1 principal, 3 teachers, 5 students with realistic records
+- New "Send Message to Parents" section in the principal sidebar
+- Feature to compose a custom message and send it to parent phone numbers of all or selected students
+- Filter by class to narrow recipients
+- "Send via WhatsApp" button per parent that opens `https://wa.me/<phone>?text=<encoded message>` in a new tab
+- "Send to All" button that opens WhatsApp links for all selected/filtered students in sequence (one tab per parent)
+- Message templates: quick-fill buttons for common message types (Results, Fee Reminder, Notification, General)
+- Recipient table showing student name, class, parent name, parent phone, and a checkbox to select/deselect
+- Select All / Deselect All option
+- Filter by class dropdown
 
 ### Modify
-- N/A (new project)
+- Principal sidebar navItems: add "Send Message" item with a MessageSquare icon
+- renderSection switch: add case for "send-message"
 
 ### Remove
-- N/A (new project)
+- Nothing removed
 
 ## Implementation Plan
-1. Create `frontend/index.html` as the single-page app entry point
-2. Inline all CSS in `<style>` block: sidebar layout, dashboard cards, tables, modals, toast, responsive
-3. Inline all JS in `<script>` block:
-   - localStorage init with sample data
-   - Auth flow (login/logout, role detection, session persistence)
-   - Router (show/hide sections based on nav clicks)
-   - Principal module: teacher CRUD, student list, notifications, calendar, results approval, leave approvals, stats
-   - Teacher module: student CRUD, attendance marking, fee updates, marks upload, portfolio, timetable, homework, exam builder, hall tickets
-   - Student module: results view, progress charts, timetable view, hall ticket, exam attempt, fee view, notifications, attendance view, leave apply, suggestions
-   - Chart.js calls for progress charts (bar, line, radar)
-   - Toast and modal helpers
-4. Load Chart.js and Font Awesome from CDN
+1. Add `SendMessageToParents` component in PrincipalDashboard.tsx
+   - State: message text, selected student IDs, class filter
+   - Message template quick-fill buttons (Results, Fee Reminder, Announcement, General)
+   - Recipient table with checkboxes, student name, class, parent name, parent phone
+   - Class filter dropdown (All + unique classes)
+   - Select All / Deselect All toggle
+   - "Send to Selected via WhatsApp" button - iterates selected students and opens wa.me links
+   - Individual "Send" button per row
+2. Add nav item `{ id: "send-message", label: "Send Message to Parents", icon: <Send /> }` to navItems array
+3. Add `case "send-message": return <SendMessageToParents />;` to renderSection

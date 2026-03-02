@@ -10,6 +10,7 @@ import {
 } from "@/components/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -39,17 +41,21 @@ import {
   type CalendarEvent,
   type CurrentUser,
   type ExamResult,
+  type HallTicketDesign,
+  type HallTicketSubject,
   type LeaveApplication,
   type Notification,
   type Student,
   type SuggestionQuery,
   type Teacher,
   type TeacherAttendance,
+  type Timetable,
   calcAttendancePercent,
   formatDate,
   generateId,
   getAttendance,
   getCalendarEvents,
+  getHallTicketDesign,
   getLeaves,
   getNotifications,
   getPrincipalProfile,
@@ -58,27 +64,35 @@ import {
   getSuggestions,
   getTeacherAttendance,
   getTeachers,
+  getTimetables,
   saveCalendarEvents,
+  saveHallTicketDesign,
   saveLeaves,
   saveNotifications,
   savePrincipalProfile,
   saveResults,
+  saveStudents,
   saveSuggestions,
   saveTeacherAttendance,
   saveTeachers,
+  saveTimetables,
   setCurrentUser,
 } from "@/store/data";
 import {
   AlertTriangle,
   Check,
   Clock,
+  Download,
+  LayoutGrid,
   MessageSquare,
   Plus,
+  Printer,
+  Send,
   Trash2,
   User,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 interface Props {
@@ -482,8 +496,38 @@ function ManageTeachers() {
 // Manage Students
 // ============================================================
 function ManageStudents() {
-  const [students] = useState<Student[]>(getStudents());
+  const [students, setStudents] = useState<Student[]>(getStudents());
   const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string>("");
+  const [form, setForm] = useState({
+    name: "",
+    class: "",
+    rollNo: "",
+    parentName: "",
+    parentPhone: "",
+    id: "",
+    password: "",
+    teacherId: "",
+    photo: "",
+  });
+
+  // Year-End Promotion state
+  const [promoOpen, setPromoOpen] = useState(false);
+  const [promoSource, setPromoSource] = useState("");
+  const [promoTarget, setPromoTarget] = useState("");
+  const [promoTeacher, setPromoTeacher] = useState("");
+
+  const teachers = getTeachers();
+  const getTeacherName = (id: string) =>
+    teachers.find((t) => t.id === id)?.name ?? id;
+
+  const uniqueClasses = Array.from(
+    new Set(students.map((s) => s.class)),
+  ).sort();
+  const promoCount = promoSource
+    ? students.filter((s) => s.class === promoSource).length
+    : 0;
 
   const filtered = students.filter(
     (s) =>
@@ -492,18 +536,299 @@ function ManageStudents() {
       s.rollNo.includes(search),
   );
 
-  const teachers = getTeachers();
-  const getTeacherName = (id: string) =>
-    teachers.find((t) => t.id === id)?.name ?? id;
+  const resetForm = () => {
+    setForm({
+      name: "",
+      class: "",
+      rollNo: "",
+      parentName: "",
+      parentPhone: "",
+      id: "",
+      password: "",
+      teacherId: "",
+      photo: "",
+    });
+    setPhotoPreview("");
+  };
+
+  const handleAdd = () => {
+    if (!form.name || !form.id || !form.password) {
+      toast.error("Name, Login ID and Password are required");
+      return;
+    }
+    if (students.find((s) => s.id === form.id)) {
+      toast.error("Student ID already exists");
+      return;
+    }
+    const newStudent: Student = {
+      id: form.id,
+      password: form.password,
+      name: form.name,
+      class: form.class,
+      rollNo: form.rollNo,
+      parentName: form.parentName,
+      parentPhone: form.parentPhone,
+      teacherId: form.teacherId,
+      role: "student",
+      photo: form.photo || undefined,
+    };
+    const updated = [...students, newStudent];
+    saveStudents(updated);
+    setStudents(updated);
+    resetForm();
+    setOpen(false);
+    toast.success("Student added successfully");
+  };
+
+  const handleDelete = (id: string) => {
+    const updated = students.filter((s) => s.id !== id);
+    saveStudents(updated);
+    setStudents(updated);
+    toast.success("Student removed");
+  };
+
+  const handlePromote = () => {
+    if (!promoSource || !promoTarget) {
+      toast.error("Please select source class and enter target class");
+      return;
+    }
+    if (promoSource === promoTarget) {
+      toast.error("Source and target class cannot be the same");
+      return;
+    }
+    if (promoCount === 0) {
+      toast.error("No students found in the selected source class");
+      return;
+    }
+    const updated = students.map((s) => {
+      if (s.class === promoSource) {
+        return {
+          ...s,
+          class: promoTarget,
+          teacherId: promoTeacher || s.teacherId,
+        };
+      }
+      return s;
+    });
+    saveStudents(updated);
+    setStudents(updated);
+    toast.success(
+      `${promoCount} student${promoCount > 1 ? "s" : ""} promoted from Class ${promoSource} to Class ${promoTarget}`,
+    );
+    setPromoSource("");
+    setPromoTarget("");
+    setPromoTeacher("");
+    setPromoOpen(false);
+  };
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="section-title">Manage Students</h2>
-        <p className="section-subtitle">
-          {students.length} students across all classes
-        </p>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="section-title">Manage Students</h2>
+          <p className="section-subtitle">
+            {students.length} students across all classes
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Year-End Promotion button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setPromoOpen(!promoOpen)}
+          >
+            <GraduationCap className="w-4 h-4" />
+            Year-End Promotion
+          </Button>
+          {/* Add Student dialog */}
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1.5">
+                <Plus className="w-4 h-4" /> Add Student
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Add New Student</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 mt-2">
+                {/* Photo upload */}
+                <div className="space-y-1">
+                  <Label>Student Photo (optional)</Label>
+                  <div className="flex items-center gap-3">
+                    {photoPreview ? (
+                      <img
+                        src={photoPreview}
+                        alt="Preview"
+                        className="w-16 h-16 rounded-full object-cover border border-border"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center border border-border">
+                        <User className="w-6 h-6 text-muted-foreground" />
+                      </div>
+                    )}
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      className="text-sm"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            const dataUrl = ev.target?.result as string;
+                            setPhotoPreview(dataUrl);
+                            setForm((f) => ({ ...f, photo: dataUrl }));
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+                {(
+                  [
+                    ["name", "Full Name"],
+                    ["class", "Class"],
+                    ["rollNo", "Roll Number"],
+                    ["parentName", "Parent Name"],
+                    ["parentPhone", "Parent Phone"],
+                    ["id", "Login ID"],
+                    ["password", "Password"],
+                  ] as [keyof typeof form, string][]
+                ).map(([key, label]) => (
+                  <div key={key} className="space-y-1">
+                    <Label>{label}</Label>
+                    <Input
+                      value={form[key]}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, [key]: e.target.value }))
+                      }
+                      placeholder={label}
+                      type={key === "password" ? "password" : "text"}
+                    />
+                  </div>
+                ))}
+                {/* Class Teacher assignment */}
+                <div className="space-y-1">
+                  <Label>Class Teacher (optional)</Label>
+                  <Select
+                    value={form.teacherId}
+                    onValueChange={(v) =>
+                      setForm((f) => ({ ...f, teacherId: v }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select teacher" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teachers.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name} — Class {t.class}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={handleAdd} className="w-full mt-2">
+                  Add Student
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
+
+      {/* Year-End Promotion Panel */}
+      {promoOpen && (
+        <div className="bg-card border border-border rounded-lg p-5 mb-6">
+          <h3 className="font-semibold text-foreground mb-1 flex items-center gap-2">
+            <GraduationCap className="w-5 h-5 text-primary" />
+            Year-End Class Promotion
+          </h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Move all students from one class to a new class for the next
+            academic year.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label>Source Class (current year)</Label>
+              <Select value={promoSource} onValueChange={setPromoSource}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select class" />
+                </SelectTrigger>
+                <SelectContent>
+                  {uniqueClasses.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      Class {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Target Class (next year)</Label>
+              <Input
+                placeholder="e.g. 7A, 11B, XI"
+                value={promoTarget}
+                onChange={(e) => setPromoTarget(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label>Reassign Class Teacher (optional)</Label>
+              <Select value={promoTeacher} onValueChange={setPromoTeacher}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Keep existing teachers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__keep__">
+                    Keep existing teachers
+                  </SelectItem>
+                  {teachers.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name} — Class {t.class}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          {promoSource && promoTarget && (
+            <div className="mt-4 p-3 rounded-md bg-muted text-sm text-foreground">
+              <strong>
+                {promoCount} student{promoCount !== 1 ? "s" : ""}
+              </strong>{" "}
+              in Class <strong>{promoSource}</strong> will be moved to Class{" "}
+              <strong>{promoTarget}</strong>
+              {promoTeacher && promoTeacher !== "__keep__"
+                ? ` and reassigned to ${getTeacherName(promoTeacher)}`
+                : ""}
+              .
+            </div>
+          )}
+          <div className="flex gap-2 mt-4">
+            <Button onClick={handlePromote} className="gap-1.5">
+              <GraduationCap className="w-4 h-4" />
+              Promote Students
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPromoOpen(false);
+                setPromoSource("");
+                setPromoTarget("");
+                setPromoTeacher("");
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Search */}
       <div className="mb-4">
         <Input
           placeholder="Search by name, class or roll no..."
@@ -512,10 +837,13 @@ function ManageStudents() {
           className="max-w-sm"
         />
       </div>
+
+      {/* Table */}
       <div className="bg-card border border-border rounded-lg overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Photo</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Class</TableHead>
               <TableHead>Roll No</TableHead>
@@ -523,28 +851,62 @@ function ManageStudents() {
               <TableHead>Parent Phone</TableHead>
               <TableHead>Class Teacher</TableHead>
               <TableHead>ID</TableHead>
+              <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((s) => (
-              <TableRow key={s.id}>
-                <TableCell className="font-medium">{s.name}</TableCell>
-                <TableCell>
-                  <Badge variant="outline">{s.class}</Badge>
+            {filtered.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={9}
+                  className="text-center text-muted-foreground py-8"
+                >
+                  No students found
                 </TableCell>
-                <TableCell>{s.rollNo}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {s.parentName}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {s.parentPhone}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {getTeacherName(s.teacherId)}
-                </TableCell>
-                <TableCell className="font-mono text-xs">{s.id}</TableCell>
               </TableRow>
-            ))}
+            ) : (
+              filtered.map((s) => (
+                <TableRow key={s.id}>
+                  <TableCell>
+                    {s.photo ? (
+                      <img
+                        src={s.photo}
+                        alt={s.name}
+                        className="w-9 h-9 rounded-full object-cover border border-border"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center border border-border">
+                        <User className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="font-medium">{s.name}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{s.class}</Badge>
+                  </TableCell>
+                  <TableCell>{s.rollNo}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {s.parentName}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {s.parentPhone}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {getTeacherName(s.teacherId)}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">{s.id}</TableCell>
+                  <TableCell>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(s.id)}
+                      className="text-destructive hover:text-destructive/80"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
@@ -819,8 +1181,17 @@ function PublishResults() {
   const [results, setResults] = useState<ExamResult[]>(getResults());
   const students = getStudents();
 
+  const [filterExam, setFilterExam] = useState("all");
+  const [filterClass, setFilterClass] = useState("all");
+
   const pending = results.filter((r) => r.status === "pending");
   const published = results.filter((r) => r.status === "approved");
+
+  // Unique exam names and classes from published results
+  const examNames = Array.from(
+    new Set(published.map((r) => r.examName)),
+  ).sort();
+  const classNames = Array.from(new Set(published.map((r) => r.class))).sort();
 
   const getStudentName = (id: string) =>
     students.find((s) => s.id === id)?.name ?? id;
@@ -860,6 +1231,186 @@ function PublishResults() {
     r.subjects.reduce((a, s) => a + s.marks, 0);
   const calcMax = (r: ExamResult) =>
     r.subjects.reduce((a, s) => a + s.maxMarks, 0);
+
+  const getGrade = (marks: number, maxMarks: number): string => {
+    if (maxMarks === 0) return "—";
+    const pct = (marks / maxMarks) * 100;
+    if (pct >= 90) return "A+";
+    if (pct >= 80) return "A";
+    if (pct >= 70) return "B+";
+    if (pct >= 60) return "B";
+    if (pct >= 50) return "C";
+    if (pct >= 40) return "D";
+    return "F";
+  };
+
+  const handleDownloadRanked = () => {
+    // Filter published results
+    const filtered = published.filter((r) => {
+      if (filterExam !== "all" && r.examName !== filterExam) return false;
+      if (filterClass !== "all" && r.class !== filterClass) return false;
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      toast.error("No results match the selected filters");
+      return;
+    }
+
+    // Sort by total marks descending
+    const sorted = [...filtered].sort((a, b) => calcTotal(b) - calcTotal(a));
+
+    // Assign ranks (ties share same rank)
+    let currentRank = 1;
+    const ranked = sorted.map((r, idx) => {
+      if (idx > 0 && calcTotal(r) < calcTotal(sorted[idx - 1])) {
+        currentRank = idx + 1;
+      }
+      return { rank: currentRank, result: r };
+    });
+
+    // Collect all unique subjects across filtered results
+    const allSubjects = Array.from(
+      new Set(filtered.flatMap((r) => r.subjects.map((s) => s.subject))),
+    ).sort();
+
+    const principalProfile = getPrincipalProfile();
+    const schoolName =
+      principalProfile.name || "Rahmaniyya Public School, Akampadam";
+    const examLabel = filterExam === "all" ? "All Exams" : filterExam;
+    const classLabel =
+      filterClass === "all" ? "All Classes" : `Class ${filterClass}`;
+    const printDate = new Date().toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+
+    // Build subject header cells
+    const subjectHeaders = allSubjects
+      .map(
+        (s) =>
+          `<th style="background:#1e40af;color:white;padding:8px 10px;border:1px solid #c7d2fe;font-size:11px;white-space:nowrap;">${s}</th>`,
+      )
+      .join("");
+
+    // Build rows
+    const rows = ranked
+      .map(({ rank, result }) => {
+        const total = calcTotal(result);
+        const max = calcMax(result);
+        const pct = max > 0 ? Math.round((total / max) * 100) : 0;
+        const rankBg =
+          rank === 1
+            ? "#fef9c3"
+            : rank === 2
+              ? "#f1f5f9"
+              : rank === 3
+                ? "#fff7ed"
+                : "white";
+
+        const subjectCells = allSubjects
+          .map((subj) => {
+            const entry = result.subjects.find((s) => s.subject === subj);
+            if (!entry) {
+              return `<td style="padding:7px 10px;border:1px solid #e2e8f0;font-size:12px;text-align:center;color:#94a3b8;">—</td>`;
+            }
+            const grade = getGrade(entry.marks, entry.maxMarks);
+            return `<td style="padding:7px 10px;border:1px solid #e2e8f0;font-size:12px;text-align:center;">${entry.marks}/${entry.maxMarks} <span style="font-size:10px;font-weight:600;color:#1e40af;">(${grade})</span></td>`;
+          })
+          .join("");
+
+        return `
+          <tr style="background:${rankBg};">
+            <td style="padding:7px 10px;border:1px solid #e2e8f0;font-size:13px;font-weight:700;text-align:center;color:${rank <= 3 ? "#1e40af" : "#374151"};">
+              ${rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : rank}
+            </td>
+            <td style="padding:7px 10px;border:1px solid #e2e8f0;font-size:13px;font-weight:600;">${getStudentName(result.studentId)}</td>
+            <td style="padding:7px 10px;border:1px solid #e2e8f0;font-size:12px;text-align:center;">${result.class}</td>
+            ${subjectCells}
+            <td style="padding:7px 10px;border:1px solid #e2e8f0;font-size:13px;font-weight:700;text-align:center;">${total}</td>
+            <td style="padding:7px 10px;border:1px solid #e2e8f0;font-size:12px;text-align:center;">${max}</td>
+            <td style="padding:7px 10px;border:1px solid #e2e8f0;font-size:13px;font-weight:700;text-align:center;color:${pct >= 60 ? "#15803d" : "#b91c1c"};">${pct}%</td>
+          </tr>`;
+      })
+      .join("");
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ranked Results – ${examLabel} – ${classLabel}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; color: #111; padding: 24px; }
+    .header { background: #1e40af; color: white; border-radius: 10px 10px 0 0; padding: 20px 28px; display: flex; align-items: center; gap: 16px; }
+    .header h1 { font-size: 20px; font-weight: 800; letter-spacing: 0.02em; }
+    .header p { font-size: 13px; opacity: 0.85; margin-top: 2px; }
+    .meta { background: #eff6ff; border: 1px solid #bfdbfe; border-top: none; padding: 12px 28px; display: flex; gap: 24px; flex-wrap: wrap; }
+    .meta span { font-size: 12px; color: #1e40af; font-weight: 600; }
+    .meta span b { color: #111; font-weight: 700; }
+    .table-wrap { overflow-x: auto; border-radius: 0 0 10px 10px; border: 1px solid #e2e8f0; border-top: none; }
+    table { width: 100%; border-collapse: collapse; background: white; }
+    thead tr { background: #1e3a8a; }
+    thead th { color: white; padding: 10px 10px; border: 1px solid #3b5bdb; font-size: 12px; font-weight: 700; text-align: center; white-space: nowrap; }
+    thead th:nth-child(2) { text-align: left; }
+    tbody tr:hover { background: #eff6ff !important; }
+    tfoot td { background: #f1f5f9; font-weight: 700; font-size: 12px; padding: 8px 10px; border: 1px solid #e2e8f0; }
+    .print-btn { display: inline-flex; align-items: center; gap: 8px; background: #1e40af; color: white; border: none; padding: 10px 22px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-bottom: 20px; }
+    .print-btn:hover { background: #1e3a8a; }
+    @media print {
+      body { padding: 0; background: white; }
+      .print-btn { display: none; }
+      .header { border-radius: 0; }
+    }
+  </style>
+</head>
+<body>
+  <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+
+  <div>
+    <div class="header">
+      <div>
+        <h1>${schoolName}</h1>
+        <p>Ranked Examination Results</p>
+      </div>
+    </div>
+    <div class="meta">
+      <span>📋 Exam: <b>${examLabel}</b></span>
+      <span>🏫 Class: <b>${classLabel}</b></span>
+      <span>👥 Students: <b>${ranked.length}</b></span>
+      <span>📅 Generated: <b>${printDate}</b></span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:54px;">Rank</th>
+            <th style="text-align:left;min-width:140px;">Student Name</th>
+            <th style="width:70px;">Class</th>
+            ${subjectHeaders}
+            <th style="width:80px;">Awarded</th>
+            <th style="width:70px;">Total Max</th>
+            <th style="width:70px;">%</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+    } else {
+      toast.error("Popup blocked. Please allow popups and try again.");
+    }
+  };
 
   return (
     <div>
@@ -941,9 +1492,47 @@ function PublishResults() {
 
       {/* Published */}
       <div>
-        <h3 className="font-semibold text-foreground mb-4">
-          Published Results
-        </h3>
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <h3 className="font-semibold text-foreground">Published Results</h3>
+          <div className="flex flex-wrap items-center gap-2 ml-auto">
+            {/* Exam filter */}
+            <Select value={filterExam} onValueChange={setFilterExam}>
+              <SelectTrigger className="h-8 text-xs w-40">
+                <SelectValue placeholder="All Exams" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Exams</SelectItem>
+                {examNames.map((name) => (
+                  <SelectItem key={name} value={name}>
+                    {name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* Class filter */}
+            <Select value={filterClass} onValueChange={setFilterClass}>
+              <SelectTrigger className="h-8 text-xs w-36">
+                <SelectValue placeholder="All Classes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Classes</SelectItem>
+                {classNames.map((cls) => (
+                  <SelectItem key={cls} value={cls}>
+                    Class {cls}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* Download button */}
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={handleDownloadRanked}
+            >
+              <Download className="w-3.5 h-3.5" /> Download Ranked Results
+            </Button>
+          </div>
+        </div>
         <div className="bg-card border border-border rounded-lg overflow-hidden">
           <Table>
             <TableHeader>
@@ -1848,6 +2437,1378 @@ function StudentSuggestions() {
 }
 
 // ============================================================
+// Hall Tickets
+// ============================================================
+function PrincipalHallTickets() {
+  const [design, setDesign] = useState<HallTicketDesign>(getHallTicketDesign);
+
+  const allStudents = getStudents();
+  const classes = Array.from(new Set(allStudents.map((s) => s.class))).sort();
+  const [selectedClass, setSelectedClass] = useState<string>(classes[0] ?? "");
+  const [selectedStudentId, setSelectedStudentId] = useState<string>("");
+
+  const studentsInClass = allStudents.filter((s) => s.class === selectedClass);
+
+  // Auto-select first student when class changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally depend on studentsInClass array
+  useEffect(() => {
+    if (studentsInClass.length > 0) {
+      setSelectedStudentId(studentsInClass[0].id);
+    } else {
+      setSelectedStudentId("");
+    }
+  }, [studentsInClass.length, studentsInClass[0]?.id]);
+
+  const selectedStudent =
+    studentsInClass.find((s) => s.id === selectedStudentId) ??
+    studentsInClass[0];
+
+  const printStyleRef = useRef<HTMLStyleElement | null>(null);
+
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.id = "hall-ticket-print-style";
+    style.textContent = `
+      @media print {
+        body * { visibility: hidden !important; }
+        #hall-ticket-print-wrapper,
+        #hall-ticket-print-wrapper * { visibility: visible !important; }
+        #hall-ticket-print-wrapper {
+          position: fixed !important;
+          top: 0; left: 0;
+          width: 100vw;
+          display: flex;
+          align-items: flex-start;
+          justify-content: center;
+          padding: 20px;
+          background: white;
+        }
+        @page { margin: 1cm; size: A4; }
+      }
+    `;
+    document.head.appendChild(style);
+    printStyleRef.current = style;
+    return () => {
+      if (printStyleRef.current) {
+        document.head.removeChild(printStyleRef.current);
+      }
+    };
+  }, []);
+
+  const handleSaveDesign = () => {
+    saveHallTicketDesign(design);
+    toast.success("Hall ticket design saved");
+  };
+
+  const handleAddSubject = () => {
+    const newSubject: HallTicketSubject = {
+      id: generateId("subj"),
+      name: "",
+      date: "",
+      time: "",
+    };
+    setDesign((d) => ({ ...d, subjects: [...d.subjects, newSubject] }));
+  };
+
+  const handleDeleteSubject = (id: string) => {
+    setDesign((d) => ({
+      ...d,
+      subjects: d.subjects.filter((s) => s.id !== id),
+    }));
+  };
+
+  const handleSubjectChange = (
+    id: string,
+    field: keyof HallTicketSubject,
+    value: string,
+  ) => {
+    setDesign((d) => ({
+      ...d,
+      subjects: d.subjects.map((s) =>
+        s.id === id ? { ...s, [field]: value } : s,
+      ),
+    }));
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const principalProfile = getPrincipalProfile();
+  const logoSrc =
+    principalProfile.institutionLogo ||
+    "/assets/generated/rahmaniyya-logo-transparent.dim_300x300.png";
+
+  const borderStyleMap: Record<HallTicketDesign["borderStyle"], string> = {
+    solid: "3px solid",
+    double: "6px double",
+    dotted: "3px dotted",
+  };
+  const ticketBorder = `${borderStyleMap[design.borderStyle]} ${design.headerBg}`;
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h2 className="section-title">Hall Tickets</h2>
+        <p className="section-subtitle">
+          Design the hall ticket template and preview per student
+        </p>
+      </div>
+
+      <div className="flex flex-col xl:flex-row gap-6">
+        {/* ── Left Panel: Design Editor ── */}
+        <div className="xl:w-[400px] shrink-0 space-y-4">
+          {/* Institution & Header */}
+          <div className="bg-card border border-border rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+              Institution &amp; Header
+            </h3>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Institution Name</Label>
+                <Input
+                  value={design.institutionName}
+                  onChange={(e) =>
+                    setDesign((d) => ({
+                      ...d,
+                      institutionName: e.target.value,
+                    }))
+                  }
+                  placeholder="School name"
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Tagline / Sub-text</Label>
+                <Input
+                  value={design.tagline}
+                  onChange={(e) =>
+                    setDesign((d) => ({ ...d, tagline: e.target.value }))
+                  }
+                  placeholder="Sub-text below school name"
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Header Background Color</Label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={design.headerBg}
+                    onChange={(e) =>
+                      setDesign((d) => ({ ...d, headerBg: e.target.value }))
+                    }
+                    className="w-9 h-9 rounded border border-border cursor-pointer p-0.5 bg-transparent"
+                  />
+                  <Input
+                    value={design.headerBg}
+                    onChange={(e) =>
+                      setDesign((d) => ({ ...d, headerBg: e.target.value }))
+                    }
+                    placeholder="#1e40af"
+                    className="h-8 text-sm font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Exam Details */}
+          <div className="bg-card border border-border rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+              Exam Details
+            </h3>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Exam Name</Label>
+                <Input
+                  value={design.examName}
+                  onChange={(e) =>
+                    setDesign((d) => ({ ...d, examName: e.target.value }))
+                  }
+                  placeholder="e.g. Annual Examination"
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Exam Year</Label>
+                <Input
+                  value={design.examYear}
+                  onChange={(e) =>
+                    setDesign((d) => ({ ...d, examYear: e.target.value }))
+                  }
+                  placeholder="e.g. 2026"
+                  className="h-8 text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Subject Schedule */}
+          <div className="bg-card border border-border rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+              Subject Schedule
+            </h3>
+            <div className="space-y-2 mb-3">
+              {design.subjects.map((subj, idx) => (
+                <div
+                  key={subj.id}
+                  className="flex items-start gap-1.5 bg-muted/40 rounded-lg p-2"
+                >
+                  <span className="text-xs text-muted-foreground font-mono pt-1 w-4 shrink-0">
+                    {idx + 1}.
+                  </span>
+                  <div className="flex-1 grid grid-cols-1 gap-1.5">
+                    <Input
+                      value={subj.name}
+                      onChange={(e) =>
+                        handleSubjectChange(subj.id, "name", e.target.value)
+                      }
+                      placeholder="Subject name"
+                      className="h-7 text-xs"
+                    />
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <Input
+                        type="date"
+                        value={subj.date}
+                        onChange={(e) =>
+                          handleSubjectChange(subj.id, "date", e.target.value)
+                        }
+                        className="h-7 text-xs"
+                      />
+                      <Input
+                        value={subj.time}
+                        onChange={(e) =>
+                          handleSubjectChange(subj.id, "time", e.target.value)
+                        }
+                        placeholder="e.g. 10:00 AM"
+                        className="h-7 text-xs"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteSubject(subj.id)}
+                    className="text-destructive hover:text-destructive/70 mt-0.5 shrink-0"
+                    title="Remove subject"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+              {design.subjects.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-2">
+                  No subjects added yet
+                </p>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-1.5 text-xs h-8"
+              onClick={handleAddSubject}
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Subject
+            </Button>
+          </div>
+
+          {/* Signature Options */}
+          <div className="bg-card border border-border rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+              Signature &amp; Logo Options
+            </h3>
+            <div className="space-y-3">
+              {(
+                [
+                  ["showPrincipalSign", "Show Principal Signature"] as const,
+                  [
+                    "showClassTeacherSign",
+                    "Show Class Teacher Signature",
+                  ] as const,
+                  ["showLogo", "Show Logo as Watermark"] as const,
+                ] as const
+              ).map(([key, label]) => (
+                <div key={key} className="flex items-center justify-between">
+                  <Label
+                    className="text-xs cursor-pointer"
+                    htmlFor={`toggle-${key}`}
+                  >
+                    {label}
+                  </Label>
+                  <Switch
+                    id={`toggle-${key}`}
+                    checked={design[key]}
+                    onCheckedChange={(checked) =>
+                      setDesign((d) => ({ ...d, [key]: checked }))
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Border Style */}
+          <div className="bg-card border border-border rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+              Border Style
+            </h3>
+            <Select
+              value={design.borderStyle}
+              onValueChange={(v) =>
+                setDesign((d) => ({
+                  ...d,
+                  borderStyle: v as HallTicketDesign["borderStyle"],
+                }))
+              }
+            >
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="solid">Solid</SelectItem>
+                <SelectItem value="double">Double</SelectItem>
+                <SelectItem value="dotted">Dotted</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Save button */}
+          <Button onClick={handleSaveDesign} className="w-full gap-2">
+            <Check className="w-4 h-4" /> Save Design
+          </Button>
+        </div>
+
+        {/* ── Right Panel: Preview & Print ── */}
+        <div className="flex-1 min-w-0">
+          <div className="bg-card border border-border rounded-lg p-4 mb-4">
+            <h3 className="text-sm font-semibold text-foreground mb-3">
+              Preview for Student
+            </h3>
+            <div className="flex flex-wrap gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Class</Label>
+                <Select value={selectedClass} onValueChange={setSelectedClass}>
+                  <SelectTrigger className="h-8 text-sm w-32">
+                    <SelectValue placeholder="Select class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {classes.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Student</Label>
+                <Select
+                  value={selectedStudentId}
+                  onValueChange={setSelectedStudentId}
+                >
+                  <SelectTrigger className="h-8 text-sm w-48">
+                    <SelectValue placeholder="Select student" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {studentsInClass.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-end">
+                <Button
+                  onClick={handlePrint}
+                  variant="outline"
+                  className="h-8 gap-1.5 text-sm"
+                >
+                  <Printer className="w-4 h-4" /> Print Hall Ticket
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Hall Ticket Preview */}
+          <div id="hall-ticket-print-wrapper">
+            <div
+              id="principal-hall-ticket-preview"
+              className="bg-white rounded-lg overflow-hidden"
+              style={{
+                border: ticketBorder,
+                maxWidth: "720px",
+                fontFamily: "'Times New Roman', Times, serif",
+                color: "#111",
+              }}
+            >
+              {/* Header */}
+              <div
+                className="px-6 py-5 flex items-center gap-4"
+                style={{ backgroundColor: design.headerBg }}
+              >
+                {design.showLogo && (
+                  <img
+                    src={logoSrc}
+                    alt="Logo"
+                    className="w-16 h-16 object-contain rounded"
+                    style={{
+                      background: "rgba(255,255,255,0.15)",
+                      padding: "4px",
+                    }}
+                  />
+                )}
+                <div className="flex-1 text-center">
+                  <h1
+                    className="text-xl font-bold tracking-wide"
+                    style={{
+                      color: "white",
+                      textShadow: "0 1px 2px rgba(0,0,0,0.3)",
+                    }}
+                  >
+                    {design.institutionName}
+                  </h1>
+                  {design.tagline && (
+                    <p
+                      className="text-sm mt-0.5"
+                      style={{ color: "rgba(255,255,255,0.85)" }}
+                    >
+                      {design.tagline}
+                    </p>
+                  )}
+                </div>
+                {design.showLogo && <div className="w-16 shrink-0" />}
+              </div>
+
+              {/* Title Banner */}
+              <div
+                className="text-center py-2.5"
+                style={{
+                  backgroundColor: `${design.headerBg}22`,
+                  borderBottom: `2px solid ${design.headerBg}44`,
+                }}
+              >
+                <p
+                  className="text-base font-bold tracking-widest uppercase"
+                  style={{ color: design.headerBg, letterSpacing: "0.2em" }}
+                >
+                  Hall Ticket
+                </p>
+                <p className="text-sm font-medium" style={{ color: "#444" }}>
+                  {design.examName} — {design.examYear}
+                </p>
+              </div>
+
+              {/* Body */}
+              <div className="px-6 pt-4 pb-5 relative">
+                {/* Watermark */}
+                {design.showLogo && (
+                  <img
+                    src={logoSrc}
+                    alt=""
+                    aria-hidden="true"
+                    className="absolute pointer-events-none select-none"
+                    style={{
+                      width: "220px",
+                      height: "220px",
+                      objectFit: "contain",
+                      opacity: 0.05,
+                      top: "50%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                    }}
+                  />
+                )}
+
+                {/* Student Info */}
+                <div className="flex items-start gap-5 mb-5">
+                  {/* Photo */}
+                  <div
+                    className="shrink-0 w-20 h-24 rounded overflow-hidden flex items-center justify-center text-2xl font-bold"
+                    style={{
+                      border: `2px solid ${design.headerBg}`,
+                      color: "white",
+                      backgroundColor: design.headerBg,
+                    }}
+                  >
+                    {selectedStudent?.photo ? (
+                      <img
+                        src={selectedStudent.photo}
+                        alt={selectedStudent.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      (selectedStudent?.name?.charAt(0) ?? "?")
+                    )}
+                  </div>
+
+                  {/* Details table */}
+                  <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                    {[
+                      ["Student Name", selectedStudent?.name ?? "—"],
+                      ["Roll Number", selectedStudent?.rollNo ?? "—"],
+                      ["Class / Section", selectedStudent?.class ?? "—"],
+                      ["Student ID", selectedStudent?.id ?? "—"],
+                    ].map(([label, value]) => (
+                      <div
+                        key={label}
+                        className="border-b border-gray-200 pb-1"
+                      >
+                        <span
+                          className="block text-xs font-semibold uppercase tracking-wider"
+                          style={{ color: design.headerBg }}
+                        >
+                          {label}
+                        </span>
+                        <span className="font-medium text-gray-800">
+                          {value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Subject Schedule */}
+                <div className="mb-5">
+                  <h3
+                    className="text-sm font-bold uppercase tracking-wider mb-2"
+                    style={{ color: design.headerBg }}
+                  >
+                    Examination Schedule
+                  </h3>
+                  <table
+                    className="w-full text-sm"
+                    style={{ borderCollapse: "collapse" }}
+                  >
+                    <thead>
+                      <tr
+                        style={{
+                          backgroundColor: design.headerBg,
+                          color: "white",
+                        }}
+                      >
+                        <th className="px-3 py-2 text-left text-xs font-semibold">
+                          #
+                        </th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold">
+                          Subject
+                        </th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold">
+                          Date
+                        </th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold">
+                          Time
+                        </th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold">
+                          Invigilator Sign
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {design.subjects.map((subj, idx) => (
+                        <tr
+                          key={subj.id}
+                          style={{
+                            backgroundColor:
+                              idx % 2 === 0 ? "white" : `${design.headerBg}0d`,
+                          }}
+                        >
+                          <td
+                            className="px-3 py-2 text-xs"
+                            style={{
+                              border: "1px solid #e5e7eb",
+                              color: "#666",
+                            }}
+                          >
+                            {idx + 1}
+                          </td>
+                          <td
+                            className="px-3 py-2 text-sm font-medium"
+                            style={{ border: "1px solid #e5e7eb" }}
+                          >
+                            {subj.name || "—"}
+                          </td>
+                          <td
+                            className="px-3 py-2 text-xs"
+                            style={{ border: "1px solid #e5e7eb" }}
+                          >
+                            {subj.date
+                              ? new Date(subj.date).toLocaleDateString(
+                                  "en-IN",
+                                  {
+                                    day: "2-digit",
+                                    month: "short",
+                                    year: "numeric",
+                                  },
+                                )
+                              : "—"}
+                          </td>
+                          <td
+                            className="px-3 py-2 text-xs"
+                            style={{ border: "1px solid #e5e7eb" }}
+                          >
+                            {subj.time || "—"}
+                          </td>
+                          <td
+                            className="px-3 py-2"
+                            style={{ border: "1px solid #e5e7eb" }}
+                          >
+                            <div
+                              className="border-b border-gray-400 mt-4"
+                              style={{ minWidth: "80px" }}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                      {design.subjects.length === 0 && (
+                        <tr>
+                          <td
+                            colSpan={5}
+                            className="px-3 py-3 text-center text-xs text-gray-500 italic"
+                            style={{ border: "1px solid #e5e7eb" }}
+                          >
+                            No subjects scheduled
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Instructions */}
+                <div
+                  className="text-xs mb-5 p-3 rounded"
+                  style={{
+                    backgroundColor: `${design.headerBg}0d`,
+                    border: `1px solid ${design.headerBg}33`,
+                    color: "#555",
+                  }}
+                >
+                  <p
+                    className="font-semibold mb-1"
+                    style={{ color: design.headerBg }}
+                  >
+                    Instructions:
+                  </p>
+                  <ol className="list-decimal list-inside space-y-0.5">
+                    <li>
+                      This hall ticket must be presented at the examination
+                      hall.
+                    </li>
+                    <li>
+                      Students must arrive 15 minutes before the examination.
+                    </li>
+                    <li>
+                      Mobile phones and electronic devices are strictly
+                      prohibited.
+                    </li>
+                    <li>Lost hall ticket will not be re-issued.</li>
+                  </ol>
+                </div>
+
+                {/* Signatures */}
+                {(design.showPrincipalSign || design.showClassTeacherSign) && (
+                  <div
+                    className="flex items-end justify-between mt-6 pt-4"
+                    style={{ borderTop: "1px solid #e5e7eb" }}
+                  >
+                    {design.showClassTeacherSign && (
+                      <div className="text-center">
+                        <div
+                          className="border-b-2 mb-1 mx-auto"
+                          style={{
+                            width: "120px",
+                            borderColor: design.headerBg,
+                          }}
+                        />
+                        <p
+                          className="text-xs font-semibold"
+                          style={{ color: "#555" }}
+                        >
+                          Class Teacher
+                        </p>
+                        <p className="text-xs" style={{ color: "#888" }}>
+                          Signature &amp; Date
+                        </p>
+                      </div>
+                    )}
+                    {design.showPrincipalSign && (
+                      <div className="text-center">
+                        <div
+                          className="border-b-2 mb-1 mx-auto"
+                          style={{
+                            width: "120px",
+                            borderColor: design.headerBg,
+                          }}
+                        />
+                        <p
+                          className="text-xs font-semibold"
+                          style={{ color: "#555" }}
+                        >
+                          Principal
+                        </p>
+                        <p className="text-xs" style={{ color: "#888" }}>
+                          Signature &amp; Seal
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div
+                className="px-6 py-2 text-center text-xs"
+                style={{
+                  backgroundColor: `${design.headerBg}18`,
+                  borderTop: `1px solid ${design.headerBg}33`,
+                  color: "#666",
+                }}
+              >
+                {design.institutionName} · {design.examName} {design.examYear} ·
+                Official Hall Ticket
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Timetable Approval
+// ============================================================
+const DAYS_TT = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+const PERIODS_TT = [
+  "Period 1",
+  "Period 2",
+  "Period 3",
+  "Period 4",
+  "Period 5",
+  "Period 6",
+  "Period 7",
+  "Period 8",
+];
+
+function TimetableApproval({ user }: { user: CurrentUser }) {
+  const [timetables, setTimetables] = useState<Timetable[]>(getTimetables());
+  const teachers = getTeachers();
+  const [filterTab, setFilterTab] = useState<
+    "all" | "pending" | "approved" | "rejected"
+  >("all");
+  const [selectedTT, setSelectedTT] = useState<Timetable | null>(null);
+  const [rejectNote, setRejectNote] = useState("");
+  const [showRejectInput, setShowRejectInput] = useState(false);
+
+  const getTeacherName = (teacherId: string) =>
+    teachers.find((t) => t.id === teacherId)?.name ?? teacherId;
+
+  const pendingCount = timetables.filter(
+    (t) => t.approvalStatus === "pending",
+  ).length;
+  const approvedCount = timetables.filter(
+    (t) => t.approvalStatus === "approved",
+  ).length;
+  const rejectedCount = timetables.filter(
+    (t) => t.approvalStatus === "rejected",
+  ).length;
+
+  const filtered = timetables.filter((t) => {
+    if (filterTab === "all") return true;
+    return t.approvalStatus === filterTab;
+  });
+
+  const handleApprove = (tt: Timetable) => {
+    const updated = timetables.map((t) =>
+      t.id === tt.id
+        ? {
+            ...t,
+            approvalStatus: "approved" as const,
+            approvedBy: user.id,
+            approvedAt: new Date().toISOString().split("T")[0],
+            approvalNote: undefined,
+          }
+        : t,
+    );
+    saveTimetables(updated);
+    setTimetables(updated);
+    setSelectedTT(null);
+    setShowRejectInput(false);
+    toast.success(`Timetable for Class ${tt.class} approved`);
+  };
+
+  const handleReject = (tt: Timetable) => {
+    if (!rejectNote.trim()) {
+      toast.error("Please provide a rejection note");
+      return;
+    }
+    const updated = timetables.map((t) =>
+      t.id === tt.id
+        ? {
+            ...t,
+            approvalStatus: "rejected" as const,
+            approvedBy: user.id,
+            approvedAt: new Date().toISOString().split("T")[0],
+            approvalNote: rejectNote.trim(),
+          }
+        : t,
+    );
+    saveTimetables(updated);
+    setTimetables(updated);
+    setSelectedTT(null);
+    setShowRejectInput(false);
+    setRejectNote("");
+    toast.success(`Timetable for Class ${tt.class} rejected`);
+  };
+
+  const statusBadge = (status: Timetable["approvalStatus"]) => {
+    if (status === "approved")
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium badge-success">
+          Approved
+        </span>
+      );
+    if (status === "rejected")
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium badge-destructive">
+          Rejected
+        </span>
+      );
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium badge-warning">
+        Pending
+      </span>
+    );
+  };
+
+  return (
+    <div>
+      <h2 className="section-title">Timetable Approval</h2>
+      <p className="section-subtitle">
+        Review and approve timetables submitted by class teachers
+      </p>
+
+      {/* Filter tabs */}
+      <div className="flex flex-wrap gap-2 mb-5">
+        {[
+          { key: "all" as const, label: "All", count: timetables.length },
+          { key: "pending" as const, label: "Pending", count: pendingCount },
+          { key: "approved" as const, label: "Approved", count: approvedCount },
+          { key: "rejected" as const, label: "Rejected", count: rejectedCount },
+        ].map(({ key, label, count }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setFilterTab(key)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              filterTab === key
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-accent"
+            }`}
+          >
+            {label}
+            <span className="ml-1.5 text-xs opacity-75">({count})</span>
+          </button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="bg-card border border-border rounded-lg p-12 text-center text-muted-foreground">
+          No timetables submitted yet
+        </div>
+      ) : (
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Class</TableHead>
+                <TableHead>Submitted By</TableHead>
+                <TableHead>Last Updated</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Note</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((tt) => (
+                <TableRow key={tt.id}>
+                  <TableCell className="font-semibold">
+                    <Badge variant="outline">Class {tt.class}</Badge>
+                  </TableCell>
+                  <TableCell>{getTeacherName(tt.updatedBy)}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDate(tt.updatedAt)}
+                  </TableCell>
+                  <TableCell>{statusBadge(tt.approvalStatus)}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs max-w-[160px] truncate">
+                    {tt.approvalNote || "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs gap-1"
+                      onClick={() => {
+                        setSelectedTT(tt);
+                        setShowRejectInput(false);
+                        setRejectNote("");
+                      }}
+                    >
+                      View &amp; Review
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Review Dialog */}
+      {selectedTT && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b border-border sticky top-0 bg-card z-10">
+              <div>
+                <h3 className="font-semibold text-foreground text-lg">
+                  Review Timetable — Class {selectedTT.class}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Submitted by {getTeacherName(selectedTT.updatedBy)} ·{" "}
+                  {formatDate(selectedTT.updatedAt)} ·{" "}
+                  {statusBadge(selectedTT.approvalStatus)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedTT(null);
+                  setShowRejectInput(false);
+                  setRejectNote("");
+                }}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Schedule grid (read-only) */}
+            <div className="p-5">
+              <div className="overflow-x-auto bg-muted/20 border border-border rounded-lg mb-5">
+                <table className="w-full text-xs min-w-[700px]">
+                  <thead>
+                    <tr
+                      style={{
+                        backgroundColor: "oklch(var(--primary))",
+                        color: "oklch(var(--primary-foreground))",
+                      }}
+                    >
+                      <th className="text-left py-2.5 px-3 font-semibold w-24">
+                        Period
+                      </th>
+                      {DAYS_TT.map((d) => (
+                        <th
+                          key={d}
+                          className="text-left py-2.5 px-3 font-semibold"
+                        >
+                          {d}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {PERIODS_TT.map((period, pi) => (
+                      <tr
+                        key={period}
+                        className={pi % 2 === 0 ? "bg-card" : "bg-muted/30"}
+                      >
+                        <td className="py-2 px-3 font-semibold text-foreground">
+                          {period}
+                        </td>
+                        {DAYS_TT.map((day) => {
+                          const cell = selectedTT.schedule[day]?.[period];
+                          return (
+                            <td
+                              key={day}
+                              className="py-2 px-3 border-l border-border/50"
+                            >
+                              {cell?.subject ? (
+                                <div>
+                                  <p className="font-medium text-foreground">
+                                    {cell.subject}
+                                  </p>
+                                  {cell.teacher && (
+                                    <p className="text-muted-foreground text-xs">
+                                      {cell.teacher}
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex flex-wrap gap-3 items-start">
+                {!showRejectInput ? (
+                  <>
+                    <Button
+                      className="gap-1.5 bg-green-600 hover:bg-green-700"
+                      onClick={() => handleApprove(selectedTT)}
+                    >
+                      <Check className="w-4 h-4" /> Approve Timetable
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      className="gap-1.5"
+                      onClick={() => setShowRejectInput(true)}
+                    >
+                      <X className="w-4 h-4" /> Reject
+                    </Button>
+                  </>
+                ) : (
+                  <div className="flex-1 space-y-2">
+                    <div className="space-y-1">
+                      <Label>Rejection Note (required)</Label>
+                      <textarea
+                        className="w-full border border-border rounded-lg p-2.5 text-sm bg-background text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                        rows={3}
+                        value={rejectNote}
+                        onChange={(e) => setRejectNote(e.target.value)}
+                        placeholder="Explain why the timetable is being rejected..."
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="destructive"
+                        className="gap-1.5"
+                        onClick={() => handleReject(selectedTT)}
+                      >
+                        <X className="w-4 h-4" /> Confirm Reject
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setShowRejectInput(false);
+                          setRejectNote("");
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// Send Message to Parents
+// ============================================================
+const MESSAGE_TEMPLATES = [
+  {
+    label: "Results Update",
+    text: "Dear Parent, we are pleased to inform you about [Student Name]'s exam results. Please log in to the school portal for details.",
+  },
+  {
+    label: "Fee Reminder",
+    text: "Dear Parent, this is a reminder that the school fee for [Student Name] is due. Please clear the dues at the earliest.",
+  },
+  {
+    label: "Announcement",
+    text: "Dear Parent, please be informed of an important announcement from Rahmaniyya Public School. Kindly check the school portal.",
+  },
+  {
+    label: "General Notice",
+    text: "Dear Parent, this is an important notice from the school management. Please contact the school for more information.",
+  },
+];
+
+function SendMessageToParents() {
+  const allStudents = getStudents();
+  const [message, setMessage] = useState("");
+  const [classFilter, setClassFilter] = useState("all");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [sending, setSending] = useState(false);
+
+  const uniqueClasses = Array.from(
+    new Set(allStudents.map((s) => s.class)),
+  ).sort();
+
+  const filteredStudents =
+    classFilter === "all"
+      ? allStudents
+      : allStudents.filter((s) => s.class === classFilter);
+
+  const allFilteredSelected =
+    filteredStudents.length > 0 &&
+    filteredStudents.every((s) => selected.has(s.id));
+
+  const toggleStudent = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (allFilteredSelected) {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        for (const s of filteredStudents) next.delete(s.id);
+        return next;
+      });
+    } else {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        for (const s of filteredStudents) next.add(s.id);
+        return next;
+      });
+    }
+  };
+
+  const buildWhatsAppUrl = (phone: string, msg: string) => {
+    const cleaned = phone.replace(/\D/g, "");
+    const withCountry = cleaned.startsWith("91") ? cleaned : `91${cleaned}`;
+    return `https://wa.me/${withCountry}?text=${encodeURIComponent(msg)}`;
+  };
+
+  const handleSendOne = (student: Student) => {
+    if (!message.trim()) {
+      toast.warning("Please type a message first");
+      return;
+    }
+    const personalised = message.replace(/\[Student Name\]/g, student.name);
+    const url = buildWhatsAppUrl(student.parentPhone, personalised);
+    window.open(url, "_blank");
+  };
+
+  const handleSendAll = async () => {
+    if (!message.trim()) {
+      toast.warning("Please type a message first");
+      return;
+    }
+    const targets = allStudents.filter((s) => selected.has(s.id));
+    if (targets.length === 0) {
+      toast.warning("Please select at least one student");
+      return;
+    }
+    setSending(true);
+    for (let i = 0; i < targets.length; i++) {
+      const s = targets[i];
+      const personalised = message.replace(/\[Student Name\]/g, s.name);
+      const url = buildWhatsAppUrl(s.parentPhone, personalised);
+      window.open(url, "_blank");
+      if (i < targets.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+    }
+    setSending(false);
+    toast.success(
+      `Opened WhatsApp for ${targets.length} parent${targets.length > 1 ? "s" : ""}`,
+    );
+  };
+
+  const totalSelected = allStudents.filter((s) => selected.has(s.id)).length;
+
+  return (
+    <div>
+      <h2 className="section-title">Send Message to Parents</h2>
+      <p className="section-subtitle">
+        Compose a custom message and send it to parents via WhatsApp
+      </p>
+
+      {/* Compose area */}
+      <div className="bg-card border border-border rounded-lg p-5 mb-5 max-w-2xl">
+        <h3 className="font-semibold text-foreground mb-3">Compose Message</h3>
+
+        {/* Quick templates */}
+        <div className="flex flex-wrap gap-2 mb-3">
+          {MESSAGE_TEMPLATES.map((t) => (
+            <button
+              key={t.label}
+              type="button"
+              onClick={() => setMessage(t.text)}
+              className="px-3 py-1 rounded-md border border-border text-xs font-medium text-foreground hover:bg-accent transition-colors"
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <Textarea
+          placeholder="Type your custom message here, or click a template above. Use [Student Name] as a placeholder — it will be replaced with each student's actual name."
+          rows={5}
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          className="mb-2"
+        />
+        <p className="text-xs text-muted-foreground">
+          Tip: Use <code className="bg-muted px-1 rounded">[Student Name]</code>{" "}
+          in your message — it will be personalised for each recipient.
+        </p>
+      </div>
+
+      {/* Recipient filter & table */}
+      <div className="bg-card border border-border rounded-lg overflow-hidden mb-5">
+        {/* Filter row */}
+        <div className="flex flex-wrap items-center gap-3 p-4 border-b border-border">
+          <h3 className="font-semibold text-foreground text-sm">Recipients</h3>
+          <div className="flex items-center gap-2 ml-auto">
+            <Label className="text-xs text-muted-foreground">
+              Filter class:
+            </Label>
+            <Select value={classFilter} onValueChange={setClassFilter}>
+              <SelectTrigger className="h-8 text-xs w-36">
+                <SelectValue placeholder="All Classes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Classes</SelectItem>
+                {uniqueClasses.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    Class {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={toggleAll}
+            >
+              {allFilteredSelected ? "Deselect All" : "Select All"}
+            </Button>
+          </div>
+        </div>
+
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={allFilteredSelected}
+                  onCheckedChange={toggleAll}
+                  aria-label="Toggle all visible students"
+                />
+              </TableHead>
+              <TableHead>Student Name</TableHead>
+              <TableHead>Class</TableHead>
+              <TableHead>Parent Name</TableHead>
+              <TableHead>Parent Phone</TableHead>
+              <TableHead className="w-20 text-center">Send</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredStudents.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="text-center text-muted-foreground py-8"
+                >
+                  No students found
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredStudents.map((s) => (
+                <TableRow key={s.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selected.has(s.id)}
+                      onCheckedChange={() => toggleStudent(s.id)}
+                      aria-label={`Select ${s.name}`}
+                    />
+                  </TableCell>
+                  <TableCell className="font-medium">{s.name}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{s.class}</Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {s.parentName || "—"}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground font-mono text-sm">
+                    {s.parentPhone || "—"}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => handleSendOne(s)}
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700 transition-colors"
+                      title={`Send WhatsApp to ${s.parentName || s.name}'s parent`}
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Send All button */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <Button
+          onClick={handleSendAll}
+          disabled={sending}
+          className="gap-2 bg-green-600 hover:bg-green-700 text-white"
+          size="lg"
+        >
+          <Send className="w-5 h-5" />
+          {sending
+            ? "Opening WhatsApp..."
+            : "Send to All Selected via WhatsApp"}
+        </Button>
+        {totalSelected > 0 ? (
+          <span className="text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">
+              {totalSelected}
+            </span>{" "}
+            recipient{totalSelected !== 1 ? "s" : ""} selected
+          </span>
+        ) : (
+          <span className="text-sm text-muted-foreground">
+            No recipients selected — check the boxes above
+          </span>
+        )}
+      </div>
+
+      <p className="text-xs text-muted-foreground mt-3">
+        Each selected parent's WhatsApp will open in a new tab. Your browser may
+        ask permission to open multiple tabs — please allow it.
+      </p>
+    </div>
+  );
+}
+
+// ============================================================
 // Principal Dashboard
 // ============================================================
 export default function PrincipalDashboard({ user, onLogout }: Props) {
@@ -1864,6 +3825,9 @@ export default function PrincipalDashboard({ user, onLogout }: Props) {
     (r) => r.approvalStatus === "pending",
   ).length;
   const pendingSuggestions = getSuggestions().filter((s) => !s.response).length;
+  const pendingTimetables = getTimetables().filter(
+    (t) => t.approvalStatus === "pending",
+  ).length;
 
   const navItems = [
     {
@@ -1898,6 +3862,11 @@ export default function PrincipalDashboard({ user, onLogout }: Props) {
       badge: pendingResults,
     },
     {
+      id: "hall-tickets",
+      label: "Hall Tickets",
+      icon: <Printer className="w-4 h-4" />,
+    },
+    {
       id: "leaves",
       label: "Leave Approvals",
       icon: <CheckSquare className="w-4 h-4" />,
@@ -1914,6 +3883,17 @@ export default function PrincipalDashboard({ user, onLogout }: Props) {
       label: "Student Suggestions",
       icon: <MessageSquare className="w-4 h-4" />,
       badge: pendingSuggestions,
+    },
+    {
+      id: "timetable-approval",
+      label: "Timetable Approval",
+      icon: <LayoutGrid className="w-4 h-4" />,
+      badge: pendingTimetables,
+    },
+    {
+      id: "send-message",
+      label: "Send Message to Parents",
+      icon: <Send className="w-4 h-4" />,
     },
     {
       id: "profile",
@@ -1936,12 +3916,18 @@ export default function PrincipalDashboard({ user, onLogout }: Props) {
         return <AcademicCalendar />;
       case "results":
         return <PublishResults />;
+      case "hall-tickets":
+        return <PrincipalHallTickets />;
       case "leaves":
         return <LeaveApprovals />;
       case "teacher-attendance":
         return <TeacherAttendanceApprovals />;
       case "suggestions":
         return <StudentSuggestions />;
+      case "timetable-approval":
+        return <TimetableApproval user={currentUser} />;
+      case "send-message":
+        return <SendMessageToParents />;
       case "profile":
         return (
           <MyProfile

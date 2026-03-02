@@ -64,6 +64,7 @@ export interface FeeRecord {
   status: "paid" | "pending" | "partial";
   method: string;
   description: string;
+  receiptNumber?: string;
 }
 
 export interface ExamResult {
@@ -131,6 +132,10 @@ export interface Timetable {
   };
   updatedAt: string;
   updatedBy: string;
+  approvalStatus: "pending" | "approved" | "rejected";
+  approvalNote?: string;
+  approvedBy?: string;
+  approvedAt?: string;
 }
 
 export interface OnlineExam {
@@ -385,6 +390,7 @@ export function initializeData(): void {
       status: "paid",
       method: "Online Transfer",
       description: "Term 1 Tuition Fee",
+      receiptNumber: "RPS-2026-001",
     },
     {
       id: "fee002",
@@ -394,6 +400,7 @@ export function initializeData(): void {
       status: "paid",
       method: "Cheque",
       description: "Term 1 Tuition Fee",
+      receiptNumber: "RPS-2026-002",
     },
     {
       id: "fee003",
@@ -403,6 +410,7 @@ export function initializeData(): void {
       status: "partial",
       method: "Cash",
       description: "Term 1 Tuition Fee (partial)",
+      receiptNumber: "RPS-2026-003",
     },
     {
       id: "fee004",
@@ -430,6 +438,7 @@ export function initializeData(): void {
       status: "paid",
       method: "Online Transfer",
       description: "Lab Fee",
+      receiptNumber: "RPS-2026-004",
     },
   ];
 
@@ -707,6 +716,7 @@ export function initializeData(): void {
       },
       updatedAt: "2026-02-01",
       updatedBy: "teacher001",
+      approvalStatus: "approved",
     },
   ];
 
@@ -1068,6 +1078,57 @@ export function getSuggestions(): SuggestionQuery[] {
 }
 export function saveSuggestions(s: SuggestionQuery[]): void {
   setLS(KEYS.SUGGESTIONS, s);
+}
+
+// ============================================================
+// Hall Ticket Design
+// ============================================================
+export interface HallTicketSubject {
+  id: string;
+  name: string;
+  date: string;
+  time: string;
+}
+
+export interface HallTicketDesign {
+  institutionName: string;
+  tagline: string;
+  headerBg: string;
+  examName: string;
+  examYear: string;
+  subjects: HallTicketSubject[];
+  showPrincipalSign: boolean;
+  showClassTeacherSign: boolean;
+  showLogo: boolean;
+  borderStyle: "solid" | "double" | "dotted";
+}
+
+const DEFAULT_HALL_TICKET_DESIGN: HallTicketDesign = {
+  institutionName: "Rahmaniyya Public School",
+  tagline: "Akampadam · Excellence in Education",
+  headerBg: "#1e40af",
+  examName: "Annual Examination",
+  examYear: "2026",
+  subjects: [
+    { id: "s1", name: "Mathematics", date: "2026-03-20", time: "10:00 AM" },
+    { id: "s2", name: "Science", date: "2026-03-22", time: "10:00 AM" },
+    { id: "s3", name: "English", date: "2026-03-24", time: "10:00 AM" },
+  ],
+  showPrincipalSign: true,
+  showClassTeacherSign: true,
+  showLogo: true,
+  borderStyle: "solid",
+};
+
+export function getHallTicketDesign(): HallTicketDesign {
+  return getLS<HallTicketDesign>(
+    "edu_hall_ticket_design",
+    DEFAULT_HALL_TICKET_DESIGN,
+  );
+}
+
+export function saveHallTicketDesign(d: HallTicketDesign): void {
+  setLS("edu_hall_ticket_design", d);
 }
 
 // ============================================================
