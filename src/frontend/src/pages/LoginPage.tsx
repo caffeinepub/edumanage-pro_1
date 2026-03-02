@@ -2,7 +2,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { type Role, authenticate, setCurrentUser } from "@/store/data";
+import {
+  type Role,
+  authenticate,
+  getPrincipalProfile,
+  setCurrentUser,
+} from "@/store/data";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -103,6 +108,11 @@ function LoginForm({
 }
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
+  const principalProfile = getPrincipalProfile();
+  const logoSrc =
+    principalProfile.institutionLogo ||
+    "/assets/generated/rahmaniyya-logo-transparent.dim_300x300.png";
+
   return (
     <div className="min-h-screen bg-background flex">
       {/* Left panel */}
@@ -112,7 +122,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
       >
         <div className="flex items-center gap-3">
           <img
-            src="/assets/generated/rahmaniyya-logo-transparent.dim_300x300.png"
+            src={logoSrc}
             alt="Rahmaniyya Public School logo"
             className="w-11 h-11 object-contain shrink-0"
           />
@@ -175,7 +185,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           {/* School logo + name — always visible on mobile, visible on desktop too */}
           <div className="flex flex-col items-center text-center mb-8">
             <img
-              src="/assets/generated/rahmaniyya-logo-transparent.dim_300x300.png"
+              src={logoSrc}
               alt="Rahmaniyya Public School logo"
               className="w-28 h-28 object-contain mb-3"
             />

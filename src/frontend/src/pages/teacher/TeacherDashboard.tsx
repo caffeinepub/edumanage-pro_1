@@ -53,6 +53,7 @@ import {
   type OnlineExam,
   type PortfolioEntry,
   type Student,
+  type TeacherAttendance,
   type Timetable,
   calcAttendancePercent,
   formatDate,
@@ -79,6 +80,7 @@ import {
   savePortfolio,
   saveResults,
   saveStudents,
+  saveTeacherAttendance,
   saveTimetables,
 } from "@/store/data";
 import {
@@ -89,6 +91,7 @@ import {
   Plus,
   Printer,
   Trash2,
+  User,
   UserCheck,
 } from "lucide-react";
 import { useCallback, useState } from "react";
@@ -257,7 +260,9 @@ function ManageStudents({
     parentPhone: "",
     id: "",
     password: "",
+    photo: "",
   });
+  const [photoPreview, setPhotoPreview] = useState("");
 
   const handleAdd = () => {
     if (!form.name || !form.id || !form.password) {
@@ -268,7 +273,18 @@ function ManageStudents({
       toast.error("Student ID already exists");
       return;
     }
-    const newStudent: Student = { ...form, role: "student", teacherId };
+    const newStudent: Student = {
+      id: form.id,
+      password: form.password,
+      name: form.name,
+      class: form.class,
+      rollNo: form.rollNo,
+      parentName: form.parentName,
+      parentPhone: form.parentPhone,
+      role: "student",
+      teacherId,
+      photo: form.photo || undefined,
+    };
     const allStudents = [...getStudents(), newStudent];
     saveStudents(allStudents);
     setStudents(allStudents.filter((s) => s.teacherId === teacherId));
@@ -280,7 +296,9 @@ function ManageStudents({
       parentPhone: "",
       id: "",
       password: "",
+      photo: "",
     });
+    setPhotoPreview("");
     setOpen(false);
     toast.success("Student added");
   };
@@ -312,6 +330,44 @@ function ManageStudents({
               <DialogTitle>Add New Student</DialogTitle>
             </DialogHeader>
             <div className="space-y-3 mt-2">
+              {/* Photo upload */}
+              <div className="space-y-1">
+                <Label>Student Photo (optional)</Label>
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 rounded-full bg-muted border-2 border-border flex items-center justify-center overflow-hidden shrink-0">
+                    {photoPreview ? (
+                      <img
+                        src={photoPreview}
+                        alt="Student preview"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User className="w-7 h-7 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer w-full"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                          const dataUrl = ev.target?.result as string;
+                          setPhotoPreview(dataUrl);
+                          setForm((f) => ({ ...f, photo: dataUrl }));
+                        };
+                        reader.readAsDataURL(file);
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      JPG, PNG or GIF (max 2MB)
+                    </p>
+                  </div>
+                </div>
+              </div>
               {(
                 [
                   ["name", "Full Name"],
@@ -358,7 +414,24 @@ function ManageStudents({
           <TableBody>
             {students.map((s) => (
               <TableRow key={s.id}>
-                <TableCell className="font-medium">{s.name}</TableCell>
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
+                      {s.photo ? (
+                        <img
+                          src={s.photo}
+                          alt={s.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xs font-bold text-primary">
+                          {s.name.charAt(0)}
+                        </span>
+                      )}
+                    </div>
+                    {s.name}
+                  </div>
+                </TableCell>
                 <TableCell>{s.rollNo}</TableCell>
                 <TableCell>
                   <Badge variant="outline">{s.class}</Badge>
@@ -1994,18 +2067,167 @@ function HallTickets({
 // My Attendance (Teacher)
 // ============================================================
 function MyAttendance({ teacherId }: { teacherId: string }) {
-  const records = getTeacherAttendance().filter(
-    (r) => r.teacherId === teacherId,
+  const today = new Date().toISOString().split("T")[0];
+  const [records, setRecords] = useState<TeacherAttendance[]>(
+    getTeacherAttendance().filter((r) => r.teacherId === teacherId),
   );
+  const [form, setForm] = useState({
+    date: today,
+    status: "present" as TeacherAttendance["status"],
+    checkInTime: "",
+    checkOutTime: "",
+  });
+
+  const todayRecord = records.find((r) => r.date === form.date);
+
+  const handleMark = () => {
+    if (!form.checkInTime) {
+      toast.error("Please enter check-in time");
+      return;
+    }
+    if (todayRecord) {
+      toast.error("Attendance already marked for this date");
+      return;
+    }
+    const newRecord: TeacherAttendance = {
+      id: generateId("tatt"),
+      teacherId,
+      date: form.date,
+      status: form.status,
+      checkInTime: form.checkInTime,
+      checkOutTime: form.checkOutTime || undefined,
+      approvalStatus: "pending",
+    };
+    const all = [...getTeacherAttendance(), newRecord];
+    saveTeacherAttendance(all);
+    setRecords(all.filter((r) => r.teacherId === teacherId));
+    setForm({
+      date: today,
+      status: "present",
+      checkInTime: "",
+      checkOutTime: "",
+    });
+    toast.success("Attendance submitted — awaiting principal approval");
+  };
+
+  const handleCheckOut = () => {
+    if (!todayRecord) {
+      toast.error("Mark check-in first");
+      return;
+    }
+    if (!form.checkOutTime) {
+      toast.error("Please enter check-out time");
+      return;
+    }
+    const all = getTeacherAttendance().map((r) =>
+      r.id === todayRecord.id ? { ...r, checkOutTime: form.checkOutTime } : r,
+    );
+    saveTeacherAttendance(all);
+    setRecords(all.filter((r) => r.teacherId === teacherId));
+    toast.success("Check-out time saved");
+  };
+
   const present = records.filter((r) => r.status === "present").length;
   const pct =
     records.length > 0 ? Math.round((present / records.length) * 100) : 0;
 
+  const approvalBadge = (status: TeacherAttendance["approvalStatus"]) => {
+    if (status === "approved")
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium badge-success">
+          Approved
+        </span>
+      );
+    if (status === "rejected")
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium badge-destructive">
+          Rejected
+        </span>
+      );
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium badge-warning">
+        Pending
+      </span>
+    );
+  };
+
   return (
     <div>
       <h2 className="section-title">My Attendance</h2>
-      <p className="section-subtitle">Your attendance records</p>
+      <p className="section-subtitle">Mark your attendance and view records</p>
 
+      {/* Self-mark form */}
+      <div className="bg-card border border-border rounded-lg p-5 mb-6">
+        <h3 className="font-semibold text-foreground mb-4">Mark Attendance</h3>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div>
+            <Label>Date</Label>
+            <Input
+              type="date"
+              value={form.date}
+              min={today}
+              max={today}
+              readOnly
+            />
+          </div>
+          <div>
+            <Label>Status</Label>
+            <Select
+              value={form.status}
+              onValueChange={(v) =>
+                setForm({ ...form, status: v as TeacherAttendance["status"] })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="present">Present</SelectItem>
+                <SelectItem value="absent">Absent</SelectItem>
+                <SelectItem value="late">Late</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Check-In Time</Label>
+            <Input
+              type="time"
+              value={form.checkInTime}
+              onChange={(e) =>
+                setForm({ ...form, checkInTime: e.target.value })
+              }
+            />
+          </div>
+          <div>
+            <Label>Check-Out Time</Label>
+            <Input
+              type="time"
+              value={form.checkOutTime}
+              onChange={(e) =>
+                setForm({ ...form, checkOutTime: e.target.value })
+              }
+            />
+          </div>
+        </div>
+        <div className="flex gap-3 mt-4">
+          <Button onClick={handleMark} disabled={!!todayRecord}>
+            {todayRecord ? "Already Marked" : "Submit Attendance"}
+          </Button>
+          {todayRecord && !todayRecord.checkOutTime && (
+            <Button variant="outline" onClick={handleCheckOut}>
+              Save Check-Out Time
+            </Button>
+          )}
+        </div>
+        {todayRecord && (
+          <p className="text-xs text-muted-foreground mt-2">
+            Today already marked — you can only update check-out time if not yet
+            saved.
+          </p>
+        )}
+      </div>
+
+      {/* Stats */}
       <div className="flex gap-4 mb-6">
         {[
           { label: "Total Days", value: records.length },
@@ -2023,12 +2245,16 @@ function MyAttendance({ teacherId }: { teacherId: string }) {
         ))}
       </div>
 
+      {/* Records table */}
       <div className="bg-card border border-border rounded-lg overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Date</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Check-In</TableHead>
+              <TableHead>Check-Out</TableHead>
+              <TableHead>Approval</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -2046,6 +2272,9 @@ function MyAttendance({ teacherId }: { teacherId: string }) {
                       {r.status}
                     </span>
                   </TableCell>
+                  <TableCell>{r.checkInTime || "—"}</TableCell>
+                  <TableCell>{r.checkOutTime || "—"}</TableCell>
+                  <TableCell>{approvalBadge(r.approvalStatus)}</TableCell>
                 </TableRow>
               ))}
           </TableBody>
@@ -2300,6 +2529,89 @@ function TeacherNotifications({ teacherClass }: { teacherClass: string }) {
 }
 
 // ============================================================
+// Teacher Profile
+// ============================================================
+function TeacherProfile({ teacherId }: { teacherId: string }) {
+  const teacher = getTeacherById(teacherId);
+
+  if (!teacher) {
+    return (
+      <div>
+        <h2 className="section-title">My Profile</h2>
+        <div className="bg-card border border-border rounded-lg p-12 text-center text-muted-foreground">
+          Profile not found
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h2 className="section-title">My Profile</h2>
+      <p className="section-subtitle">Your teacher profile information</p>
+
+      <div className="max-w-lg">
+        <div className="bg-card border border-border rounded-xl p-6">
+          {/* Photo + name header */}
+          <div className="flex items-center gap-5 mb-6 pb-6 border-b border-border">
+            <div className="w-24 h-24 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
+              {teacher.photo ? (
+                <img
+                  src={teacher.photo}
+                  alt={teacher.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-3xl font-bold text-primary">
+                  {teacher.name.charAt(0)}
+                </span>
+              )}
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-foreground">
+                {teacher.name}
+              </h3>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {teacher.subject} Teacher
+              </p>
+              <div
+                className="mt-1.5 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                style={{
+                  backgroundColor: "oklch(0.92 0.08 264)",
+                  color: "oklch(0.3 0.1 264)",
+                }}
+              >
+                Class {teacher.class}
+              </div>
+            </div>
+          </div>
+
+          {/* Details */}
+          <div className="space-y-3">
+            {[
+              { label: "Teacher ID", value: teacher.id },
+              { label: "Subject", value: teacher.subject },
+              { label: "Assigned Class", value: teacher.class },
+              { label: "Email", value: teacher.email || "Not provided" },
+              { label: "Phone", value: teacher.phone || "Not provided" },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex gap-3">
+                <span className="text-sm text-muted-foreground w-36 shrink-0">
+                  {label}
+                </span>
+                <span className="text-sm font-medium text-foreground">
+                  {value}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // Teacher Dashboard Root
 // ============================================================
 export default function TeacherDashboard({ user, onLogout }: Props) {
@@ -2378,6 +2690,11 @@ export default function TeacherDashboard({ user, onLogout }: Props) {
       label: "Notifications",
       icon: <Bell className="w-4 h-4" />,
     },
+    {
+      id: "profile",
+      label: "My Profile",
+      icon: <User className="w-4 h-4" />,
+    },
   ];
 
   const renderSection = () => {
@@ -2418,6 +2735,8 @@ export default function TeacherDashboard({ user, onLogout }: Props) {
         return <TeacherLeaveApplication user={user} />;
       case "notifications":
         return <TeacherNotifications teacherClass={teacherClass} />;
+      case "profile":
+        return <TeacherProfile teacherId={user.id} />;
       default:
         return <Overview teacherId={user.id} teacherClass={teacherClass} />;
     }

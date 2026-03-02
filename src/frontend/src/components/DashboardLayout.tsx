@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { type CurrentUser, logout } from "@/store/data";
+import { type CurrentUser, getPrincipalProfile, logout } from "@/store/data";
 import {
   Award,
   BarChart3,
@@ -104,7 +104,10 @@ export function DashboardLayout({
         >
           <div className="flex items-center gap-2.5 min-w-0">
             <img
-              src="/assets/generated/rahmaniyya-logo-transparent.dim_300x300.png"
+              src={
+                getPrincipalProfile().institutionLogo ||
+                "/assets/generated/rahmaniyya-logo-transparent.dim_300x300.png"
+              }
               alt="Rahmaniyya Public School"
               className="w-10 h-10 object-contain shrink-0"
             />
@@ -138,12 +141,20 @@ export function DashboardLayout({
           style={{ borderColor: "oklch(var(--sidebar-border))" }}
         >
           <div className="flex items-center gap-2.5">
-            <div
-              className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0"
-              style={{ backgroundColor: "oklch(0.55 0.15 210)" }}
-            >
-              {user.name.charAt(0)}
-            </div>
+            {user.role === "principal" && getPrincipalProfile().photo ? (
+              <img
+                src={getPrincipalProfile().photo}
+                alt={user.name}
+                className="w-9 h-9 rounded-full object-cover shrink-0 border border-white/20"
+              />
+            ) : (
+              <div
+                className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0"
+                style={{ backgroundColor: "oklch(0.55 0.15 210)" }}
+              >
+                {user.name.charAt(0)}
+              </div>
+            )}
             <div className="min-w-0">
               <p className="text-sm font-semibold text-white truncate">
                 {user.name}
@@ -259,7 +270,10 @@ export function DashboardLayout({
             style={{ zIndex: 0, left: "260px" }}
           >
             <img
-              src="/assets/generated/rahmaniyya-logo-transparent.dim_300x300.png"
+              src={
+                getPrincipalProfile().institutionLogo ||
+                "/assets/generated/rahmaniyya-logo-transparent.dim_300x300.png"
+              }
               alt=""
               className="w-80 h-80 object-contain select-none"
               style={{ opacity: 0.04 }}

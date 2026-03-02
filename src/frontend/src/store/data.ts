@@ -20,6 +20,7 @@ export interface Teacher {
   phone: string;
   class: string;
   role: "teacher";
+  photo?: string;
 }
 
 export interface Student {
@@ -32,6 +33,7 @@ export interface Student {
   parentPhone: string;
   teacherId: string;
   role: "student";
+  photo?: string;
 }
 
 export interface AttendanceRecord {
@@ -47,6 +49,11 @@ export interface TeacherAttendance {
   teacherId: string;
   date: string;
   status: "present" | "absent" | "late";
+  checkInTime?: string; // HH:MM
+  checkOutTime?: string; // HH:MM
+  approvalStatus: "pending" | "approved" | "rejected";
+  approvedBy?: string;
+  approvalNote?: string;
 }
 
 export interface FeeRecord {
@@ -189,6 +196,7 @@ export interface CurrentUser {
 const KEYS = {
   INITIALIZED: "edu_initialized",
   CURRENT_USER: "edu_current_user",
+  PRINCIPAL: "edu_principal",
   TEACHERS: "edu_teachers",
   STUDENTS: "edu_students",
   ATTENDANCE: "edu_attendance",
@@ -360,6 +368,9 @@ export function initializeData(): void {
         teacherId: t.id,
         date: d.toISOString().split("T")[0],
         status: i === 4 ? "absent" : "present",
+        checkInTime: i === 4 ? undefined : "08:30",
+        checkOutTime: i === 4 ? undefined : "15:30",
+        approvalStatus: "approved",
       });
     }
   }
@@ -807,6 +818,14 @@ export function initializeData(): void {
   ];
 
   // Save all to localStorage
+  setLS(KEYS.PRINCIPAL, {
+    id: "principal001",
+    password: "admin123",
+    name: "Dr. Rajesh Kumar",
+    email: "",
+    phone: "",
+    role: "principal" as Role,
+  });
   setLS(KEYS.TEACHERS, teachers);
   setLS(KEYS.STUDENTS, students);
   setLS(KEYS.ATTENDANCE, attendance);
@@ -828,12 +847,36 @@ export function initializeData(): void {
 // ============================================================
 // Auth
 // ============================================================
-const PRINCIPAL = {
+
+export interface PrincipalProfile {
+  id: string;
+  password: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: "principal";
+  photo?: string;
+  institutionLogo?: string;
+}
+
+const DEFAULT_PRINCIPAL: PrincipalProfile = {
   id: "principal001",
   password: "admin123",
   name: "Dr. Rajesh Kumar",
-  role: "principal" as Role,
+  email: "",
+  phone: "",
+  role: "principal",
+  photo: "",
+  institutionLogo: "",
 };
+
+export function getPrincipalProfile(): PrincipalProfile {
+  return getLS<PrincipalProfile>(KEYS.PRINCIPAL, DEFAULT_PRINCIPAL);
+}
+
+export function savePrincipalProfile(profile: PrincipalProfile): void {
+  setLS(KEYS.PRINCIPAL, profile);
+}
 
 export function authenticate(
   role: Role,
@@ -841,8 +884,9 @@ export function authenticate(
   password: string,
 ): CurrentUser | null {
   if (role === "principal") {
-    if (id === PRINCIPAL.id && password === PRINCIPAL.password) {
-      return { id: PRINCIPAL.id, name: PRINCIPAL.name, role: "principal" };
+    const principal = getPrincipalProfile();
+    if (id === principal.id && password === principal.password) {
+      return { id: principal.id, name: principal.name, role: "principal" };
     }
     return null;
   }

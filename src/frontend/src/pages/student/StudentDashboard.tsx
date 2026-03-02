@@ -13,7 +13,6 @@ import {
   LayoutDashboard,
   Mail,
   MessageSquare,
-  Ticket,
   TrendingUp,
 } from "@/components/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
@@ -63,7 +62,7 @@ import {
   saveLeaves,
   saveSuggestions,
 } from "@/store/data";
-import { Calendar, FileText, Printer, UserCheck } from "lucide-react";
+import { Calendar, FileText, Printer, User, UserCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -521,116 +520,6 @@ function MyTimetable({ studentClass }: { studentClass: string }) {
             ))}
           </tbody>
         </table>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================
-// Hall Ticket (Student)
-// ============================================================
-function MyHallTicket({ user }: { user: CurrentUser }) {
-  const student = getStudentById(user.id);
-  const teacher = student ? getTeacherById(student.teacherId) : undefined;
-  const exams = getExams().filter(
-    (e) => e.class === student?.class && e.status === "active",
-  );
-  const [selectedExam, setSelectedExam] = useState(exams[0]?.id ?? "");
-  const exam = exams.find((e) => e.id === selectedExam);
-
-  if (!student) return null;
-
-  return (
-    <div>
-      <h2 className="section-title">My Hall Ticket</h2>
-      <p className="section-subtitle">Download your examination hall ticket</p>
-
-      {exams.length > 1 && (
-        <div className="mb-4">
-          <Label>Select Exam</Label>
-          <Select value={selectedExam} onValueChange={setSelectedExam}>
-            <SelectTrigger className="w-56 mt-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {exams.map((e) => (
-                <SelectItem key={e.id} value={e.id}>
-                  {e.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      <div className="max-w-lg mx-auto border-2 border-foreground rounded-lg overflow-hidden">
-        <div
-          className="p-4 text-center"
-          style={{
-            backgroundColor: "oklch(var(--primary))",
-            color: "oklch(var(--primary-foreground))",
-          }}
-        >
-          <h2 className="text-xl font-bold">Delhi Public School</h2>
-          <p className="text-sm opacity-80">
-            Established 2001 · Excellence in Education
-          </p>
-        </div>
-        <div
-          className="p-4 text-center"
-          style={{ backgroundColor: "oklch(0.94 0.04 264)" }}
-        >
-          <h3 className="text-lg font-bold text-foreground">HALL TICKET</h3>
-          <p className="text-sm text-muted-foreground">
-            {exam?.title ?? "Annual Examination 2026"}
-          </p>
-        </div>
-        <div className="p-6">
-          <div className="flex gap-6">
-            <div className="w-24 h-28 bg-muted border-2 border-border rounded flex items-center justify-center text-3xl font-bold text-muted-foreground shrink-0">
-              {student.name.charAt(0)}
-            </div>
-            <div className="flex-1 space-y-2 text-sm">
-              {[
-                ["Student Name", student.name],
-                ["Roll Number", student.rollNo],
-                ["Class / Section", student.class],
-                ["Student ID", student.id],
-                ["Exam", exam?.title ?? "Annual Examination 2026"],
-                ["Date", exam ? formatDate(exam.createdAt) : "March 20, 2026"],
-                ["Duration", exam ? `${exam.duration} minutes` : "3 hours"],
-                ["Exam Center", "School Main Hall"],
-              ].map(([k, v]) => (
-                <div key={k} className="flex gap-2">
-                  <span className="font-semibold text-foreground w-32 shrink-0">
-                    {k}:
-                  </span>
-                  <span className="text-muted-foreground">{v}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="mt-6 pt-4 border-t border-border flex justify-between items-end text-xs text-muted-foreground">
-            <div>
-              <p className="font-semibold text-foreground mb-1">
-                Invigilator&apos;s Signature
-              </p>
-              <div className="w-32 border-b border-foreground mt-4" />
-            </div>
-            <div className="text-right">
-              <p className="font-semibold text-foreground mb-1">
-                Class Teacher
-              </p>
-              <p>{teacher?.name ?? "Teacher"}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex justify-center mt-4 no-print">
-        <Button className="gap-2" onClick={() => window.print()}>
-          <Printer className="w-4 h-4" /> Print Hall Ticket
-        </Button>
       </div>
     </div>
   );
@@ -1403,6 +1292,100 @@ function SuggestionsAndQueries({ user }: { user: CurrentUser }) {
 }
 
 // ============================================================
+// Student Profile
+// ============================================================
+function StudentProfile({ studentId }: { studentId: string }) {
+  const student = getStudentById(studentId);
+  const teacher = student ? getTeacherById(student.teacherId) : undefined;
+
+  if (!student) {
+    return (
+      <div>
+        <h2 className="section-title">My Profile</h2>
+        <div className="bg-card border border-border rounded-lg p-12 text-center text-muted-foreground">
+          Profile not found
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h2 className="section-title">My Profile</h2>
+      <p className="section-subtitle">Your student profile information</p>
+
+      <div className="max-w-lg">
+        <div className="bg-card border border-border rounded-xl p-6">
+          {/* Photo + name header */}
+          <div className="flex items-center gap-5 mb-6 pb-6 border-b border-border">
+            <div className="w-24 h-24 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
+              {student.photo ? (
+                <img
+                  src={student.photo}
+                  alt={student.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-3xl font-bold text-primary">
+                  {student.name.charAt(0)}
+                </span>
+              )}
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-foreground">
+                {student.name}
+              </h3>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Roll No. {student.rollNo}
+              </p>
+              <div
+                className="mt-1.5 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                style={{
+                  backgroundColor: "oklch(0.92 0.1 150)",
+                  color: "oklch(0.3 0.12 150)",
+                }}
+              >
+                Class {student.class}
+              </div>
+            </div>
+          </div>
+
+          {/* Details */}
+          <div className="space-y-3">
+            {[
+              { label: "Student ID", value: student.id },
+              { label: "Class", value: student.class },
+              { label: "Roll Number", value: student.rollNo },
+              {
+                label: "Parent / Guardian",
+                value: student.parentName || "Not provided",
+              },
+              {
+                label: "Parent Phone",
+                value: student.parentPhone || "Not provided",
+              },
+              {
+                label: "Class Teacher",
+                value: teacher?.name || "Not assigned",
+              },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex gap-3">
+                <span className="text-sm text-muted-foreground w-36 shrink-0">
+                  {label}
+                </span>
+                <span className="text-sm font-medium text-foreground">
+                  {value}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // Student Dashboard Root
 // ============================================================
 export default function StudentDashboard({ user, onLogout }: Props) {
@@ -1430,11 +1413,6 @@ export default function StudentDashboard({ user, onLogout }: Props) {
       id: "timetable",
       label: "Timetable",
       icon: <Calendar className="w-4 h-4" />,
-    },
-    {
-      id: "hallticket",
-      label: "Hall Ticket",
-      icon: <Ticket className="w-4 h-4" />,
     },
     {
       id: "exams",
@@ -1466,6 +1444,11 @@ export default function StudentDashboard({ user, onLogout }: Props) {
       label: "Suggestions & Queries",
       icon: <MessageSquare className="w-4 h-4" />,
     },
+    {
+      id: "profile",
+      label: "My Profile",
+      icon: <User className="w-4 h-4" />,
+    },
   ];
 
   const renderSection = () => {
@@ -1478,8 +1461,6 @@ export default function StudentDashboard({ user, onLogout }: Props) {
         return <MyProgress studentId={user.id} />;
       case "timetable":
         return <MyTimetable studentClass={studentClass} />;
-      case "hallticket":
-        return <MyHallTicket user={user} />;
       case "exams":
         return <OnlineExamsStudent user={user} />;
       case "fees":
@@ -1492,6 +1473,8 @@ export default function StudentDashboard({ user, onLogout }: Props) {
         return <StudentLeave user={user} />;
       case "suggestions":
         return <SuggestionsAndQueries user={user} />;
+      case "profile":
+        return <StudentProfile studentId={user.id} />;
       default:
         return <Overview user={user} />;
     }

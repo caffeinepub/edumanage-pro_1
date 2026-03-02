@@ -42,7 +42,9 @@ import {
   type LeaveApplication,
   type Notification,
   type Student,
+  type SuggestionQuery,
   type Teacher,
+  type TeacherAttendance,
   calcAttendancePercent,
   formatDate,
   generateId,
@@ -50,16 +52,32 @@ import {
   getCalendarEvents,
   getLeaves,
   getNotifications,
+  getPrincipalProfile,
   getResults,
   getStudents,
+  getSuggestions,
+  getTeacherAttendance,
   getTeachers,
   saveCalendarEvents,
   saveLeaves,
   saveNotifications,
+  savePrincipalProfile,
   saveResults,
+  saveSuggestions,
+  saveTeacherAttendance,
   saveTeachers,
+  setCurrentUser,
 } from "@/store/data";
-import { AlertTriangle, Check, Plus, Trash2, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Clock,
+  MessageSquare,
+  Plus,
+  Trash2,
+  User,
+  X,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -249,7 +267,9 @@ function ManageTeachers() {
     class: "",
     id: "",
     password: "",
+    photo: "",
   });
+  const [photoPreview, setPhotoPreview] = useState<string>("");
 
   const filtered = teachers.filter(
     (t) =>
@@ -267,10 +287,11 @@ function ManageTeachers() {
       toast.error("Teacher ID already exists");
       return;
     }
-    const newTeacher: Teacher = { ...form, role: "teacher" };
+    const newTeacher: Teacher = { ...form, role: "teacher", photo: form.photo };
     const updated = [...teachers, newTeacher];
     saveTeachers(updated);
     setTeachers(updated);
+    setPhotoPreview("");
     setForm({
       name: "",
       subject: "",
@@ -279,6 +300,7 @@ function ManageTeachers() {
       class: "",
       id: "",
       password: "",
+      photo: "",
     });
     setOpen(false);
     toast.success("Teacher added successfully");
@@ -311,6 +333,40 @@ function ManageTeachers() {
               <DialogTitle>Add New Teacher</DialogTitle>
             </DialogHeader>
             <div className="space-y-3 mt-2">
+              {/* Photo upload */}
+              <div className="space-y-1">
+                <Label>Teacher Photo (optional)</Label>
+                <div className="flex items-center gap-3">
+                  {photoPreview ? (
+                    <img
+                      src={photoPreview}
+                      alt="Preview"
+                      className="w-16 h-16 rounded-full object-cover border border-border"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center border border-border">
+                      <User className="w-6 h-6 text-muted-foreground" />
+                    </div>
+                  )}
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    className="text-sm"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                          const dataUrl = ev.target?.result as string;
+                          setPhotoPreview(dataUrl);
+                          setForm((f) => ({ ...f, photo: dataUrl }));
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </div>
+              </div>
               {(
                 [
                   ["name", "Full Name"],
@@ -355,6 +411,7 @@ function ManageTeachers() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Photo</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Subject</TableHead>
               <TableHead>Class</TableHead>
@@ -368,7 +425,7 @@ function ManageTeachers() {
             {filtered.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={8}
                   className="text-center text-muted-foreground py-8"
                 >
                   No teachers found
@@ -377,6 +434,19 @@ function ManageTeachers() {
             ) : (
               filtered.map((t) => (
                 <TableRow key={t.id}>
+                  <TableCell>
+                    {t.photo ? (
+                      <img
+                        src={t.photo}
+                        alt={t.name}
+                        className="w-9 h-9 rounded-full object-cover border border-border"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center border border-border">
+                        <User className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium">{t.name}</TableCell>
                   <TableCell>{t.subject}</TableCell>
                   <TableCell>
@@ -779,6 +849,13 @@ function PublishResults() {
     toast.success("Result rejected");
   };
 
+  const handleDelete = (id: string) => {
+    const updated = results.filter((r) => r.id !== id);
+    saveResults(updated);
+    setResults(updated);
+    toast.success("Result deleted");
+  };
+
   const calcTotal = (r: ExamResult) =>
     r.subjects.reduce((a, s) => a + s.marks, 0);
   const calcMax = (r: ExamResult) =>
@@ -877,13 +954,14 @@ function PublishResults() {
                 <TableHead>Total</TableHead>
                 <TableHead>%</TableHead>
                 <TableHead>Approved</TableHead>
+                <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {published.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={7}
                     className="text-center text-muted-foreground py-6"
                   >
                     No published results
@@ -909,6 +987,15 @@ function PublishResults() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatDate(r.approvedAt ?? "")}
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(r.id)}
+                        className="text-destructive hover:text-destructive/80"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -1063,10 +1150,709 @@ function LeaveApprovals() {
 }
 
 // ============================================================
+// My Profile
+// ============================================================
+interface ProfileProps {
+  user: CurrentUser;
+  onNameChange: (name: string) => void;
+}
+
+function MyProfile({ user, onNameChange }: ProfileProps) {
+  const loadProfile = () => getPrincipalProfile();
+  const [profile, setProfileState] = useState(loadProfile);
+  const [form, setForm] = useState({
+    name: profile.name,
+    username: profile.id,
+    email: profile.email ?? "",
+    phone: profile.phone ?? "",
+  });
+  const [pwForm, setPwForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [principalPhoto, setPrincipalPhoto] = useState<string>(
+    profile.photo ?? "",
+  );
+  const [institutionLogo, setInstitutionLogo] = useState<string>(
+    profile.institutionLogo ?? "",
+  );
+
+  const handleImageUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setter: (val: string) => void,
+    saveKey: "photo" | "institutionLogo",
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid image file");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      setter(dataUrl);
+      const updated = { ...getPrincipalProfile(), [saveKey]: dataUrl };
+      savePrincipalProfile(updated);
+      setProfileState(updated);
+      toast.success(
+        saveKey === "photo"
+          ? "Principal photo updated"
+          : "Institution logo updated",
+      );
+    };
+    reader.readAsDataURL(file);
+    // Reset input so same file can be re-selected
+    e.target.value = "";
+  };
+
+  const handleSaveProfile = () => {
+    if (!form.name.trim()) {
+      toast.error("Name cannot be empty");
+      return;
+    }
+    if (!form.username.trim()) {
+      toast.error("Username cannot be empty");
+      return;
+    }
+    const updated = {
+      ...profile,
+      name: form.name.trim(),
+      id: form.username.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+    };
+    savePrincipalProfile(updated);
+    setProfileState(updated);
+    setCurrentUser({ ...user, id: updated.id, name: updated.name });
+    onNameChange(updated.name);
+    toast.success("Profile updated successfully");
+  };
+
+  const handleChangePassword = () => {
+    if (!pwForm.currentPassword) {
+      toast.error("Enter your current password");
+      return;
+    }
+    if (pwForm.currentPassword !== profile.password) {
+      toast.error("Current password is incorrect");
+      return;
+    }
+    if (!pwForm.newPassword || pwForm.newPassword.length < 4) {
+      toast.error("New password must be at least 4 characters");
+      return;
+    }
+    if (pwForm.newPassword !== pwForm.confirmPassword) {
+      toast.error("New passwords do not match");
+      return;
+    }
+    const updated = { ...getPrincipalProfile(), password: pwForm.newPassword };
+    savePrincipalProfile(updated);
+    setProfileState(updated);
+    setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    toast.success("Password changed successfully");
+  };
+
+  return (
+    <div>
+      <h2 className="section-title">My Profile</h2>
+      <p className="section-subtitle">
+        Update your photo, institution logo, contact details, and password
+      </p>
+
+      {/* Photo upload row */}
+      <div className="grid sm:grid-cols-2 gap-6 max-w-3xl mb-6">
+        {/* Principal Photo */}
+        <div className="bg-card border border-border rounded-lg p-5">
+          <h3 className="font-semibold text-foreground mb-4">
+            Principal Photo
+          </h3>
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative w-24 h-24">
+              {principalPhoto ? (
+                <img
+                  src={principalPhoto}
+                  alt="Principal"
+                  className="w-24 h-24 rounded-full object-cover border-2 border-border"
+                />
+              ) : (
+                <div
+                  className="w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold text-white border-2 border-border"
+                  style={{ backgroundColor: "oklch(0.55 0.15 210)" }}
+                >
+                  {profile.name.charAt(0)}
+                </div>
+              )}
+            </div>
+            <div className="text-center">
+              <Label
+                htmlFor="principal-photo-upload"
+                className="cursor-pointer inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+              >
+                <User className="w-4 h-4" />
+                {principalPhoto ? "Change Photo" : "Upload Photo"}
+              </Label>
+              <input
+                id="principal-photo-upload"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) =>
+                  handleImageUpload(e, setPrincipalPhoto, "photo")
+                }
+              />
+              {principalPhoto && (
+                <button
+                  type="button"
+                  className="block mx-auto mt-1 text-xs text-destructive hover:underline"
+                  onClick={() => {
+                    setPrincipalPhoto("");
+                    const updated = {
+                      ...getPrincipalProfile(),
+                      photo: "",
+                    };
+                    savePrincipalProfile(updated);
+                    setProfileState(updated);
+                    toast.success("Photo removed");
+                  }}
+                >
+                  Remove photo
+                </button>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">
+                JPG, PNG or WebP · Max 5MB
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Institution Logo */}
+        <div className="bg-card border border-border rounded-lg p-5">
+          <h3 className="font-semibold text-foreground mb-4">
+            Institution Logo
+          </h3>
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative w-24 h-24">
+              <img
+                src={
+                  institutionLogo ||
+                  "/assets/generated/rahmaniyya-logo-transparent.dim_300x300.png"
+                }
+                alt="Institution Logo"
+                className="w-24 h-24 rounded-lg object-contain border-2 border-border bg-muted/30"
+              />
+            </div>
+            <div className="text-center">
+              <Label
+                htmlFor="institution-logo-upload"
+                className="cursor-pointer inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+              >
+                <Plus className="w-4 h-4" />
+                {institutionLogo ? "Change Logo" : "Upload Logo"}
+              </Label>
+              <input
+                id="institution-logo-upload"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) =>
+                  handleImageUpload(e, setInstitutionLogo, "institutionLogo")
+                }
+              />
+              {institutionLogo && (
+                <button
+                  type="button"
+                  className="block mx-auto mt-1 text-xs text-destructive hover:underline"
+                  onClick={() => {
+                    setInstitutionLogo("");
+                    const updated = {
+                      ...getPrincipalProfile(),
+                      institutionLogo: "",
+                    };
+                    savePrincipalProfile(updated);
+                    setProfileState(updated);
+                    toast.success("Logo reset to default");
+                  }}
+                >
+                  Reset to default
+                </button>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">
+                Replaces logo on login page
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6 max-w-3xl">
+        {/* Profile info */}
+        <div className="bg-card border border-border rounded-lg p-5">
+          <h3 className="font-semibold text-foreground mb-4">
+            Profile Information
+          </h3>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label>Full Name</Label>
+              <Input
+                value={form.name}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, name: e.target.value }))
+                }
+                placeholder="Your full name"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Email Address</Label>
+              <Input
+                type="email"
+                value={form.email}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, email: e.target.value }))
+                }
+                placeholder="your@email.com"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Phone Number</Label>
+              <Input
+                type="tel"
+                value={form.phone}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, phone: e.target.value }))
+                }
+                placeholder="e.g. 9876543210"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Username (Login ID)</Label>
+              <Input
+                value={form.username}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, username: e.target.value }))
+                }
+                placeholder="Login username"
+              />
+              <p className="text-xs text-muted-foreground">
+                Used to log in to the principal portal
+              </p>
+            </div>
+            <Button onClick={handleSaveProfile} className="w-full gap-1.5">
+              <Check className="w-4 h-4" /> Save Profile
+            </Button>
+          </div>
+        </div>
+
+        {/* Change password */}
+        <div className="bg-card border border-border rounded-lg p-5">
+          <h3 className="font-semibold text-foreground mb-4">
+            Change Password
+          </h3>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label>Current Password</Label>
+              <Input
+                type="password"
+                value={pwForm.currentPassword}
+                onChange={(e) =>
+                  setPwForm((f) => ({ ...f, currentPassword: e.target.value }))
+                }
+                placeholder="Enter current password"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>New Password</Label>
+              <Input
+                type="password"
+                value={pwForm.newPassword}
+                onChange={(e) =>
+                  setPwForm((f) => ({ ...f, newPassword: e.target.value }))
+                }
+                placeholder="Enter new password"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Confirm New Password</Label>
+              <Input
+                type="password"
+                value={pwForm.confirmPassword}
+                onChange={(e) =>
+                  setPwForm((f) => ({ ...f, confirmPassword: e.target.value }))
+                }
+                placeholder="Repeat new password"
+              />
+            </div>
+            <Button
+              onClick={handleChangePassword}
+              variant="outline"
+              className="w-full gap-1.5"
+            >
+              <Check className="w-4 h-4" /> Change Password
+            </Button>
+          </div>
+
+          {/* Current info summary */}
+          <div className="mt-5 pt-4 border-t border-border space-y-1">
+            <p className="text-xs text-muted-foreground font-medium mb-2">
+              Current login info
+            </p>
+            <p className="text-sm text-foreground">
+              Username: <span className="font-mono">{profile.id}</span>
+            </p>
+            {profile.email && (
+              <p className="text-sm text-foreground">Email: {profile.email}</p>
+            )}
+            {profile.phone && (
+              <p className="text-sm text-foreground">Phone: {profile.phone}</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Teacher Attendance Approvals
+// ============================================================
+function TeacherAttendanceApprovals() {
+  const teachers = getTeachers();
+  const [records, setRecords] = useState<TeacherAttendance[]>(
+    getTeacherAttendance(),
+  );
+  const [noteMap, setNoteMap] = useState<Record<string, string>>({});
+
+  const teacherName = (id: string) =>
+    teachers.find((t) => t.id === id)?.name ?? id;
+
+  const handleApprove = (recordId: string) => {
+    const updated = records.map((r) =>
+      r.id === recordId
+        ? {
+            ...r,
+            approvalStatus: "approved" as const,
+            approvedBy: "principal",
+            approvalNote: noteMap[recordId] || "",
+          }
+        : r,
+    );
+    saveTeacherAttendance(updated);
+    setRecords(updated);
+    toast.success("Attendance approved");
+  };
+
+  const handleReject = (recordId: string) => {
+    const updated = records.map((r) =>
+      r.id === recordId
+        ? {
+            ...r,
+            approvalStatus: "rejected" as const,
+            approvedBy: "principal",
+            approvalNote: noteMap[recordId] || "",
+          }
+        : r,
+    );
+    saveTeacherAttendance(updated);
+    setRecords(updated);
+    toast.success("Attendance rejected");
+  };
+
+  const pending = records.filter((r) => r.approvalStatus === "pending");
+  const reviewed = records.filter((r) => r.approvalStatus !== "pending");
+
+  const approvalBadge = (status: TeacherAttendance["approvalStatus"]) => {
+    if (status === "approved")
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium badge-success">
+          Approved
+        </span>
+      );
+    if (status === "rejected")
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium badge-destructive">
+          Rejected
+        </span>
+      );
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium badge-warning">
+        Pending
+      </span>
+    );
+  };
+
+  return (
+    <div>
+      <h2 className="section-title">Teacher Attendance Approvals</h2>
+      <p className="section-subtitle">
+        Review and approve teacher self-marked attendance
+      </p>
+
+      {/* Pending */}
+      <h3 className="font-semibold text-foreground mb-3">
+        Pending Approval ({pending.length})
+      </h3>
+      {pending.length === 0 ? (
+        <div className="bg-card border border-border rounded-lg p-6 text-center text-muted-foreground mb-6">
+          No pending attendance records
+        </div>
+      ) : (
+        <div className="bg-card border border-border rounded-lg overflow-hidden mb-8">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Teacher</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Check-In</TableHead>
+                <TableHead>Check-Out</TableHead>
+                <TableHead>Note</TableHead>
+                <TableHead>Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pending
+                .sort((a, b) => b.date.localeCompare(a.date))
+                .map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-medium">
+                      {teacherName(r.teacherId)}
+                    </TableCell>
+                    <TableCell>{formatDate(r.date)}</TableCell>
+                    <TableCell>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${r.status === "present" ? "badge-success" : r.status === "absent" ? "badge-destructive" : "badge-warning"}`}
+                      >
+                        {r.status}
+                      </span>
+                    </TableCell>
+                    <TableCell>{r.checkInTime || "—"}</TableCell>
+                    <TableCell>{r.checkOutTime || "—"}</TableCell>
+                    <TableCell>
+                      <Input
+                        placeholder="Optional note"
+                        className="h-7 text-xs w-32"
+                        value={noteMap[r.id] || ""}
+                        onChange={(e) =>
+                          setNoteMap({ ...noteMap, [r.id]: e.target.value })
+                        }
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700"
+                          onClick={() => handleApprove(r.id)}
+                        >
+                          <Check className="w-3 h-3 mr-1" /> Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => handleReject(r.id)}
+                        >
+                          <X className="w-3 h-3 mr-1" /> Reject
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Reviewed */}
+      <h3 className="font-semibold text-foreground mb-3">
+        Reviewed Records ({reviewed.length})
+      </h3>
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Teacher</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Check-In</TableHead>
+              <TableHead>Check-Out</TableHead>
+              <TableHead>Approval</TableHead>
+              <TableHead>Note</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {reviewed
+              .sort((a, b) => b.date.localeCompare(a.date))
+              .map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className="font-medium">
+                    {teacherName(r.teacherId)}
+                  </TableCell>
+                  <TableCell>{formatDate(r.date)}</TableCell>
+                  <TableCell>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${r.status === "present" ? "badge-success" : r.status === "absent" ? "badge-destructive" : "badge-warning"}`}
+                    >
+                      {r.status}
+                    </span>
+                  </TableCell>
+                  <TableCell>{r.checkInTime || "—"}</TableCell>
+                  <TableCell>{r.checkOutTime || "—"}</TableCell>
+                  <TableCell>{approvalBadge(r.approvalStatus)}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {r.approvalNote || "—"}
+                  </TableCell>
+                </TableRow>
+              ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Student Suggestions & Queries
+// ============================================================
+function StudentSuggestions() {
+  const [suggestions, setSuggestions] = useState<SuggestionQuery[]>(
+    getSuggestions(),
+  );
+  const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
+
+  const handleReply = (id: string) => {
+    const text = replyTexts[id]?.trim();
+    if (!text) {
+      toast.error("Please write a reply before submitting");
+      return;
+    }
+    const updated = suggestions.map((s) =>
+      s.id === id
+        ? {
+            ...s,
+            response: text,
+            respondedAt: new Date().toISOString().split("T")[0],
+          }
+        : s,
+    );
+    saveSuggestions(updated);
+    setSuggestions(updated);
+    setReplyTexts((prev) => ({ ...prev, [id]: "" }));
+    toast.success("Reply sent to student");
+  };
+
+  const unanswered = suggestions.filter((s) => !s.response);
+  const answered = suggestions.filter((s) => s.response);
+
+  return (
+    <div>
+      <h2 className="section-title">Student Suggestions &amp; Queries</h2>
+      <p className="section-subtitle">
+        View and reply to suggestions and queries submitted by students
+      </p>
+
+      {/* Pending */}
+      <h3 className="font-semibold text-foreground mb-3 mt-2">
+        Pending ({unanswered.length})
+      </h3>
+      {unanswered.length === 0 ? (
+        <div className="bg-card border border-border rounded-lg p-6 text-center text-muted-foreground mb-6">
+          No pending suggestions or queries
+        </div>
+      ) : (
+        <div className="space-y-4 mb-6">
+          {unanswered
+            .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
+            .map((s) => (
+              <div
+                key={s.id}
+                className="bg-card border border-border rounded-lg p-4"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-semibold text-foreground text-sm">
+                    {s.studentName}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDate(s.submittedAt)}
+                  </span>
+                </div>
+                <p className="text-sm text-foreground mb-3">{s.message}</p>
+                <Textarea
+                  rows={3}
+                  placeholder="Write your reply..."
+                  value={replyTexts[s.id] ?? ""}
+                  onChange={(e) =>
+                    setReplyTexts((prev) => ({
+                      ...prev,
+                      [s.id]: e.target.value,
+                    }))
+                  }
+                  className="mb-2"
+                />
+                <Button
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => handleReply(s.id)}
+                >
+                  <MessageSquare className="w-4 h-4" /> Send Reply
+                </Button>
+              </div>
+            ))}
+        </div>
+      )}
+
+      {/* Answered */}
+      <h3 className="font-semibold text-foreground mb-3">
+        Replied ({answered.length})
+      </h3>
+      {answered.length === 0 ? (
+        <div className="bg-card border border-border rounded-lg p-6 text-center text-muted-foreground">
+          No replied suggestions yet
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {answered
+            .sort((a, b) =>
+              (b.respondedAt ?? "").localeCompare(a.respondedAt ?? ""),
+            )
+            .map((s) => (
+              <div
+                key={s.id}
+                className="bg-card border border-border rounded-lg p-4"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-semibold text-foreground text-sm">
+                    {s.studentName}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDate(s.submittedAt)}
+                  </span>
+                </div>
+                <p className="text-sm text-foreground mb-2">{s.message}</p>
+                <div className="p-3 bg-accent rounded-lg">
+                  <p className="text-xs font-semibold text-foreground mb-1">
+                    Your Reply:
+                  </p>
+                  <p className="text-sm text-foreground">{s.response}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formatDate(s.respondedAt ?? "")}
+                  </p>
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // Principal Dashboard
 // ============================================================
 export default function PrincipalDashboard({ user, onLogout }: Props) {
   const [section, setSection] = useState("overview");
+  const [currentUser, setCurrentUserState] = useState(user);
 
   const pendingResults = getResults().filter(
     (r) => r.status === "pending",
@@ -1074,6 +1860,10 @@ export default function PrincipalDashboard({ user, onLogout }: Props) {
   const pendingLeaves = getLeaves().filter(
     (l) => l.status === "pending" && l.applicantRole === "teacher",
   ).length;
+  const pendingTeacherAttendance = getTeacherAttendance().filter(
+    (r) => r.approvalStatus === "pending",
+  ).length;
+  const pendingSuggestions = getSuggestions().filter((s) => !s.response).length;
 
   const navItems = [
     {
@@ -1113,6 +1903,23 @@ export default function PrincipalDashboard({ user, onLogout }: Props) {
       icon: <CheckSquare className="w-4 h-4" />,
       badge: pendingLeaves,
     },
+    {
+      id: "teacher-attendance",
+      label: "Teacher Attendance",
+      icon: <Clock className="w-4 h-4" />,
+      badge: pendingTeacherAttendance,
+    },
+    {
+      id: "suggestions",
+      label: "Student Suggestions",
+      icon: <MessageSquare className="w-4 h-4" />,
+      badge: pendingSuggestions,
+    },
+    {
+      id: "profile",
+      label: "My Profile",
+      icon: <User className="w-4 h-4" />,
+    },
   ];
 
   const renderSection = () => {
@@ -1131,6 +1938,19 @@ export default function PrincipalDashboard({ user, onLogout }: Props) {
         return <PublishResults />;
       case "leaves":
         return <LeaveApprovals />;
+      case "teacher-attendance":
+        return <TeacherAttendanceApprovals />;
+      case "suggestions":
+        return <StudentSuggestions />;
+      case "profile":
+        return (
+          <MyProfile
+            user={currentUser}
+            onNameChange={(name) =>
+              setCurrentUserState((u) => ({ ...u, name }))
+            }
+          />
+        );
       default:
         return <Overview />;
     }
@@ -1138,7 +1958,7 @@ export default function PrincipalDashboard({ user, onLogout }: Props) {
 
   return (
     <DashboardLayout
-      user={user}
+      user={currentUser}
       navItems={navItems}
       activeSection={section}
       onSectionChange={setSection}
