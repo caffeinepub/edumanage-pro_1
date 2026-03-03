@@ -87,6 +87,8 @@ export interface Notification {
   postedBy: string; // principal id
   type: "general" | "homework" | "exam";
   targetClass?: string; // undefined = school-wide
+  attachment?: string; // base64 data URL (PDF or image)
+  attachmentName?: string; // original filename
 }
 
 export interface HomeworkPost {

@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Users,
 } from "@/components/DashboardLayout";
+import { TablePagination } from "@/components/TablePagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -36,11 +37,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { usePagination } from "@/hooks/usePagination";
 import {
   type CalendarEvent,
   type CurrentUser,
   type ExamResult,
+  type FeeRecord,
   type HallTicketDesign,
   type HallTicketSubject,
   type LeaveApplication,
@@ -55,6 +59,7 @@ import {
   generateId,
   getAttendance,
   getCalendarEvents,
+  getFees,
   getHallTicketDesign,
   getLeaves,
   getNotifications,
@@ -79,12 +84,14 @@ import {
   setCurrentUser,
 } from "@/store/data";
 import {
-  AlertTriangle,
   Check,
   Clock,
+  DollarSign,
   Download,
+  FileDown,
   LayoutGrid,
   MessageSquare,
+  Paperclip,
   Plus,
   Printer,
   Send,
@@ -92,7 +99,7 @@ import {
   User,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 interface Props {
@@ -104,27 +111,43 @@ interface Props {
 // Overview
 // ============================================================
 function Overview() {
-  const teachers = getTeachers();
-  const students = getStudents();
-  const attendance = getAttendance();
-  const results = getResults();
-  const leaves = getLeaves();
+  const teachers = useMemo(() => getTeachers(), []);
+  const students = useMemo(() => getStudents(), []);
+  const attendance = useMemo(() => getAttendance(), []);
+  const results = useMemo(() => getResults(), []);
+  const leaves = useMemo(() => getLeaves(), []);
 
-  // Avg attendance across all students
-  const avgAtt =
-    students.length === 0
-      ? 0
-      : Math.round(
-          students.reduce((acc, s) => {
-            const recs = attendance.filter((a) => a.studentId === s.id);
-            return acc + calcAttendancePercent(recs);
-          }, 0) / students.length,
-        );
+  // Build attendance index for O(1) lookups per student
+  const attendanceByStudent = useMemo(() => {
+    const map: Record<string, typeof attendance> = {};
+    for (const a of attendance) {
+      if (!map[a.studentId]) map[a.studentId] = [];
+      map[a.studentId].push(a);
+    }
+    return map;
+  }, [attendance]);
 
-  const pendingResults = results.filter((r) => r.status === "pending").length;
-  const pendingLeaves = leaves.filter(
-    (l) => l.status === "pending" && l.applicantRole === "teacher",
-  ).length;
+  // Avg attendance across all students (memoized)
+  const avgAtt = useMemo(() => {
+    if (students.length === 0) return 0;
+    const total = students.reduce((acc, s) => {
+      const recs = attendanceByStudent[s.id] ?? [];
+      return acc + calcAttendancePercent(recs);
+    }, 0);
+    return Math.round(total / students.length);
+  }, [students, attendanceByStudent]);
+
+  const pendingResults = useMemo(
+    () => results.filter((r) => r.status === "pending").length,
+    [results],
+  );
+  const pendingLeaves = useMemo(
+    () =>
+      leaves.filter(
+        (l) => l.status === "pending" && l.applicantRole === "teacher",
+      ).length,
+    [leaves],
+  );
 
   const statCards = [
     {
@@ -153,10 +176,81 @@ function Overview() {
     },
   ];
 
-  const notifications = getNotifications().slice(0, 3);
-  const calEvents = getCalendarEvents()
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 5);
+  const notifications = useMemo(() => getNotifications().slice(0, 3), []);
+  const calEvents = useMemo(
+    () =>
+      getCalendarEvents()
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .slice(0, 5),
+    [],
+  );
+
+  // Fee summary for overview
+  const feeSummary = useMemo(() => {
+    const fees = getFees();
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const weekAgo = new Date(now);
+    weekAgo.setDate(weekAgo.getDate() - 6);
+    weekAgo.setHours(0, 0, 0, 0);
+
+    function buildStats(records: typeof fees) {
+      const paid = records
+        .filter((r) => r.status === "paid")
+        .reduce((a, r) => a + r.amount, 0);
+      const pending = records
+        .filter((r) => r.status === "pending")
+        .reduce((a, r) => a + r.amount, 0);
+      const partial = records
+        .filter((r) => r.status === "partial")
+        .reduce((a, r) => a + r.amount, 0);
+      const paidCount = records.filter((r) => r.status === "paid").length;
+      const pendingCount = records.filter((r) => r.status === "pending").length;
+      const partialCount = records.filter((r) => r.status === "partial").length;
+      const total = paid + pending + partial;
+      const collectionRate = total > 0 ? Math.round((paid / total) * 100) : 0;
+      return {
+        paid,
+        pending,
+        partial,
+        paidCount,
+        pendingCount,
+        partialCount,
+        count: records.length,
+        total,
+        collectionRate,
+      };
+    }
+
+    const daily = fees.filter((r) => r.date === todayStr);
+    const weekly = fees.filter((r) => {
+      if (!r.date) return false;
+      const d = new Date(r.date);
+      return d >= weekAgo && d <= now;
+    });
+    const monthly = fees.filter((r) => {
+      if (!r.date) return false;
+      const d = new Date(r.date);
+      return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+    });
+    const yearly = fees.filter((r) => {
+      if (!r.date) return false;
+      return new Date(r.date).getFullYear() === currentYear;
+    });
+
+    return {
+      daily: buildStats(daily),
+      weekly: buildStats(weekly),
+      monthly: buildStats(monthly),
+      yearly: buildStats(yearly),
+    };
+  }, []);
+
+  const [feePeriod, setFeePeriod] = useState<
+    "daily" | "weekly" | "monthly" | "yearly"
+  >("monthly");
 
   return (
     <div>
@@ -181,13 +275,203 @@ function Overview() {
         ))}
       </div>
 
+      {/* Fee Status Summary — All Periods */}
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <DollarSign className="w-4 h-4 text-primary" />
+          <h3 className="font-semibold text-foreground">
+            Fee Collection Summary
+          </h3>
+        </div>
+
+        {/* Period tabs for mobile detail view */}
+        <div className="flex gap-1 mb-3 sm:hidden">
+          {(["daily", "weekly", "monthly", "yearly"] as const).map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setFeePeriod(p)}
+              data-ocid={`overview.fee_summary.${p}_tab`}
+              className={`flex-1 py-1.5 rounded text-xs font-medium capitalize transition-colors ${
+                feePeriod === p
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-accent"
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+
+        {/* Mobile: single period detail */}
+        <div className="sm:hidden bg-card border border-border rounded-lg p-4">
+          <p className="text-xs text-muted-foreground mb-3 capitalize font-medium">
+            {feePeriod === "daily"
+              ? "Today"
+              : feePeriod === "weekly"
+                ? "Last 7 Days"
+                : feePeriod === "monthly"
+                  ? "This Month"
+                  : "This Year"}
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-3">
+              <p className="text-xs text-green-700 dark:text-green-400 font-medium mb-0.5">
+                Collected
+              </p>
+              <p className="text-lg font-bold text-green-700 dark:text-green-400">
+                ₹{feeSummary[feePeriod].paid.toLocaleString("en-IN")}
+              </p>
+              <p className="text-xs text-green-600/70">
+                {feeSummary[feePeriod].paidCount} records
+              </p>
+            </div>
+            <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-3">
+              <p className="text-xs text-red-700 dark:text-red-400 font-medium mb-0.5">
+                Pending
+              </p>
+              <p className="text-lg font-bold text-red-700 dark:text-red-400">
+                ₹{feeSummary[feePeriod].pending.toLocaleString("en-IN")}
+              </p>
+              <p className="text-xs text-red-600/70">
+                {feeSummary[feePeriod].pendingCount} records
+              </p>
+            </div>
+            <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
+              <p className="text-xs text-orange-700 dark:text-orange-400 font-medium mb-0.5">
+                Partial
+              </p>
+              <p className="text-lg font-bold text-orange-700 dark:text-orange-400">
+                ₹{feeSummary[feePeriod].partial.toLocaleString("en-IN")}
+              </p>
+              <p className="text-xs text-orange-600/70">
+                {feeSummary[feePeriod].partialCount} records
+              </p>
+            </div>
+            <div className="bg-muted/50 border border-border rounded-lg p-3">
+              <p className="text-xs text-muted-foreground font-medium mb-0.5">
+                Collection Rate
+              </p>
+              <p className="text-lg font-bold text-foreground">
+                {feeSummary[feePeriod].collectionRate}%
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {feeSummary[feePeriod].count} total
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop: all 4 periods side by side */}
+        <div className="hidden sm:grid grid-cols-4 gap-3">
+          {(["daily", "weekly", "monthly", "yearly"] as const).map((p) => {
+            const s = feeSummary[p];
+            const labels = {
+              daily: "Today",
+              weekly: "This Week",
+              monthly: "This Month",
+              yearly: "This Year",
+            };
+            return (
+              <div
+                key={p}
+                className="bg-card border border-border rounded-lg overflow-hidden"
+              >
+                {/* Period header */}
+                <div className="bg-primary/10 border-b border-border px-3 py-2 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-primary uppercase tracking-wide">
+                    {labels[p]}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {s.count} records
+                  </span>
+                </div>
+                <div className="p-3 space-y-2">
+                  {/* Collected */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                      <span className="text-xs text-muted-foreground">
+                        Collected
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm font-bold text-green-600 dark:text-green-400">
+                        ₹{s.paid.toLocaleString("en-IN")}
+                      </span>
+                      <span className="text-xs text-muted-foreground ml-1">
+                        ({s.paidCount})
+                      </span>
+                    </div>
+                  </div>
+                  {/* Pending */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                      <span className="text-xs text-muted-foreground">
+                        Pending
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm font-bold text-red-600 dark:text-red-400">
+                        ₹{s.pending.toLocaleString("en-IN")}
+                      </span>
+                      <span className="text-xs text-muted-foreground ml-1">
+                        ({s.pendingCount})
+                      </span>
+                    </div>
+                  </div>
+                  {/* Partial */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-orange-400 flex-shrink-0" />
+                      <span className="text-xs text-muted-foreground">
+                        Partial
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm font-bold text-orange-600 dark:text-orange-400">
+                        ₹{s.partial.toLocaleString("en-IN")}
+                      </span>
+                      <span className="text-xs text-muted-foreground ml-1">
+                        ({s.partialCount})
+                      </span>
+                    </div>
+                  </div>
+                  {/* Divider + Collection rate */}
+                  <div className="border-t border-border pt-2 mt-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-muted-foreground font-medium">
+                        Collection Rate
+                      </span>
+                      <span
+                        className={`text-xs font-bold ${s.collectionRate >= 70 ? "text-green-600" : s.collectionRate >= 40 ? "text-orange-500" : "text-red-500"}`}
+                      >
+                        {s.collectionRate}%
+                      </span>
+                    </div>
+                    {/* Progress bar */}
+                    <div className="w-full bg-muted rounded-full h-1.5">
+                      <div
+                        className={`h-1.5 rounded-full transition-all ${s.collectionRate >= 70 ? "bg-green-500" : s.collectionRate >= 40 ? "bg-orange-400" : "bg-red-500"}`}
+                        style={{ width: `${s.collectionRate}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Class breakdown */}
         <div className="bg-card border border-border rounded-lg p-5">
           <h3 className="font-semibold text-foreground mb-4">Class Summary</h3>
           <div className="space-y-2">
             {teachers.map((t) => {
-              const cls = students.filter((s) => s.class === t.class);
+              const cls = students.filter((s) => s.class === t.class); // small array, OK
               return (
                 <div
                   key={t.id}
@@ -272,6 +556,7 @@ function Overview() {
 function ManageTeachers() {
   const [teachers, setTeachers] = useState<Teacher[]>(getTeachers());
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -285,12 +570,24 @@ function ManageTeachers() {
   });
   const [photoPreview, setPhotoPreview] = useState<string>("");
 
-  const filtered = teachers.filter(
-    (t) =>
-      t.name.toLowerCase().includes(search.toLowerCase()) ||
-      t.subject.toLowerCase().includes(search.toLowerCase()) ||
-      t.class.toLowerCase().includes(search.toLowerCase()),
-  );
+  // Debounce search input 300ms to avoid re-filtering on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const filtered = useMemo(() => {
+    const q = debouncedSearch.toLowerCase();
+    if (!q) return teachers;
+    return teachers.filter(
+      (t) =>
+        t.name.toLowerCase().includes(q) ||
+        t.subject.toLowerCase().includes(q) ||
+        t.class.toLowerCase().includes(q),
+    );
+  }, [teachers, debouncedSearch]);
+
+  const { paged: pagedTeachers, pagination } = usePagination(filtered, 15);
 
   const handleAdd = () => {
     if (!form.name || !form.id || !form.password) {
@@ -436,24 +733,26 @@ function ManageTeachers() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.length === 0 ? (
+            {pagedTeachers.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={8}
                   className="text-center text-muted-foreground py-8"
+                  data-ocid="teachers.empty_state"
                 >
                   No teachers found
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((t) => (
-                <TableRow key={t.id}>
+              pagedTeachers.map((t, idx) => (
+                <TableRow key={t.id} data-ocid={`teachers.item.${idx + 1}`}>
                   <TableCell>
                     {t.photo ? (
                       <img
                         src={t.photo}
                         alt={t.name}
                         className="w-9 h-9 rounded-full object-cover border border-border"
+                        style={{ maxWidth: "36px", maxHeight: "36px" }}
                       />
                     ) : (
                       <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center border border-border">
@@ -478,6 +777,7 @@ function ManageTeachers() {
                       type="button"
                       onClick={() => handleDelete(t.id)}
                       className="text-destructive hover:text-destructive/80"
+                      data-ocid={`teachers.delete_button.${idx + 1}`}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -487,6 +787,7 @@ function ManageTeachers() {
             )}
           </TableBody>
         </Table>
+        <TablePagination pagination={pagination} />
       </div>
     </div>
   );
@@ -496,8 +797,9 @@ function ManageTeachers() {
 // Manage Students
 // ============================================================
 function ManageStudents() {
-  const [students, setStudents] = useState<Student[]>(getStudents());
+  const [students, setStudents] = useState<Student[]>(() => getStudents());
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string>("");
   const [form, setForm] = useState({
@@ -518,22 +820,45 @@ function ManageStudents() {
   const [promoTarget, setPromoTarget] = useState("");
   const [promoTeacher, setPromoTeacher] = useState("");
 
-  const teachers = getTeachers();
-  const getTeacherName = (id: string) =>
-    teachers.find((t) => t.id === id)?.name ?? id;
+  const teachers = useMemo(() => getTeachers(), []);
 
-  const uniqueClasses = Array.from(
-    new Set(students.map((s) => s.class)),
-  ).sort();
-  const promoCount = promoSource
-    ? students.filter((s) => s.class === promoSource).length
-    : 0;
+  // O(1) teacher lookup map
+  const teacherMap = useMemo(
+    () => Object.fromEntries(teachers.map((t) => [t.id, t.name])),
+    [teachers],
+  );
+  const getTeacherName = (id: string) => teacherMap[id] ?? id;
 
-  const filtered = students.filter(
-    (s) =>
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.class.toLowerCase().includes(search.toLowerCase()) ||
-      s.rollNo.includes(search),
+  const uniqueClasses = useMemo(
+    () => Array.from(new Set(students.map((s) => s.class))).sort(),
+    [students],
+  );
+  const promoCount = useMemo(
+    () =>
+      promoSource ? students.filter((s) => s.class === promoSource).length : 0,
+    [students, promoSource],
+  );
+
+  // Debounce search input 300ms
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const filtered = useMemo(() => {
+    const q = debouncedSearch.toLowerCase();
+    if (!q) return students;
+    return students.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.class.toLowerCase().includes(q) ||
+        s.rollNo.includes(debouncedSearch),
+    );
+  }, [students, debouncedSearch]);
+
+  const { paged: pagedStudents, pagination: studentPagination } = usePagination(
+    filtered,
+    15,
   );
 
   const resetForm = () => {
@@ -855,24 +1180,26 @@ function ManageStudents() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.length === 0 ? (
+            {pagedStudents.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={9}
                   className="text-center text-muted-foreground py-8"
+                  data-ocid="students.empty_state"
                 >
                   No students found
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((s) => (
-                <TableRow key={s.id}>
+              pagedStudents.map((s, idx) => (
+                <TableRow key={s.id} data-ocid={`students.item.${idx + 1}`}>
                   <TableCell>
                     {s.photo ? (
                       <img
                         src={s.photo}
                         alt={s.name}
                         className="w-9 h-9 rounded-full object-cover border border-border"
+                        style={{ maxWidth: "36px", maxHeight: "36px" }}
                       />
                     ) : (
                       <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center border border-border">
@@ -900,6 +1227,7 @@ function ManageStudents() {
                       type="button"
                       onClick={() => handleDelete(s.id)}
                       className="text-destructive hover:text-destructive/80"
+                      data-ocid={`students.delete_button.${idx + 1}`}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -909,6 +1237,7 @@ function ManageStudents() {
             )}
           </TableBody>
         </Table>
+        <TablePagination pagination={studentPagination} />
       </div>
     </div>
   );
@@ -922,6 +1251,26 @@ function PostNotifications() {
     getNotifications(),
   );
   const [form, setForm] = useState({ title: "", message: "" });
+  const [attachment, setAttachment] = useState<string | null>(null);
+  const [attachmentName, setAttachmentName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setAttachment(ev.target?.result as string);
+      setAttachmentName(file.name);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const clearAttachment = () => {
+    setAttachment(null);
+    setAttachmentName(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const handlePost = () => {
     if (!form.title || !form.message) {
@@ -935,11 +1284,13 @@ function PostNotifications() {
       date: new Date().toISOString().split("T")[0],
       postedBy: "principal001",
       type: "general",
+      ...(attachment && attachmentName ? { attachment, attachmentName } : {}),
     };
     const updated = [newN, ...notifications];
     saveNotifications(updated);
     setNotifications(updated);
     setForm({ title: "", message: "" });
+    clearAttachment();
     toast.success("Notification posted");
   };
 
@@ -950,10 +1301,15 @@ function PostNotifications() {
     toast.success("Notification deleted");
   };
 
+  const isImageAttachment = (name: string) =>
+    /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(name);
+
   return (
     <div>
       <h2 className="section-title">Post Notifications</h2>
-      <p className="section-subtitle">Create school-wide announcements</p>
+      <p className="section-subtitle">
+        Create school-wide announcements with optional PDF or image attachments
+      </p>
 
       <div className="bg-card border border-border rounded-lg p-5 mb-6 max-w-2xl">
         <h3 className="font-semibold text-foreground mb-4">New Announcement</h3>
@@ -979,7 +1335,85 @@ function PostNotifications() {
               }
             />
           </div>
-          <Button onClick={handlePost} className="gap-1.5">
+
+          {/* Attachment upload */}
+          <div className="space-y-2">
+            <Label>Attachment (optional)</Label>
+            <div className="flex items-center gap-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/pdf,image/*"
+                className="hidden"
+                id="notif-attachment"
+                onChange={handleFileChange}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                data-ocid="notifications.upload_button"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Paperclip className="w-4 h-4" />
+                {attachmentName ? "Change File" : "Attach PDF / Image"}
+              </Button>
+              {attachmentName && (
+                <button
+                  type="button"
+                  onClick={clearAttachment}
+                  className="text-muted-foreground hover:text-destructive transition-colors"
+                  title="Remove attachment"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Preview */}
+            {attachment && attachmentName && (
+              <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg border border-border">
+                {isImageAttachment(attachmentName) ? (
+                  <>
+                    <img
+                      src={attachment}
+                      alt="Preview"
+                      className="w-14 h-14 object-cover rounded-md border border-border flex-shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {attachmentName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Image attachment
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-14 h-14 bg-red-100 rounded-md border border-border flex items-center justify-center flex-shrink-0">
+                      <FileDown className="w-6 h-6 text-red-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {attachmentName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        PDF attachment
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          <Button
+            onClick={handlePost}
+            className="gap-1.5"
+            data-ocid="notifications.submit_button"
+          >
             <Bell className="w-4 h-4" /> Post Announcement
           </Button>
         </div>
@@ -992,6 +1426,7 @@ function PostNotifications() {
               <TableHead>Title</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Message</TableHead>
+              <TableHead>Attachment</TableHead>
               <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
@@ -1004,6 +1439,42 @@ function PostNotifications() {
                 </TableCell>
                 <TableCell className="text-muted-foreground max-w-xs truncate">
                   {n.message}
+                </TableCell>
+                <TableCell>
+                  {n.attachment && n.attachmentName ? (
+                    isImageAttachment(n.attachmentName) ? (
+                      <a
+                        href={n.attachment}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-primary hover:underline"
+                        title={n.attachmentName}
+                      >
+                        <img
+                          src={n.attachment}
+                          alt={n.attachmentName}
+                          className="w-8 h-8 object-cover rounded border border-border"
+                        />
+                        <span className="text-xs max-w-[100px] truncate hidden sm:inline">
+                          {n.attachmentName}
+                        </span>
+                      </a>
+                    ) : (
+                      <a
+                        href={n.attachment}
+                        download={n.attachmentName}
+                        className="inline-flex items-center gap-1.5 text-primary hover:underline text-xs"
+                        title={`Download ${n.attachmentName}`}
+                      >
+                        <FileDown className="w-4 h-4 text-red-500 flex-shrink-0" />
+                        <span className="max-w-[100px] truncate hidden sm:inline">
+                          {n.attachmentName}
+                        </span>
+                      </a>
+                    )
+                  ) : (
+                    <span className="text-muted-foreground text-xs">—</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   <button
@@ -1178,23 +1649,49 @@ function AcademicCalendar() {
 // Publish Results
 // ============================================================
 function PublishResults() {
-  const [results, setResults] = useState<ExamResult[]>(getResults());
-  const students = getStudents();
+  const [results, setResults] = useState<ExamResult[]>(() => getResults());
+  const students = useMemo(() => getStudents(), []);
 
   const [filterExam, setFilterExam] = useState("all");
   const [filterClass, setFilterClass] = useState("all");
 
-  const pending = results.filter((r) => r.status === "pending");
-  const published = results.filter((r) => r.status === "approved");
+  const pending = useMemo(
+    () => results.filter((r) => r.status === "pending"),
+    [results],
+  );
+  const published = useMemo(
+    () => results.filter((r) => r.status === "approved"),
+    [results],
+  );
 
   // Unique exam names and classes from published results
-  const examNames = Array.from(
-    new Set(published.map((r) => r.examName)),
-  ).sort();
-  const classNames = Array.from(new Set(published.map((r) => r.class))).sort();
+  const examNames = useMemo(
+    () => Array.from(new Set(published.map((r) => r.examName))).sort(),
+    [published],
+  );
+  const classNames = useMemo(
+    () => Array.from(new Set(published.map((r) => r.class))).sort(),
+    [published],
+  );
 
-  const getStudentName = (id: string) =>
-    students.find((s) => s.id === id)?.name ?? id;
+  // O(1) student name lookup map
+  const studentMap = useMemo(
+    () => Object.fromEntries(students.map((s) => [s.id, s.name])),
+    [students],
+  );
+  const getStudentName = (id: string) => studentMap[id] ?? id;
+
+  // Filtered published results (memoized)
+  const filteredPublished = useMemo(() => {
+    return published.filter((r) => {
+      if (filterExam !== "all" && r.examName !== filterExam) return false;
+      if (filterClass !== "all" && r.class !== filterClass) return false;
+      return true;
+    });
+  }, [published, filterExam, filterClass]);
+
+  const { paged: pagedPublished, pagination: publishedPagination } =
+    usePagination(filteredPublished, 15);
 
   const handleApprove = (id: string) => {
     const updated = results.map((r) =>
@@ -1547,18 +2044,19 @@ function PublishResults() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {published.length === 0 ? (
+              {filteredPublished.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={7}
                     className="text-center text-muted-foreground py-6"
+                    data-ocid="results.empty_state"
                   >
                     No published results
                   </TableCell>
                 </TableRow>
               ) : (
-                published.map((r) => (
-                  <TableRow key={r.id}>
+                pagedPublished.map((r, idx) => (
+                  <TableRow key={r.id} data-ocid={`results.item.${idx + 1}`}>
                     <TableCell className="font-medium">
                       {getStudentName(r.studentId)}
                     </TableCell>
@@ -1582,6 +2080,7 @@ function PublishResults() {
                         type="button"
                         onClick={() => handleDelete(r.id)}
                         className="text-destructive hover:text-destructive/80"
+                        data-ocid={`results.delete_button.${idx + 1}`}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -1591,6 +2090,7 @@ function PublishResults() {
               )}
             </TableBody>
           </Table>
+          <TablePagination pagination={publishedPagination} />
         </div>
       </div>
     </div>
@@ -2450,14 +2950,14 @@ function PrincipalHallTickets() {
   const studentsInClass = allStudents.filter((s) => s.class === selectedClass);
 
   // Auto-select first student when class changes
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally depend on studentsInClass array
+  const firstStudentId = studentsInClass[0]?.id;
   useEffect(() => {
-    if (studentsInClass.length > 0) {
-      setSelectedStudentId(studentsInClass[0].id);
+    if (studentsInClass.length > 0 && firstStudentId) {
+      setSelectedStudentId(firstStudentId);
     } else {
       setSelectedStudentId("");
     }
-  }, [studentsInClass.length, studentsInClass[0]?.id]);
+  }, [studentsInClass.length, firstStudentId]);
 
   const selectedStudent =
     studentsInClass.find((s) => s.id === selectedStudentId) ??
@@ -3809,25 +4309,465 @@ function SendMessageToParents() {
 }
 
 // ============================================================
+// Fee Overview
+// ============================================================
+function FeeOverview() {
+  const [fees] = useState<FeeRecord[]>(() => getFees());
+  // Read students once with lazy initializer
+  const students = useMemo(() => getStudents(), []);
+
+  const [classFilter, setClassFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  // Unique classes from students (memoized)
+  const classes = useMemo(
+    () => Array.from(new Set(students.map((s) => s.class))).sort(),
+    [students],
+  );
+
+  // O(1) student lookup map
+  const studentMap = useMemo(
+    () =>
+      Object.fromEntries(
+        students.map((s) => [s.id, { name: s.name, class: s.class }]),
+      ),
+    [students],
+  );
+
+  // Join fees with student info (memoized - no .find() per row)
+  const enriched = useMemo(
+    () =>
+      fees.map((f) => {
+        const student = studentMap[f.studentId];
+        return {
+          ...f,
+          studentName: student?.name ?? "Unknown",
+          studentClass: student?.class ?? "—",
+        };
+      }),
+    [fees, studentMap],
+  );
+
+  const filtered = useMemo(() => {
+    return enriched.filter((f) => {
+      const classMatch =
+        classFilter === "all" || f.studentClass === classFilter;
+      const statusMatch = statusFilter === "all" || f.status === statusFilter;
+      return classMatch && statusMatch;
+    });
+  }, [enriched, classFilter, statusFilter]);
+
+  // Summary totals (memoized)
+  const { paged: pagedFees, pagination: feePagination } = usePagination(
+    filtered,
+    15,
+  );
+
+  const { totalCollected, totalPartial, totalPending } = useMemo(() => {
+    let collected = 0;
+    let partial = 0;
+    let pending = 0;
+    for (const f of filtered) {
+      if (f.status === "paid") collected += f.amount;
+      else if (f.status === "partial") partial += f.amount;
+      else if (f.status === "pending") pending += f.amount;
+    }
+    return {
+      totalCollected: collected,
+      totalPartial: partial,
+      totalPending: pending,
+    };
+  }, [filtered]);
+
+  // ── Time-period fee summaries ──────────────────────────────
+  const periodSummaries = useMemo(() => {
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0]; // YYYY-MM-DD
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0-indexed
+
+    // Weekly boundary: 7 days ago at start of that day
+    const weekAgo = new Date(now);
+    weekAgo.setDate(weekAgo.getDate() - 6);
+    weekAgo.setHours(0, 0, 0, 0);
+
+    type EnrichedFee = (typeof enriched)[number];
+
+    function computeSummary(records: EnrichedFee[]) {
+      let paid = 0;
+      let partial = 0;
+      let pending = 0;
+      for (const r of records) {
+        if (r.status === "paid") paid += r.amount;
+        else if (r.status === "partial") partial += r.amount;
+        else if (r.status === "pending") pending += r.amount;
+      }
+      return { paid, partial, pending, count: records.length };
+    }
+
+    const daily = enriched.filter((r) => r.date === todayStr);
+
+    const weekly = enriched.filter((r) => {
+      if (!r.date) return false;
+      const d = new Date(r.date);
+      return d >= weekAgo && d <= now;
+    });
+
+    const monthly = enriched.filter((r) => {
+      if (!r.date) return false;
+      const d = new Date(r.date);
+      return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+    });
+
+    const yearly = enriched.filter((r) => {
+      if (!r.date) return false;
+      return new Date(r.date).getFullYear() === currentYear;
+    });
+
+    return {
+      daily: computeSummary(daily),
+      weekly: computeSummary(weekly),
+      monthly: computeSummary(monthly),
+      yearly: computeSummary(yearly),
+    };
+  }, [enriched]);
+
+  const handleDownloadCSV = () => {
+    const headers = [
+      "Student Name",
+      "Class",
+      "Amount (₹)",
+      "Date",
+      "Status",
+      "Method",
+      "Description",
+      "Receipt No.",
+    ];
+    const rows = filtered.map((f) => [
+      f.studentName,
+      f.studentClass,
+      f.amount,
+      f.date || "—",
+      f.status,
+      f.method || "—",
+      f.description,
+      f.receiptNumber ?? "—",
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
+      )
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `fee-overview-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Fee data exported as CSV");
+  };
+
+  const statusColors: Record<string, string> = {
+    paid: "badge-success",
+    pending: "badge-destructive",
+    partial: "badge-warning",
+  };
+
+  return (
+    <div>
+      <h2 className="section-title">Fee Overview</h2>
+      <p className="section-subtitle">
+        View and download all students' fee records
+      </p>
+
+      {/* ── Fee Status Summary by Time Period ── */}
+      <div className="mb-6">
+        <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+          <DollarSign className="w-4 h-4 text-primary" />
+          Fee Status Summary
+        </h3>
+        <Tabs defaultValue="monthly">
+          <TabsList className="mb-4 w-full sm:w-auto">
+            <TabsTrigger value="daily" data-ocid="fee_summary.daily_tab">
+              Daily
+            </TabsTrigger>
+            <TabsTrigger value="weekly" data-ocid="fee_summary.weekly_tab">
+              Weekly
+            </TabsTrigger>
+            <TabsTrigger value="monthly" data-ocid="fee_summary.monthly_tab">
+              Monthly
+            </TabsTrigger>
+            <TabsTrigger value="yearly" data-ocid="fee_summary.yearly_tab">
+              Yearly
+            </TabsTrigger>
+          </TabsList>
+
+          {(["daily", "weekly", "monthly", "yearly"] as const).map((period) => {
+            const s = periodSummaries[period];
+            const labels: Record<typeof period, string> = {
+              daily: "today",
+              weekly: "the last 7 days",
+              monthly: "this month",
+              yearly: "this year",
+            };
+            return (
+              <TabsContent key={period} value={period}>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Fee records from {labels[period]} — {s.count} transaction
+                  {s.count !== 1 ? "s" : ""}
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {/* Collected */}
+                  <div
+                    className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4"
+                    data-ocid="fee_summary.collected_card"
+                  >
+                    <p className="text-xs text-green-700 dark:text-green-400 uppercase tracking-wide font-medium mb-1">
+                      Collected
+                    </p>
+                    <p className="text-xl font-bold text-green-700 dark:text-green-400">
+                      ₹{s.paid.toLocaleString("en-IN")}
+                    </p>
+                    <p className="text-xs text-green-600/70 dark:text-green-500/70 mt-0.5">
+                      Paid
+                    </p>
+                  </div>
+
+                  {/* Partial */}
+                  <div
+                    className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4"
+                    data-ocid="fee_summary.partial_card"
+                  >
+                    <p className="text-xs text-amber-700 dark:text-amber-400 uppercase tracking-wide font-medium mb-1">
+                      Partial
+                    </p>
+                    <p className="text-xl font-bold text-amber-700 dark:text-amber-400">
+                      ₹{s.partial.toLocaleString("en-IN")}
+                    </p>
+                    <p className="text-xs text-amber-600/70 dark:text-amber-500/70 mt-0.5">
+                      Partial Payments
+                    </p>
+                  </div>
+
+                  {/* Pending */}
+                  <div
+                    className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg p-4"
+                    data-ocid="fee_summary.pending_card"
+                  >
+                    <p className="text-xs text-red-700 dark:text-red-400 uppercase tracking-wide font-medium mb-1">
+                      Pending
+                    </p>
+                    <p className="text-xl font-bold text-red-700 dark:text-red-400">
+                      ₹{s.pending.toLocaleString("en-IN")}
+                    </p>
+                    <p className="text-xs text-red-600/70 dark:text-red-500/70 mt-0.5">
+                      Outstanding
+                    </p>
+                  </div>
+
+                  {/* Transactions */}
+                  <div
+                    className="bg-card border border-border rounded-lg p-4"
+                    data-ocid="fee_summary.transactions_card"
+                  >
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium mb-1">
+                      Transactions
+                    </p>
+                    <p className="text-xl font-bold text-foreground">
+                      {s.count}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Total records
+                    </p>
+                  </div>
+                </div>
+              </TabsContent>
+            );
+          })}
+        </Tabs>
+      </div>
+
+      {/* Summary cards — All time (filter-based) */}
+      <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+        <LayoutGrid className="w-4 h-4 text-primary" />
+        All-Time Overview{" "}
+        <span className="text-xs font-normal text-muted-foreground">
+          (based on active filters)
+        </span>
+      </h3>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="bg-card border border-border rounded-lg p-4">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
+            Total Collected (Paid)
+          </p>
+          <p className="text-2xl font-bold text-green-600">
+            ₹{totalCollected.toLocaleString("en-IN")}
+          </p>
+        </div>
+        <div className="bg-card border border-border rounded-lg p-4">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
+            Partial Payments
+          </p>
+          <p className="text-2xl font-bold text-amber-600">
+            ₹{totalPartial.toLocaleString("en-IN")}
+          </p>
+        </div>
+        <div className="bg-card border border-border rounded-lg p-4">
+          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
+            Total Pending
+          </p>
+          <p className="text-2xl font-bold text-destructive">
+            ₹{totalPending.toLocaleString("en-IN")}
+          </p>
+        </div>
+      </div>
+
+      {/* Filters + Download */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <Select value={classFilter} onValueChange={setClassFilter}>
+          <SelectTrigger className="w-40" data-ocid="fee_overview.class_select">
+            <SelectValue placeholder="All Classes" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Classes</SelectItem>
+            {classes.map((c) => (
+              <SelectItem key={c} value={c}>
+                Class {c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger
+            className="w-40"
+            data-ocid="fee_overview.status_select"
+          >
+            <SelectValue placeholder="All Statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="paid">Paid</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="partial">Partial</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 ml-auto"
+          onClick={handleDownloadCSV}
+          data-ocid="fee_overview.download_button"
+        >
+          <Download className="w-4 h-4" />
+          Download CSV
+        </Button>
+      </div>
+
+      {/* Table with pagination */}
+      <div
+        className="bg-card border border-border rounded-lg overflow-hidden"
+        data-ocid="fee_overview.table"
+      >
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Student Name</TableHead>
+              <TableHead>Class</TableHead>
+              <TableHead>Amount (₹)</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Method</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead>Receipt No.</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {pagedFees.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={8}
+                  className="text-center text-muted-foreground py-10"
+                  data-ocid="fee_overview.empty_state"
+                >
+                  No fee records found for the selected filters
+                </TableCell>
+              </TableRow>
+            ) : (
+              pagedFees.map((f, idx) => (
+                <TableRow key={f.id} data-ocid={`fee_overview.item.${idx + 1}`}>
+                  <TableCell className="font-medium">{f.studentName}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{f.studentClass}</Badge>
+                  </TableCell>
+                  <TableCell className="font-mono">
+                    ₹{f.amount.toLocaleString("en-IN")}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {f.date ? formatDate(f.date) : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${statusColors[f.status] ?? ""}`}
+                    >
+                      {f.status}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {f.method || "—"}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground max-w-[180px] truncate">
+                    {f.description}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground font-mono text-xs">
+                    {f.receiptNumber ?? "—"}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+        <TablePagination pagination={feePagination} />
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // Principal Dashboard
 // ============================================================
 export default function PrincipalDashboard({ user, onLogout }: Props) {
   const [section, setSection] = useState("overview");
   const [currentUser, setCurrentUserState] = useState(user);
 
-  const pendingResults = getResults().filter(
-    (r) => r.status === "pending",
-  ).length;
-  const pendingLeaves = getLeaves().filter(
-    (l) => l.status === "pending" && l.applicantRole === "teacher",
-  ).length;
-  const pendingTeacherAttendance = getTeacherAttendance().filter(
-    (r) => r.approvalStatus === "pending",
-  ).length;
-  const pendingSuggestions = getSuggestions().filter((s) => !s.response).length;
-  const pendingTimetables = getTimetables().filter(
-    (t) => t.approvalStatus === "pending",
-  ).length;
+  // Memoize badge counts so localStorage is only read once per mount
+  const pendingResults = useMemo(
+    () => getResults().filter((r) => r.status === "pending").length,
+    [],
+  );
+  const pendingLeaves = useMemo(
+    () =>
+      getLeaves().filter(
+        (l) => l.status === "pending" && l.applicantRole === "teacher",
+      ).length,
+    [],
+  );
+  const pendingTeacherAttendance = useMemo(
+    () =>
+      getTeacherAttendance().filter((r) => r.approvalStatus === "pending")
+        .length,
+    [],
+  );
+  const pendingSuggestions = useMemo(
+    () => getSuggestions().filter((s) => !s.response).length,
+    [],
+  );
+  const pendingTimetables = useMemo(
+    () => getTimetables().filter((t) => t.approvalStatus === "pending").length,
+    [],
+  );
 
   const navItems = [
     {
@@ -3896,6 +4836,11 @@ export default function PrincipalDashboard({ user, onLogout }: Props) {
       icon: <Send className="w-4 h-4" />,
     },
     {
+      id: "fee-overview",
+      label: "Fee Overview",
+      icon: <DollarSign className="w-4 h-4" />,
+    },
+    {
       id: "profile",
       label: "My Profile",
       icon: <User className="w-4 h-4" />,
@@ -3928,6 +4873,8 @@ export default function PrincipalDashboard({ user, onLogout }: Props) {
         return <TimetableApproval user={currentUser} />;
       case "send-message":
         return <SendMessageToParents />;
+      case "fee-overview":
+        return <FeeOverview />;
       case "profile":
         return (
           <MyProfile

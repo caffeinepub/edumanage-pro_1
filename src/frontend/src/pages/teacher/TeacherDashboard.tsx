@@ -15,6 +15,7 @@ import {
   Upload,
   Users,
 } from "@/components/DashboardLayout";
+import { TablePagination } from "@/components/TablePagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,6 +43,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { usePagination } from "@/hooks/usePagination";
 import {
   type AttendanceRecord,
   type CurrentUser,
@@ -95,7 +97,7 @@ import {
   User,
   UserCheck,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 interface Props {
@@ -110,24 +112,49 @@ function Overview({
   teacherId,
   teacherClass,
 }: { teacherId: string; teacherClass: string }) {
-  const students = getStudentsByTeacher(teacherId);
-  const attendance = getAttendance();
+  const students = useMemo(() => getStudentsByTeacher(teacherId), [teacherId]);
+  const attendance = useMemo(() => getAttendance(), []);
   const today = new Date().toISOString().split("T")[0];
 
-  const todayAtt = students.map((s) =>
-    attendance.find((a) => a.studentId === s.id && a.date === today),
-  );
-  const presentToday = todayAtt.filter(
-    (a) => a?.status === "present" || a?.status === "late",
-  ).length;
-  const markedToday = todayAtt.filter(Boolean).length;
+  // Build attendance index by studentId + date for O(1) lookups
+  const attendanceIndex = useMemo(() => {
+    const index: Record<
+      string,
+      Record<string, (typeof attendance)[number]>
+    > = {};
+    for (const a of attendance) {
+      if (!index[a.studentId]) index[a.studentId] = {};
+      index[a.studentId][a.date] = a;
+    }
+    return index;
+  }, [attendance]);
 
-  const homework = getHomework().filter(
-    (h) => h.teacherId === teacherId,
-  ).length;
-  const pendingResults = getResults().filter(
-    (r) => r.teacherId === teacherId && r.status === "pending",
-  ).length;
+  const todayAtt = useMemo(
+    () => students.map((s) => attendanceIndex[s.id]?.[today]),
+    [students, attendanceIndex, today],
+  );
+  const presentToday = useMemo(
+    () =>
+      todayAtt.filter((a) => a?.status === "present" || a?.status === "late")
+        .length,
+    [todayAtt],
+  );
+  const markedToday = useMemo(
+    () => todayAtt.filter(Boolean).length,
+    [todayAtt],
+  );
+
+  const homework = useMemo(
+    () => getHomework().filter((h) => h.teacherId === teacherId).length,
+    [teacherId],
+  );
+  const pendingResults = useMemo(
+    () =>
+      getResults().filter(
+        (r) => r.teacherId === teacherId && r.status === "pending",
+      ).length,
+    [teacherId],
+  );
 
   const notifs = getNotifications().slice(0, 3);
 
@@ -182,7 +209,7 @@ function Overview({
           <h3 className="font-semibold text-foreground mb-4">My Students</h3>
           <div className="space-y-2">
             {students.map((s) => {
-              const recs = attendance.filter((a) => a.studentId === s.id);
+              const recs = Object.values(attendanceIndex[s.id] ?? {});
               const pct = calcAttendancePercent(recs);
               return (
                 <div
@@ -469,7 +496,7 @@ function MarkAttendance({
   teacherId,
   teacherClass,
 }: { teacherId: string; teacherClass: string }) {
-  const students = getStudentsByTeacher(teacherId);
+  const students = useMemo(() => getStudentsByTeacher(teacherId), [teacherId]);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [statuses, setStatuses] = useState<
     Record<string, "present" | "absent" | "late">
@@ -640,8 +667,8 @@ function MarkAttendance({
 // Fee Updates
 // ============================================================
 function FeeUpdates({ teacherId }: { teacherId: string }) {
-  const students = getStudentsByTeacher(teacherId);
-  const [fees, setFees] = useState<FeeRecord[]>(getFees());
+  const students = useMemo(() => getStudentsByTeacher(teacherId), [teacherId]);
+  const [fees, setFees] = useState<FeeRecord[]>(() => getFees());
   const [editStudent, setEditStudent] = useState<Student | null>(null);
   const [feeForm, setFeeForm] = useState({
     amount: "",
@@ -652,10 +679,19 @@ function FeeUpdates({ teacherId }: { teacherId: string }) {
     receiptNumber: "",
   });
 
-  const getLatestFee = (studentId: string) =>
-    fees
-      .filter((f) => f.studentId === studentId)
-      .sort((a, b) => b.date.localeCompare(a.date))[0];
+  // Memoize latest fee per student to avoid O(n) scan per row on every render
+  const latestFeeMap = useMemo(() => {
+    const map: Record<string, FeeRecord | undefined> = {};
+    for (const f of fees) {
+      const existing = map[f.studentId];
+      if (!existing || f.date > existing.date) {
+        map[f.studentId] = f;
+      }
+    }
+    return map;
+  }, [fees]);
+
+  const getLatestFee = (studentId: string) => latestFeeMap[studentId];
 
   const handleSaveFee = () => {
     if (!editStudent || !feeForm.amount) return;
@@ -844,7 +880,7 @@ function UploadMarks({
   teacherId,
   teacherClass,
 }: { teacherId: string; teacherClass: string }) {
-  const students = getStudentsByTeacher(teacherId);
+  const students = useMemo(() => getStudentsByTeacher(teacherId), [teacherId]);
   const [examName, setExamName] = useState("");
   const [subjects, setSubjects] = useState([
     "Mathematics",
@@ -860,8 +896,14 @@ function UploadMarks({
   const [subjectMaxMarks, setSubjectMaxMarks] = useState<
     Record<string, number>
   >({});
-  const [results] = useState<ExamResult[]>(
+  const [results] = useState<ExamResult[]>(() =>
     getResults().filter((r) => r.teacherId === teacherId),
+  );
+
+  // O(1) student name lookup
+  const studentNameMap = useMemo(
+    () => Object.fromEntries(students.map((s) => [s.id, s.name])),
+    [students],
   );
 
   const getSubjectMax = (sub: string) => subjectMaxMarks[sub] ?? 100;
@@ -1011,59 +1053,78 @@ function UploadMarks({
         </Button>
       </div>
 
-      {/* Previously submitted */}
-      <div>
-        <h3 className="font-semibold text-foreground mb-3">
-          Submitted Results
-        </h3>
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <Table>
-            <TableHeader>
+      {/* Previously submitted — paginated */}
+      {(() => {
+        // We can't call hooks here; use inline render component
+        return (
+          <SubmittedResultsTable
+            results={results}
+            studentNameMap={studentNameMap}
+          />
+        );
+      })()}
+    </div>
+  );
+}
+
+function SubmittedResultsTable({
+  results,
+  studentNameMap,
+}: {
+  results: ExamResult[];
+  studentNameMap: Record<string, string>;
+}) {
+  const { paged, pagination } = usePagination(results, 15);
+  return (
+    <div>
+      <h3 className="font-semibold text-foreground mb-3">Submitted Results</h3>
+      <div className="bg-card border border-border rounded-lg overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Student</TableHead>
+              <TableHead>Exam</TableHead>
+              <TableHead>Submitted</TableHead>
+              <TableHead>Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {paged.length === 0 ? (
               <TableRow>
-                <TableHead>Student</TableHead>
-                <TableHead>Exam</TableHead>
-                <TableHead>Submitted</TableHead>
-                <TableHead>Status</TableHead>
+                <TableCell
+                  colSpan={4}
+                  className="text-center text-muted-foreground py-6"
+                  data-ocid="marks.results.empty_state"
+                >
+                  No results submitted
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {results.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={4}
-                    className="text-center text-muted-foreground py-6"
-                  >
-                    No results submitted
+            ) : (
+              paged.map((r, idx) => (
+                <TableRow
+                  key={r.id}
+                  data-ocid={`marks.results.item.${idx + 1}`}
+                >
+                  <TableCell className="font-medium">
+                    {studentNameMap[r.studentId] ?? r.studentId}
+                  </TableCell>
+                  <TableCell>{r.examName}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDate(r.submittedAt)}
+                  </TableCell>
+                  <TableCell>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${r.status === "approved" ? "badge-success" : r.status === "rejected" ? "badge-destructive" : "badge-warning"}`}
+                    >
+                      {r.status}
+                    </span>
                   </TableCell>
                 </TableRow>
-              ) : (
-                results.map((r) => {
-                  const student = getStudentsByTeacher(teacherId).find(
-                    (s) => s.id === r.studentId,
-                  );
-                  return (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-medium">
-                        {student?.name ?? r.studentId}
-                      </TableCell>
-                      <TableCell>{r.examName}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {formatDate(r.submittedAt)}
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${r.status === "approved" ? "badge-success" : r.status === "rejected" ? "badge-destructive" : "badge-warning"}`}
-                        >
-                          {r.status}
-                        </span>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
+              ))
+            )}
+          </TableBody>
+        </Table>
+        <TablePagination pagination={pagination} />
       </div>
     </div>
   );
@@ -1073,13 +1134,20 @@ function UploadMarks({
 // Student Progress
 // ============================================================
 function StudentProgress({ teacherId }: { teacherId: string }) {
-  const students = getStudentsByTeacher(teacherId);
+  const students = useMemo(() => getStudentsByTeacher(teacherId), [teacherId]);
   const [selectedId, setSelectedId] = useState(students[0]?.id ?? "");
 
-  const results = getResults().filter(
-    (r) => r.studentId === selectedId && r.status === "approved",
+  const results = useMemo(
+    () =>
+      getResults().filter(
+        (r) => r.studentId === selectedId && r.status === "approved",
+      ),
+    [selectedId],
   );
-  const portfolio = getPortfolio().filter((p) => p.studentId === selectedId);
+  const portfolio = useMemo(
+    () => getPortfolio().filter((p) => p.studentId === selectedId),
+    [selectedId],
+  );
 
   const latestResult = results[results.length - 1];
   const barData = latestResult
