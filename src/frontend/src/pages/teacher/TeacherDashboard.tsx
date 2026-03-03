@@ -58,6 +58,7 @@ import {
   type TeacherAttendance,
   type Timetable,
   calcAttendancePercent,
+  deleteStudentFromBackend,
   formatDate,
   generateId,
   getAttendance,
@@ -82,9 +83,11 @@ import {
   saveLeaves,
   savePortfolio,
   saveResults,
+  saveStudentToBackend,
   saveStudents,
   saveTeacherAttendance,
   saveTimetables,
+  syncStudentsFromBackend,
 } from "@/store/data";
 import {
   BookOpen,
@@ -292,7 +295,7 @@ function ManageStudents({
   });
   const [photoPreview, setPhotoPreview] = useState("");
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!form.name || !form.id || !form.password) {
       toast.error("Name, ID and Password are required");
       return;
@@ -313,9 +316,15 @@ function ManageStudents({
       teacherId,
       photo: form.photo || undefined,
     };
-    const allStudents = [...getStudents(), newStudent];
-    saveStudents(allStudents);
-    setStudents(allStudents.filter((s) => s.teacherId === teacherId));
+    try {
+      await saveStudentToBackend(newStudent);
+      const all = await syncStudentsFromBackend();
+      setStudents(all.filter((s) => s.teacherId === teacherId));
+    } catch {
+      const allStudents = [...getStudents(), newStudent];
+      saveStudents(allStudents);
+      setStudents(allStudents.filter((s) => s.teacherId === teacherId));
+    }
     setForm({
       name: "",
       class: teacherClass,
@@ -331,10 +340,16 @@ function ManageStudents({
     toast.success("Student added");
   };
 
-  const handleDelete = (id: string) => {
-    const allStudents = getStudents().filter((s) => s.id !== id);
-    saveStudents(allStudents);
-    setStudents(allStudents.filter((s) => s.teacherId === teacherId));
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteStudentFromBackend(id);
+      const all = await syncStudentsFromBackend();
+      setStudents(all.filter((s) => s.teacherId === teacherId));
+    } catch {
+      const allStudents = getStudents().filter((s) => s.id !== id);
+      saveStudents(allStudents);
+      setStudents(allStudents.filter((s) => s.teacherId === teacherId));
+    }
     toast.success("Student removed");
   };
 

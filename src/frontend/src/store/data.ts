@@ -1,6 +1,17 @@
 // ============================================================
-// EduManage Pro - Data Store (localStorage)
+// EduManage Pro - Data Store (localStorage + Backend Canister)
 // ============================================================
+
+import { createActorWithConfig } from "@/config";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _backendCache: any = null;
+async function getBackend(): Promise<any> {
+  if (!_backendCache) {
+    _backendCache = await createActorWithConfig();
+  }
+  return _backendCache;
+}
 
 export type Role = "principal" | "teacher" | "student";
 
@@ -869,6 +880,8 @@ export interface PrincipalProfile {
   role: "principal";
   photo?: string;
   institutionLogo?: string;
+  institutionName?: string;
+  institutionTagline?: string;
 }
 
 const DEFAULT_PRINCIPAL: PrincipalProfile = {
@@ -880,6 +893,8 @@ const DEFAULT_PRINCIPAL: PrincipalProfile = {
   role: "principal",
   photo: "",
   institutionLogo: "",
+  institutionName: "Rahmaniyya Public School",
+  institutionTagline: "Akampadam",
 };
 
 export function getPrincipalProfile(): PrincipalProfile {
@@ -1131,6 +1146,365 @@ export function getHallTicketDesign(): HallTicketDesign {
 
 export function saveHallTicketDesign(d: HallTicketDesign): void {
   setLS("edu_hall_ticket_design", d);
+}
+
+// ============================================================
+// Backend sync status (reactive)
+// ============================================================
+type SyncStatusListener = (
+  status: "idle" | "syncing" | "synced" | "error",
+) => void;
+let _syncStatus: "idle" | "syncing" | "synced" | "error" = "idle";
+const _syncListeners = new Set<SyncStatusListener>();
+
+export function getSyncStatus() {
+  return _syncStatus;
+}
+
+export function subscribeSyncStatus(fn: SyncStatusListener): () => void {
+  _syncListeners.add(fn);
+  return () => _syncListeners.delete(fn);
+}
+
+function setSyncStatus(s: "idle" | "syncing" | "synced" | "error") {
+  _syncStatus = s;
+  for (const fn of _syncListeners) fn(s);
+}
+
+// ============================================================
+// Type mapping helpers (frontend ↔ backend)
+// ============================================================
+
+// Local type aliases matching backend canister interface shapes
+type BackendTeacher = {
+  id: string;
+  subject: string;
+  class: string;
+  password: string;
+  name: string;
+  role: string;
+  email: string;
+  phone: string;
+  photo: string;
+};
+
+type BackendStudent = {
+  id: string;
+  class: string;
+  password: string;
+  name: string;
+  role: string;
+  parentPhone: string;
+  teacherId: string;
+  photo: string;
+  rollNo: string;
+  parentName: string;
+};
+
+type BackendPrincipalProfile = {
+  id: string;
+  institutionLogo: string;
+  institutionName: string;
+  password: string;
+  name: string;
+  role: string;
+  email: string;
+  institutionTagline: string;
+  phone: string;
+  photo: string;
+};
+
+function teacherToBackend(t: Teacher): BackendTeacher {
+  return {
+    id: t.id,
+    name: t.name,
+    subject: t.subject,
+    class: t.class,
+    email: t.email,
+    phone: t.phone,
+    password: t.password,
+    role: "teacher",
+    photo: t.photo ?? "",
+  };
+}
+
+function teacherFromBackend(t: BackendTeacher): Teacher {
+  return {
+    id: t.id,
+    name: t.name,
+    subject: t.subject,
+    class: t.class,
+    email: t.email,
+    phone: t.phone,
+    password: t.password,
+    role: "teacher",
+    photo: t.photo || undefined,
+  };
+}
+
+function studentToBackend(s: Student): BackendStudent {
+  return {
+    id: s.id,
+    name: s.name,
+    class: s.class,
+    rollNo: s.rollNo,
+    parentName: s.parentName,
+    parentPhone: s.parentPhone,
+    teacherId: s.teacherId,
+    password: s.password,
+    role: "student",
+    photo: s.photo ?? "",
+  };
+}
+
+function studentFromBackend(s: BackendStudent): Student {
+  return {
+    id: s.id,
+    name: s.name,
+    class: s.class,
+    rollNo: s.rollNo,
+    parentName: s.parentName,
+    parentPhone: s.parentPhone,
+    teacherId: s.teacherId,
+    password: s.password,
+    role: "student",
+    photo: s.photo || undefined,
+  };
+}
+
+function principalToBackend(p: PrincipalProfile): BackendPrincipalProfile {
+  return {
+    id: p.id,
+    name: p.name,
+    email: p.email ?? "",
+    phone: p.phone ?? "",
+    password: p.password,
+    role: "principal",
+    photo: p.photo ?? "",
+    institutionLogo: p.institutionLogo ?? "",
+    institutionName: p.institutionName ?? "Rahmaniyya Public School",
+    institutionTagline: p.institutionTagline ?? "Akampadam",
+  };
+}
+
+function principalFromBackend(p: BackendPrincipalProfile): PrincipalProfile {
+  return {
+    id: p.id,
+    name: p.name,
+    email: p.email,
+    phone: p.phone,
+    password: p.password,
+    role: "principal" as const,
+    photo: p.photo || "",
+    institutionLogo: p.institutionLogo || "",
+    institutionName: p.institutionName || "Rahmaniyya Public School",
+    institutionTagline: p.institutionTagline || "Akampadam",
+  };
+}
+
+// ============================================================
+// Backend async API
+// ============================================================
+
+/** Initialize backend and sync all data from canister to localStorage cache */
+export async function initializeBackend(): Promise<void> {
+  try {
+    setSyncStatus("syncing");
+    const be = await getBackend();
+    await be.initializeIfNeeded();
+    await Promise.all([
+      syncTeachersFromBackend(),
+      syncStudentsFromBackend(),
+      syncPrincipalFromBackend(),
+    ]);
+    setSyncStatus("synced");
+  } catch (err) {
+    console.error("Backend init failed, using localStorage:", err);
+    setSyncStatus("error");
+    // Fall back to initializing from localStorage
+    initializeData();
+  }
+}
+
+/** Load teachers from backend canister and update localStorage cache */
+export async function syncTeachersFromBackend(): Promise<Teacher[]> {
+  try {
+    const be = await getBackend();
+    const backendTeachers = await be.getTeachers();
+    const teachers = backendTeachers.map(teacherFromBackend);
+    setLS(KEYS.TEACHERS, teachers);
+    return teachers;
+  } catch (err) {
+    console.error("syncTeachersFromBackend failed:", err);
+    return getLS<Teacher[]>(KEYS.TEACHERS, []);
+  }
+}
+
+/** Load students from backend canister and update localStorage cache */
+export async function syncStudentsFromBackend(): Promise<Student[]> {
+  try {
+    const be = await getBackend();
+    const backendStudents = await be.getStudents();
+    const students = backendStudents.map(studentFromBackend);
+    setLS(KEYS.STUDENTS, students);
+    return students;
+  } catch (err) {
+    console.error("syncStudentsFromBackend failed:", err);
+    return getLS<Student[]>(KEYS.STUDENTS, []);
+  }
+}
+
+/** Load principal profile from backend canister and update localStorage cache */
+export async function syncPrincipalFromBackend(): Promise<void> {
+  try {
+    const be = await getBackend();
+    const p = await be.getPrincipalProfile();
+    const profile = principalFromBackend(p);
+    setLS(KEYS.PRINCIPAL, profile);
+  } catch (err) {
+    console.error("syncPrincipalFromBackend failed:", err);
+  }
+}
+
+/** Authenticate against backend canister */
+export async function authenticateAsync(
+  role: Role,
+  id: string,
+  password: string,
+): Promise<CurrentUser | null> {
+  try {
+    const be = await getBackend();
+    if (role === "principal") {
+      const result = await be.loginPrincipal(id, password);
+      if (!result) return null;
+      return { id: result.id, name: result.name, role: "principal" };
+    }
+    if (role === "teacher") {
+      const result = await be.loginTeacher(id, password);
+      if (!result) return null;
+      return {
+        id: result.id,
+        name: result.name,
+        role: "teacher",
+        class: result.studentClass ?? result.class ?? "",
+      };
+    }
+    if (role === "student") {
+      const result = await be.loginStudent(id, password);
+      if (!result) return null;
+      return {
+        id: result.id,
+        name: result.name,
+        role: "student",
+        class: result.studentClass ?? result.class ?? "",
+      };
+    }
+    return null;
+  } catch (err) {
+    console.error(
+      "authenticateAsync failed, falling back to localStorage:",
+      err,
+    );
+    // Fall back to sync auth from localStorage cache
+    return authenticate(role, id, password);
+  }
+}
+
+/** Save (add or update) a teacher to the backend canister and localStorage cache */
+export async function saveTeacherToBackend(teacher: Teacher): Promise<void> {
+  const backendTeacher = teacherToBackend(teacher);
+  try {
+    const be = await getBackend();
+    // Check if teacher already exists
+    const existing = await be.getTeacherById(teacher.id);
+    if (existing) {
+      await be.updateTeacher(teacher.id, backendTeacher);
+    } else {
+      await be.addTeacher(backendTeacher);
+    }
+  } catch (err) {
+    console.error("saveTeacherToBackend failed:", err);
+    throw err;
+  }
+  // Always update localStorage cache
+  const teachers = getLS<Teacher[]>(KEYS.TEACHERS, []);
+  const idx = teachers.findIndex((t) => t.id === teacher.id);
+  if (idx >= 0) {
+    teachers[idx] = teacher;
+  } else {
+    teachers.push(teacher);
+  }
+  setLS(KEYS.TEACHERS, teachers);
+}
+
+/** Delete a teacher from the backend canister and localStorage cache */
+export async function deleteTeacherFromBackend(id: string): Promise<void> {
+  try {
+    const be = await getBackend();
+    await be.deleteTeacher(id);
+  } catch (err) {
+    console.error("deleteTeacherFromBackend failed:", err);
+    throw err;
+  }
+  const teachers = getLS<Teacher[]>(KEYS.TEACHERS, []).filter(
+    (t) => t.id !== id,
+  );
+  setLS(KEYS.TEACHERS, teachers);
+}
+
+/** Save (add or update) a student to the backend canister and localStorage cache */
+export async function saveStudentToBackend(student: Student): Promise<void> {
+  const backendStudent = studentToBackend(student);
+  try {
+    const be = await getBackend();
+    const existing = await be.getStudentById(student.id);
+    if (existing) {
+      await be.updateStudent(student.id, backendStudent);
+    } else {
+      await be.addStudent(backendStudent);
+    }
+  } catch (err) {
+    console.error("saveStudentToBackend failed:", err);
+    throw err;
+  }
+  const students = getLS<Student[]>(KEYS.STUDENTS, []);
+  const idx = students.findIndex((s) => s.id === student.id);
+  if (idx >= 0) {
+    students[idx] = student;
+  } else {
+    students.push(student);
+  }
+  setLS(KEYS.STUDENTS, students);
+}
+
+/** Delete a student from the backend canister and localStorage cache */
+export async function deleteStudentFromBackend(id: string): Promise<void> {
+  try {
+    const be = await getBackend();
+    await be.deleteStudent(id);
+  } catch (err) {
+    console.error("deleteStudentFromBackend failed:", err);
+    throw err;
+  }
+  const students = getLS<Student[]>(KEYS.STUDENTS, []).filter(
+    (s) => s.id !== id,
+  );
+  setLS(KEYS.STUDENTS, students);
+}
+
+/** Save principal profile to backend canister and localStorage cache */
+export async function savePrincipalToBackend(
+  profile: PrincipalProfile,
+): Promise<void> {
+  const backendProfile = principalToBackend(profile);
+  try {
+    const be = await getBackend();
+    await be.savePrincipalProfile(backendProfile);
+  } catch (err) {
+    console.error("savePrincipalToBackend failed:", err);
+    throw err;
+  }
+  setLS(KEYS.PRINCIPAL, profile);
 }
 
 // ============================================================

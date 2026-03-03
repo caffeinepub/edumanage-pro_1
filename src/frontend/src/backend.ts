@@ -89,25 +89,404 @@ export class ExternalBlob {
         return this;
     }
 }
-export interface backendInterface {
-    ping(): Promise<string>;
+export interface PrincipalProfile {
+    id: string;
+    institutionLogo: string;
+    institutionName: string;
+    password: string;
+    name: string;
+    role: string;
+    email: string;
+    institutionTagline: string;
+    phone: string;
+    photo: string;
 }
+export interface Teacher {
+    id: string;
+    subject: string;
+    class: string;
+    password: string;
+    name: string;
+    role: string;
+    email: string;
+    phone: string;
+    photo: string;
+}
+export interface Student {
+    id: string;
+    class: string;
+    password: string;
+    name: string;
+    role: string;
+    parentPhone: string;
+    teacherId: string;
+    photo: string;
+    rollNo: string;
+    parentName: string;
+}
+export interface backendInterface {
+    addStudent(student: Student): Promise<void>;
+    addTeacher(teacher: Teacher): Promise<void>;
+    deleteStudent(id: string): Promise<void>;
+    deleteTeacher(id: string): Promise<void>;
+    getPrincipalProfile(): Promise<PrincipalProfile>;
+    getStudentById(id: string): Promise<Student | null>;
+    getStudents(): Promise<Array<Student>>;
+    getStudentsByClass(className: string): Promise<Array<Student>>;
+    getStudentsByTeacher(teacherId: string): Promise<Array<Student>>;
+    getTeacherById(id: string): Promise<Teacher | null>;
+    getTeachers(): Promise<Array<Teacher>>;
+    initializeIfNeeded(): Promise<void>;
+    initializeStudents(): Promise<void>;
+    initializeTeachers(): Promise<void>;
+    loginPrincipal(id: string, password: string): Promise<{
+        id: string;
+        name: string;
+        role: string;
+    } | null>;
+    loginStudent(id: string, password: string): Promise<{
+        id: string;
+        studentClass: string;
+        name: string;
+        role: string;
+    } | null>;
+    loginTeacher(id: string, password: string): Promise<{
+        id: string;
+        studentClass: string;
+        name: string;
+        role: string;
+    } | null>;
+    savePrincipalProfile(profile: PrincipalProfile): Promise<void>;
+    updateStudent(id: string, updatedStudent: Student): Promise<boolean>;
+    updateTeacher(id: string, updatedTeacher: Teacher): Promise<boolean>;
+}
+import type { Student as _Student, Teacher as _Teacher } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
-    async ping(): Promise<string> {
+    async addStudent(arg0: Student): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.ping();
+                const result = await this.actor.addStudent(arg0);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.ping();
+            const result = await this.actor.addStudent(arg0);
             return result;
         }
     }
+    async addTeacher(arg0: Teacher): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addTeacher(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addTeacher(arg0);
+            return result;
+        }
+    }
+    async deleteStudent(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteStudent(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteStudent(arg0);
+            return result;
+        }
+    }
+    async deleteTeacher(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteTeacher(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteTeacher(arg0);
+            return result;
+        }
+    }
+    async getPrincipalProfile(): Promise<PrincipalProfile> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getPrincipalProfile();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getPrincipalProfile();
+            return result;
+        }
+    }
+    async getStudentById(arg0: string): Promise<Student | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getStudentById(arg0);
+                return from_candid_opt_n1(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getStudentById(arg0);
+            return from_candid_opt_n1(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getStudents(): Promise<Array<Student>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getStudents();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getStudents();
+            return result;
+        }
+    }
+    async getStudentsByClass(arg0: string): Promise<Array<Student>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getStudentsByClass(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getStudentsByClass(arg0);
+            return result;
+        }
+    }
+    async getStudentsByTeacher(arg0: string): Promise<Array<Student>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getStudentsByTeacher(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getStudentsByTeacher(arg0);
+            return result;
+        }
+    }
+    async getTeacherById(arg0: string): Promise<Teacher | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getTeacherById(arg0);
+                return from_candid_opt_n2(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getTeacherById(arg0);
+            return from_candid_opt_n2(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getTeachers(): Promise<Array<Teacher>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getTeachers();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getTeachers();
+            return result;
+        }
+    }
+    async initializeIfNeeded(): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.initializeIfNeeded();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.initializeIfNeeded();
+            return result;
+        }
+    }
+    async initializeStudents(): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.initializeStudents();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.initializeStudents();
+            return result;
+        }
+    }
+    async initializeTeachers(): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.initializeTeachers();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.initializeTeachers();
+            return result;
+        }
+    }
+    async loginPrincipal(arg0: string, arg1: string): Promise<{
+        id: string;
+        name: string;
+        role: string;
+    } | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.loginPrincipal(arg0, arg1);
+                return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.loginPrincipal(arg0, arg1);
+            return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async loginStudent(arg0: string, arg1: string): Promise<{
+        id: string;
+        studentClass: string;
+        name: string;
+        role: string;
+    } | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.loginStudent(arg0, arg1);
+                return from_candid_opt_n4(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.loginStudent(arg0, arg1);
+            return from_candid_opt_n4(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async loginTeacher(arg0: string, arg1: string): Promise<{
+        id: string;
+        studentClass: string;
+        name: string;
+        role: string;
+    } | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.loginTeacher(arg0, arg1);
+                return from_candid_opt_n4(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.loginTeacher(arg0, arg1);
+            return from_candid_opt_n4(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async savePrincipalProfile(arg0: PrincipalProfile): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.savePrincipalProfile(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.savePrincipalProfile(arg0);
+            return result;
+        }
+    }
+    async updateStudent(arg0: string, arg1: Student): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateStudent(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateStudent(arg0, arg1);
+            return result;
+        }
+    }
+    async updateTeacher(arg0: string, arg1: Teacher): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateTeacher(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateTeacher(arg0, arg1);
+            return result;
+        }
+    }
+}
+function from_candid_opt_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_Student]): Student | null {
+    return value.length === 0 ? null : value[0];
+}
+function from_candid_opt_n2(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_Teacher]): Teacher | null {
+    return value.length === 0 ? null : value[0];
+}
+function from_candid_opt_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [{
+        id: string;
+        name: string;
+        role: string;
+    }]): {
+    id: string;
+    name: string;
+    role: string;
+} | null {
+    return value.length === 0 ? null : value[0];
+}
+function from_candid_opt_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [{
+        id: string;
+        studentClass: string;
+        name: string;
+        role: string;
+    }]): {
+    id: string;
+    studentClass: string;
+    name: string;
+    role: string;
+} | null {
+    return value.length === 0 ? null : value[0];
 }
 export interface CreateActorOptions {
     agent?: Agent;

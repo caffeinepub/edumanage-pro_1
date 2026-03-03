@@ -10,7 +10,72 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
-export interface _SERVICE { 'ping' : ActorMethod<[], string> }
+export interface PrincipalProfile {
+  'id' : string,
+  'institutionLogo' : string,
+  'institutionName' : string,
+  'password' : string,
+  'name' : string,
+  'role' : string,
+  'email' : string,
+  'institutionTagline' : string,
+  'phone' : string,
+  'photo' : string,
+}
+export interface Student {
+  'id' : string,
+  'class' : string,
+  'password' : string,
+  'name' : string,
+  'role' : string,
+  'parentPhone' : string,
+  'teacherId' : string,
+  'photo' : string,
+  'rollNo' : string,
+  'parentName' : string,
+}
+export interface Teacher {
+  'id' : string,
+  'subject' : string,
+  'class' : string,
+  'password' : string,
+  'name' : string,
+  'role' : string,
+  'email' : string,
+  'phone' : string,
+  'photo' : string,
+}
+export interface _SERVICE {
+  'addStudent' : ActorMethod<[Student], undefined>,
+  'addTeacher' : ActorMethod<[Teacher], undefined>,
+  'deleteStudent' : ActorMethod<[string], undefined>,
+  'deleteTeacher' : ActorMethod<[string], undefined>,
+  'getPrincipalProfile' : ActorMethod<[], PrincipalProfile>,
+  'getStudentById' : ActorMethod<[string], [] | [Student]>,
+  'getStudents' : ActorMethod<[], Array<Student>>,
+  'getStudentsByClass' : ActorMethod<[string], Array<Student>>,
+  'getStudentsByTeacher' : ActorMethod<[string], Array<Student>>,
+  'getTeacherById' : ActorMethod<[string], [] | [Teacher]>,
+  'getTeachers' : ActorMethod<[], Array<Teacher>>,
+  'initializeIfNeeded' : ActorMethod<[], undefined>,
+  'initializeStudents' : ActorMethod<[], undefined>,
+  'initializeTeachers' : ActorMethod<[], undefined>,
+  'loginPrincipal' : ActorMethod<
+    [string, string],
+    [] | [{ 'id' : string, 'name' : string, 'role' : string }]
+  >,
+  'loginStudent' : ActorMethod<
+    [string, string],
+    [] | [{ 'id' : string, 'class' : string, 'name' : string, 'role' : string }]
+  >,
+  'loginTeacher' : ActorMethod<
+    [string, string],
+    [] | [{ 'id' : string, 'class' : string, 'name' : string, 'role' : string }]
+  >,
+  'savePrincipalProfile' : ActorMethod<[PrincipalProfile], undefined>,
+  'updateStudent' : ActorMethod<[string, Student], boolean>,
+  'updateTeacher' : ActorMethod<[string, Teacher], boolean>,
+}
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];
 export declare const idlFactory: IDL.InterfaceFactory;

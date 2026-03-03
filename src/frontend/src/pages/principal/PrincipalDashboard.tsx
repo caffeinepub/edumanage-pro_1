@@ -55,6 +55,8 @@ import {
   type TeacherAttendance,
   type Timetable,
   calcAttendancePercent,
+  deleteStudentFromBackend,
+  deleteTeacherFromBackend,
   formatDate,
   generateId,
   getAttendance,
@@ -75,13 +77,18 @@ import {
   saveLeaves,
   saveNotifications,
   savePrincipalProfile,
+  savePrincipalToBackend,
   saveResults,
+  saveStudentToBackend,
   saveStudents,
   saveSuggestions,
   saveTeacherAttendance,
+  saveTeacherToBackend,
   saveTeachers,
   saveTimetables,
   setCurrentUser,
+  syncStudentsFromBackend,
+  syncTeachersFromBackend,
 } from "@/store/data";
 import {
   Check,
@@ -589,7 +596,7 @@ function ManageTeachers() {
 
   const { paged: pagedTeachers, pagination } = usePagination(filtered, 15);
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!form.name || !form.id || !form.password) {
       toast.error("Name, ID and Password are required");
       return;
@@ -599,9 +606,16 @@ function ManageTeachers() {
       return;
     }
     const newTeacher: Teacher = { ...form, role: "teacher", photo: form.photo };
-    const updated = [...teachers, newTeacher];
-    saveTeachers(updated);
-    setTeachers(updated);
+    try {
+      await saveTeacherToBackend(newTeacher);
+      const updated = await syncTeachersFromBackend();
+      setTeachers(updated);
+    } catch {
+      // Fallback: save locally only
+      const updated = [...teachers, newTeacher];
+      saveTeachers(updated);
+      setTeachers(updated);
+    }
     setPhotoPreview("");
     setForm({
       name: "",
@@ -617,10 +631,16 @@ function ManageTeachers() {
     toast.success("Teacher added successfully");
   };
 
-  const handleDelete = (id: string) => {
-    const updated = teachers.filter((t) => t.id !== id);
-    saveTeachers(updated);
-    setTeachers(updated);
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteTeacherFromBackend(id);
+      const updated = await syncTeachersFromBackend();
+      setTeachers(updated);
+    } catch {
+      const updated = teachers.filter((t) => t.id !== id);
+      saveTeachers(updated);
+      setTeachers(updated);
+    }
     toast.success("Teacher removed");
   };
 
@@ -876,7 +896,7 @@ function ManageStudents() {
     setPhotoPreview("");
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!form.name || !form.id || !form.password) {
       toast.error("Name, Login ID and Password are required");
       return;
@@ -897,22 +917,34 @@ function ManageStudents() {
       role: "student",
       photo: form.photo || undefined,
     };
-    const updated = [...students, newStudent];
-    saveStudents(updated);
-    setStudents(updated);
+    try {
+      await saveStudentToBackend(newStudent);
+      const updated = await syncStudentsFromBackend();
+      setStudents(updated);
+    } catch {
+      const updated = [...students, newStudent];
+      saveStudents(updated);
+      setStudents(updated);
+    }
     resetForm();
     setOpen(false);
     toast.success("Student added successfully");
   };
 
-  const handleDelete = (id: string) => {
-    const updated = students.filter((s) => s.id !== id);
-    saveStudents(updated);
-    setStudents(updated);
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteStudentFromBackend(id);
+      const updated = await syncStudentsFromBackend();
+      setStudents(updated);
+    } catch {
+      const updated = students.filter((s) => s.id !== id);
+      saveStudents(updated);
+      setStudents(updated);
+    }
     toast.success("Student removed");
   };
 
-  const handlePromote = () => {
+  const handlePromote = async () => {
     if (!promoSource || !promoTarget) {
       toast.error("Please select source class and enter target class");
       return;
@@ -935,8 +967,20 @@ function ManageStudents() {
       }
       return s;
     });
-    saveStudents(updated);
-    setStudents(updated);
+    // Save promoted students to backend
+    const promoted = updated.filter(
+      (s) =>
+        s.class === promoTarget &&
+        students.find((os) => os.id === s.id && os.class === promoSource),
+    );
+    try {
+      await Promise.all(promoted.map((s) => saveStudentToBackend(s)));
+      const synced = await syncStudentsFromBackend();
+      setStudents(synced);
+    } catch {
+      saveStudents(updated);
+      setStudents(updated);
+    }
     toast.success(
       `${promoCount} student${promoCount > 1 ? "s" : ""} promoted from Class ${promoSource} to Class ${promoTarget}`,
     );
@@ -2279,7 +2323,7 @@ function MyProfile({ user, onNameChange }: ProfileProps) {
       return;
     }
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       const dataUrl = ev.target?.result as string;
       setter(dataUrl);
       const updated = { ...getPrincipalProfile(), [saveKey]: dataUrl };
@@ -2290,13 +2334,18 @@ function MyProfile({ user, onNameChange }: ProfileProps) {
           ? "Principal photo updated"
           : "Institution logo updated",
       );
+      try {
+        await savePrincipalToBackend(updated);
+      } catch {
+        // Ignore — already saved locally
+      }
     };
     reader.readAsDataURL(file);
     // Reset input so same file can be re-selected
     e.target.value = "";
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     if (!form.name.trim()) {
       toast.error("Name cannot be empty");
       return;
@@ -2317,9 +2366,14 @@ function MyProfile({ user, onNameChange }: ProfileProps) {
     setCurrentUser({ ...user, id: updated.id, name: updated.name });
     onNameChange(updated.name);
     toast.success("Profile updated successfully");
+    try {
+      await savePrincipalToBackend(updated);
+    } catch {
+      // Ignore — already saved locally
+    }
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     if (!pwForm.currentPassword) {
       toast.error("Enter your current password");
       return;
@@ -2341,6 +2395,11 @@ function MyProfile({ user, onNameChange }: ProfileProps) {
     setProfileState(updated);
     setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
     toast.success("Password changed successfully");
+    try {
+      await savePrincipalToBackend(updated);
+    } catch {
+      // Ignore — already saved locally
+    }
   };
 
   return (
@@ -2404,6 +2463,7 @@ function MyProfile({ user, onNameChange }: ProfileProps) {
                     savePrincipalProfile(updated);
                     setProfileState(updated);
                     toast.success("Photo removed");
+                    savePrincipalToBackend(updated).catch(() => {});
                   }}
                 >
                   Remove photo
@@ -2462,6 +2522,7 @@ function MyProfile({ user, onNameChange }: ProfileProps) {
                     savePrincipalProfile(updated);
                     setProfileState(updated);
                     toast.success("Logo reset to default");
+                    savePrincipalToBackend(updated).catch(() => {});
                   }}
                 >
                   Reset to default

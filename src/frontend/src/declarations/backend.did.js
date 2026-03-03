@@ -8,14 +8,202 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
+export const Student = IDL.Record({
+  'id' : IDL.Text,
+  'class' : IDL.Text,
+  'password' : IDL.Text,
+  'name' : IDL.Text,
+  'role' : IDL.Text,
+  'parentPhone' : IDL.Text,
+  'teacherId' : IDL.Text,
+  'photo' : IDL.Text,
+  'rollNo' : IDL.Text,
+  'parentName' : IDL.Text,
+});
+export const Teacher = IDL.Record({
+  'id' : IDL.Text,
+  'subject' : IDL.Text,
+  'class' : IDL.Text,
+  'password' : IDL.Text,
+  'name' : IDL.Text,
+  'role' : IDL.Text,
+  'email' : IDL.Text,
+  'phone' : IDL.Text,
+  'photo' : IDL.Text,
+});
+export const PrincipalProfile = IDL.Record({
+  'id' : IDL.Text,
+  'institutionLogo' : IDL.Text,
+  'institutionName' : IDL.Text,
+  'password' : IDL.Text,
+  'name' : IDL.Text,
+  'role' : IDL.Text,
+  'email' : IDL.Text,
+  'institutionTagline' : IDL.Text,
+  'phone' : IDL.Text,
+  'photo' : IDL.Text,
+});
+
 export const idlService = IDL.Service({
-  'ping' : IDL.Func([], [IDL.Text], ['query']),
+  'addStudent' : IDL.Func([Student], [], []),
+  'addTeacher' : IDL.Func([Teacher], [], []),
+  'deleteStudent' : IDL.Func([IDL.Text], [], []),
+  'deleteTeacher' : IDL.Func([IDL.Text], [], []),
+  'getPrincipalProfile' : IDL.Func([], [PrincipalProfile], ['query']),
+  'getStudentById' : IDL.Func([IDL.Text], [IDL.Opt(Student)], ['query']),
+  'getStudents' : IDL.Func([], [IDL.Vec(Student)], ['query']),
+  'getStudentsByClass' : IDL.Func([IDL.Text], [IDL.Vec(Student)], ['query']),
+  'getStudentsByTeacher' : IDL.Func([IDL.Text], [IDL.Vec(Student)], ['query']),
+  'getTeacherById' : IDL.Func([IDL.Text], [IDL.Opt(Teacher)], ['query']),
+  'getTeachers' : IDL.Func([], [IDL.Vec(Teacher)], ['query']),
+  'initializeIfNeeded' : IDL.Func([], [], []),
+  'initializeStudents' : IDL.Func([], [], ['oneway']),
+  'initializeTeachers' : IDL.Func([], [], ['oneway']),
+  'loginPrincipal' : IDL.Func(
+      [IDL.Text, IDL.Text],
+      [
+        IDL.Opt(
+          IDL.Record({ 'id' : IDL.Text, 'name' : IDL.Text, 'role' : IDL.Text })
+        ),
+      ],
+      ['query'],
+    ),
+  'loginStudent' : IDL.Func(
+      [IDL.Text, IDL.Text],
+      [
+        IDL.Opt(
+          IDL.Record({
+            'id' : IDL.Text,
+            'class' : IDL.Text,
+            'name' : IDL.Text,
+            'role' : IDL.Text,
+          })
+        ),
+      ],
+      ['query'],
+    ),
+  'loginTeacher' : IDL.Func(
+      [IDL.Text, IDL.Text],
+      [
+        IDL.Opt(
+          IDL.Record({
+            'id' : IDL.Text,
+            'class' : IDL.Text,
+            'name' : IDL.Text,
+            'role' : IDL.Text,
+          })
+        ),
+      ],
+      ['query'],
+    ),
+  'savePrincipalProfile' : IDL.Func([PrincipalProfile], [], []),
+  'updateStudent' : IDL.Func([IDL.Text, Student], [IDL.Bool], []),
+  'updateTeacher' : IDL.Func([IDL.Text, Teacher], [IDL.Bool], []),
 });
 
 export const idlInitArgs = [];
 
 export const idlFactory = ({ IDL }) => {
-  return IDL.Service({ 'ping' : IDL.Func([], [IDL.Text], ['query']) });
+  const Student = IDL.Record({
+    'id' : IDL.Text,
+    'class' : IDL.Text,
+    'password' : IDL.Text,
+    'name' : IDL.Text,
+    'role' : IDL.Text,
+    'parentPhone' : IDL.Text,
+    'teacherId' : IDL.Text,
+    'photo' : IDL.Text,
+    'rollNo' : IDL.Text,
+    'parentName' : IDL.Text,
+  });
+  const Teacher = IDL.Record({
+    'id' : IDL.Text,
+    'subject' : IDL.Text,
+    'class' : IDL.Text,
+    'password' : IDL.Text,
+    'name' : IDL.Text,
+    'role' : IDL.Text,
+    'email' : IDL.Text,
+    'phone' : IDL.Text,
+    'photo' : IDL.Text,
+  });
+  const PrincipalProfile = IDL.Record({
+    'id' : IDL.Text,
+    'institutionLogo' : IDL.Text,
+    'institutionName' : IDL.Text,
+    'password' : IDL.Text,
+    'name' : IDL.Text,
+    'role' : IDL.Text,
+    'email' : IDL.Text,
+    'institutionTagline' : IDL.Text,
+    'phone' : IDL.Text,
+    'photo' : IDL.Text,
+  });
+  
+  return IDL.Service({
+    'addStudent' : IDL.Func([Student], [], []),
+    'addTeacher' : IDL.Func([Teacher], [], []),
+    'deleteStudent' : IDL.Func([IDL.Text], [], []),
+    'deleteTeacher' : IDL.Func([IDL.Text], [], []),
+    'getPrincipalProfile' : IDL.Func([], [PrincipalProfile], ['query']),
+    'getStudentById' : IDL.Func([IDL.Text], [IDL.Opt(Student)], ['query']),
+    'getStudents' : IDL.Func([], [IDL.Vec(Student)], ['query']),
+    'getStudentsByClass' : IDL.Func([IDL.Text], [IDL.Vec(Student)], ['query']),
+    'getStudentsByTeacher' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(Student)],
+        ['query'],
+      ),
+    'getTeacherById' : IDL.Func([IDL.Text], [IDL.Opt(Teacher)], ['query']),
+    'getTeachers' : IDL.Func([], [IDL.Vec(Teacher)], ['query']),
+    'initializeIfNeeded' : IDL.Func([], [], []),
+    'initializeStudents' : IDL.Func([], [], ['oneway']),
+    'initializeTeachers' : IDL.Func([], [], ['oneway']),
+    'loginPrincipal' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [
+          IDL.Opt(
+            IDL.Record({
+              'id' : IDL.Text,
+              'name' : IDL.Text,
+              'role' : IDL.Text,
+            })
+          ),
+        ],
+        ['query'],
+      ),
+    'loginStudent' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [
+          IDL.Opt(
+            IDL.Record({
+              'id' : IDL.Text,
+              'class' : IDL.Text,
+              'name' : IDL.Text,
+              'role' : IDL.Text,
+            })
+          ),
+        ],
+        ['query'],
+      ),
+    'loginTeacher' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [
+          IDL.Opt(
+            IDL.Record({
+              'id' : IDL.Text,
+              'class' : IDL.Text,
+              'name' : IDL.Text,
+              'role' : IDL.Text,
+            })
+          ),
+        ],
+        ['query'],
+      ),
+    'savePrincipalProfile' : IDL.Func([PrincipalProfile], [], []),
+    'updateStudent' : IDL.Func([IDL.Text, Student], [IDL.Bool], []),
+    'updateTeacher' : IDL.Func([IDL.Text, Teacher], [IDL.Bool], []),
+  });
 };
 
 export const init = ({ IDL }) => { return []; };

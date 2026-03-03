@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   type Role,
-  authenticate,
+  authenticateAsync,
   getPrincipalProfile,
   setCurrentUser,
 } from "@/store/data";
@@ -32,11 +32,15 @@ function LoginForm({
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      const user = authenticate(userRole, id.trim(), password.trim());
+    try {
+      const user = await authenticateAsync(
+        userRole,
+        id.trim(),
+        password.trim(),
+      );
       if (user) {
         setCurrentUser(user);
         toast.success(`Welcome, ${user.name}!`);
@@ -44,8 +48,11 @@ function LoginForm({
       } else {
         toast.error("Invalid credentials. Please try again.");
       }
+    } catch {
+      toast.error("Login failed. Please try again.");
+    } finally {
       setLoading(false);
-    }, 400);
+    }
   };
 
   const fillDemo = () => {

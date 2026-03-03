@@ -27,6 +27,8 @@
     "node_modules",
     "dist",
     "build",
-    "*.config.js"
+    "*.config.js",
+    "src/backend.ts",
+    "src/backend.d.ts"
   ]
 }
