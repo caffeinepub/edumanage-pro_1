@@ -1,29 +1,42 @@
 # EduManage Pro
 
 ## Current State
-The app has a Motoko backend canister that stores only: principal profile, teachers, and students. All other data (attendance, teacher attendance, fees, exam results, notifications, homework, calendar events, leave applications, timetables, online exams, exam attempts, portfolio entries, suggestions, hall ticket design) is stored exclusively in browser localStorage. This means any data added or changed on one device is invisible on any other device.
+The app uses a localStorage cache backed by a backend canister. All data syncs from canister on load, and writes go to both the canister and localStorage. However, every write operation (save, update) currently makes an extra `getAll` call first to check if a record exists before deciding to call `add` or `update`. This doubles every write round-trip and makes the app noticeably slow.
+
+Additionally, the app loading screen has no meaningful progress feedback — it shows a single "Connecting to school server..." message and users wait without any indication of progress.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Backend canister storage for all remaining data types: StudentAttendance, TeacherAttendance, FeeRecord, ExamResult, Notification, HomeworkPost, CalendarEvent, LeaveApplication, Timetable, OnlineExam, ExamAttempt, PortfolioEntry, SuggestionQuery, HallTicketDesign
-- Backend CRUD functions for each new data type: get all, add, update by id, delete by id
-- Frontend async sync functions in data.ts for all new data types: load from backend into localStorage cache, save to backend and cache
-- On app load (initializeBackend), sync all data types from canister, not just teachers/students/principal
-- All dashboard write operations (add, update, delete) must call the async backend function so data is persisted in the canister and visible on all devices
+- A `FeeReport` section in the principal dashboard: filter by class and/or student, view a detailed table, and download as PDF.
+- A smarter `initializeBackend` that shows parallel sync progress.
 
 ### Modify
-- Motoko main.mo: add storage variables and CRUD methods for all missing data types
-- data.ts initializeBackend(): extend to sync all data types from canister
-- PrincipalDashboard, TeacherDashboard, StudentDashboard: switch all mutating operations (save, delete, update) to use the new async backend functions instead of pure localStorage writes
+- All write operations in `data.ts` that do an extra `getAll` check before add/update:
+  - `saveTeacherToBackend` — remove inner `getAllTeachers` lookup; use `updateTeacher` directly if `id` matches, else `addTeacher`
+  - `saveStudentToBackend` — same pattern
+  - `saveFeeToBackend` — remove inner `getAllFeeRecords` lookup
+  - `saveResultToBackend` — remove inner `getAllExamResults` lookup
+  - `saveNotificationToBackend` — remove inner `getAllNotifications` lookup
+  - `saveHomeworkToBackend` — remove inner `getAllHomework` lookup
+  - `saveCalendarEventToBackend` — remove inner `getAllCalendarEvents` lookup
+  - `saveLeaveToBackend` — remove inner `getAllLeaveApplications` lookup
+  - `saveTimetableToBackend` — remove inner `getAllTimetables` lookup
+  - `saveExamToBackend` — remove inner `getAllExams` lookup
+  - `saveExamAttemptToBackend` — remove inner `getAllExamAttempts` lookup
+  - `savePortfolioEntryToBackend` — remove inner `getAllPortfolioEntries` lookup
+  - `saveSuggestionToBackend` — remove inner `getAllSuggestions` lookup
+- Strategy: use the localStorage cache to determine add vs update (if `id` exists in local cache = update, else add). This avoids any extra backend round-trip.
+- `saveFeesToBackend` batch — same optimization: use local cache as source of truth for existing IDs.
+- `saveResultsBatchToBackend` — same
+- `saveAttendanceBatchToBackend` — same
+- `saveTeacherAttendanceBatchToBackend` — same
 
 ### Remove
-- No features removed; no UI changes
+- Nothing removed from the UI.
 
 ## Implementation Plan
-1. Extend main.mo with stable variables and CRUD for: StudentAttendance, TeacherAttendance, FeeRecord, ExamResult, Notification, HomeworkPost, CalendarEvent, LeaveApplication, Timetable, OnlineExam, ExamAttempt, PortfolioEntry, SuggestionQuery, HallTicketDesign
-2. Add JSON-based storage for complex/nested types (schedule, questions, answers, subjects) using Text fields serialized as JSON strings
-3. In data.ts, add async sync/save/delete functions for each new data type mirroring the existing teacher/student pattern
-4. Extend initializeBackend() to call all new sync functions
-5. Update all dashboard mutation handlers to use async backend functions (show loading states where needed)
-6. Seed data on first run via initializeIfNeeded() on the backend
+1. Refactor all single-record write helpers in `data.ts` to check localStorage cache for existence instead of calling `getAll` on backend. This eliminates one backend round-trip per write operation.
+2. Refactor all batch write helpers (`saveFeesToBackend`, `saveResultsBatchToBackend`, `saveAttendanceBatchToBackend`, `saveTeacherAttendanceBatchToBackend`) the same way.
+3. Add a `FeeReport` section to the principal dashboard sidebar with class+student filters and a print/PDF download button.
+4. Ensure all changes pass typecheck and lint.

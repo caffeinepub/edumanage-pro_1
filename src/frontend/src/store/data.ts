@@ -1535,27 +1535,22 @@ export async function syncHallTicketDesignFromBackend(): Promise<void> {
 
 // --- Teachers ---
 export async function saveTeacherToBackend(teacher: Teacher): Promise<void> {
-  const be = await getBackend();
+  const teachers = getTeachers();
+  const idx = teachers.findIndex((t) => t.id === teacher.id);
   const b = teacherToBackend(teacher);
   try {
-    const existing = await be
-      .getAllTeachers()
-      .then((list: BackendTeacher[]) =>
-        list.find((t: BackendTeacher) => t.id === teacher.id),
-      );
-    if (existing) {
+    const be = await getBackend();
+    if (idx >= 0) {
       await be.updateTeacher(teacher.id, b);
+      teachers[idx] = teacher;
     } else {
       await be.addTeacher(b);
+      teachers.push(teacher);
     }
   } catch (err) {
     console.error("saveTeacherToBackend failed:", err);
     throw err;
   }
-  const teachers = getTeachers();
-  const idx = teachers.findIndex((t) => t.id === teacher.id);
-  if (idx >= 0) teachers[idx] = teacher;
-  else teachers.push(teacher);
   setLS(KEYS.TEACHERS, teachers);
 }
 
@@ -1575,27 +1570,22 @@ export async function deleteTeacherFromBackend(id: string): Promise<void> {
 
 // --- Students ---
 export async function saveStudentToBackend(student: Student): Promise<void> {
-  const be = await getBackend();
+  const students = getStudents();
+  const idx = students.findIndex((s) => s.id === student.id);
   const b = studentToBackend(student);
   try {
-    const existing = await be
-      .getAllStudents()
-      .then((list: BackendStudent[]) =>
-        list.find((s: BackendStudent) => s.id === student.id),
-      );
-    if (existing) {
+    const be = await getBackend();
+    if (idx >= 0) {
       await be.updateStudent(student.id, b);
+      students[idx] = student;
     } else {
       await be.addStudent(b);
+      students.push(student);
     }
   } catch (err) {
     console.error("saveStudentToBackend failed:", err);
     throw err;
   }
-  const students = getStudents();
-  const idx = students.findIndex((s) => s.id === student.id);
-  if (idx >= 0) students[idx] = student;
-  else students.push(student);
   setLS(KEYS.STUDENTS, students);
 }
 
@@ -1661,14 +1651,12 @@ export async function saveAttendanceBatchToBackend(
   records: AttendanceRecord[],
 ): Promise<void> {
   // For batch saves (marking attendance for whole class), add each new record
+  const all = getAttendance();
+  const cachedIds = new Set(all.map((a) => a.id));
   try {
     const be = await getBackend();
-    const existing = await be.getAllStudentAttendance();
-    const existingIds = new Set(
-      existing.map((a: BackendStudentAttendance) => a.id),
-    );
     for (const r of records) {
-      if (existingIds.has(r.id)) {
+      if (cachedIds.has(r.id)) {
         await be.updateStudentAttendance(r.id, attendanceToBackend(r));
       } else {
         await be.addStudentAttendance(attendanceToBackend(r));
@@ -1679,7 +1667,6 @@ export async function saveAttendanceBatchToBackend(
     throw err;
   }
   // Merge into local cache
-  const all = getAttendance();
   for (const r of records) {
     const idx = all.findIndex((a) => a.id === r.id);
     if (idx >= 0) all[idx] = r;
@@ -1726,14 +1713,12 @@ export async function updateTeacherAttendanceInBackend(
 export async function saveTeacherAttendanceBatchToBackend(
   records: TeacherAttendance[],
 ): Promise<void> {
+  const all = getTeacherAttendance();
+  const cachedIds = new Set(all.map((a) => a.id));
   try {
     const be = await getBackend();
-    const existing = await be.getAllTeacherAttendance();
-    const existingIds = new Set(
-      existing.map((a: BackendTeacherAttendance) => a.id),
-    );
     for (const r of records) {
-      if (existingIds.has(r.id)) {
+      if (cachedIds.has(r.id)) {
         await be.updateTeacherAttendance(r.id, teacherAttendanceToBackend(r));
       } else {
         await be.addTeacherAttendance(teacherAttendanceToBackend(r));
@@ -1743,7 +1728,6 @@ export async function saveTeacherAttendanceBatchToBackend(
     console.error("saveTeacherAttendanceBatchToBackend failed:", err);
     throw err;
   }
-  const all = getTeacherAttendance();
   for (const r of records) {
     const idx = all.findIndex((a) => a.id === r.id);
     if (idx >= 0) all[idx] = r;
@@ -1754,36 +1738,30 @@ export async function saveTeacherAttendanceBatchToBackend(
 
 // --- Fees ---
 export async function saveFeeToBackend(fee: FeeRecord): Promise<void> {
+  const all = getFees();
+  const idx = all.findIndex((f) => f.id === fee.id);
   try {
     const be = await getBackend();
-    const existing = await be
-      .getAllFeeRecords()
-      .then((list: BackendFeeRecord[]) =>
-        list.find((f: BackendFeeRecord) => f.id === fee.id),
-      );
-    if (existing) {
+    if (idx >= 0) {
       await be.updateFeeRecord(fee.id, feeToBackend(fee));
+      all[idx] = fee;
     } else {
       await be.addFeeRecord(feeToBackend(fee));
+      all.push(fee);
     }
   } catch (err) {
     console.error("saveFeeToBackend failed:", err);
     throw err;
   }
-  const all = getFees();
-  const idx = all.findIndex((f) => f.id === fee.id);
-  if (idx >= 0) all[idx] = fee;
-  else all.push(fee);
   setLS(KEYS.FEES, all);
 }
 
 export async function saveFeesToBackend(fees: FeeRecord[]): Promise<void> {
+  const cachedIds = new Set(getFees().map((f) => f.id));
   try {
     const be = await getBackend();
-    const existing = await be.getAllFeeRecords();
-    const existingIds = new Set(existing.map((f: BackendFeeRecord) => f.id));
     for (const fee of fees) {
-      if (existingIds.has(fee.id)) {
+      if (cachedIds.has(fee.id)) {
         await be.updateFeeRecord(fee.id, feeToBackend(fee));
       } else {
         await be.addFeeRecord(feeToBackend(fee));
@@ -1798,26 +1776,21 @@ export async function saveFeesToBackend(fees: FeeRecord[]): Promise<void> {
 
 // --- Results ---
 export async function saveResultToBackend(result: ExamResult): Promise<void> {
+  const all = getResults();
+  const idx = all.findIndex((r) => r.id === result.id);
   try {
     const be = await getBackend();
-    const existing = await be
-      .getAllExamResults()
-      .then((list: BackendExamResult[]) =>
-        list.find((r: BackendExamResult) => r.id === result.id),
-      );
-    if (existing) {
+    if (idx >= 0) {
       await be.updateExamResult(result.id, resultToBackend(result));
+      all[idx] = result;
     } else {
       await be.addExamResult(resultToBackend(result));
+      all.push(result);
     }
   } catch (err) {
     console.error("saveResultToBackend failed:", err);
     throw err;
   }
-  const all = getResults();
-  const idx = all.findIndex((r) => r.id === result.id);
-  if (idx >= 0) all[idx] = result;
-  else all.push(result);
   setLS(KEYS.RESULTS, all);
 }
 
@@ -1838,12 +1811,12 @@ export async function deleteResultFromBackend(id: string): Promise<void> {
 export async function saveResultsBatchToBackend(
   results: ExamResult[],
 ): Promise<void> {
+  const all = getResults();
+  const cachedIds = new Set(all.map((r) => r.id));
   try {
     const be = await getBackend();
-    const existing = await be.getAllExamResults();
-    const existingIds = new Set(existing.map((r: BackendExamResult) => r.id));
     for (const result of results) {
-      if (existingIds.has(result.id)) {
+      if (cachedIds.has(result.id)) {
         await be.updateExamResult(result.id, resultToBackend(result));
       } else {
         await be.addExamResult(resultToBackend(result));
@@ -1853,7 +1826,6 @@ export async function saveResultsBatchToBackend(
     console.error("saveResultsBatchToBackend failed:", err);
     throw err;
   }
-  const all = getResults();
   for (const r of results) {
     const idx = all.findIndex((x) => x.id === r.id);
     if (idx >= 0) all[idx] = r;
@@ -1866,26 +1838,21 @@ export async function saveResultsBatchToBackend(
 export async function saveNotificationToBackend(
   n: Notification,
 ): Promise<void> {
+  const all = getNotifications();
+  const idx = all.findIndex((x) => x.id === n.id);
   try {
     const be = await getBackend();
-    const existing = await be
-      .getAllNotifications()
-      .then((list: BackendNotification[]) =>
-        list.find((x: BackendNotification) => x.id === n.id),
-      );
-    if (existing) {
+    if (idx >= 0) {
       await be.updateNotification(n.id, notificationToBackend(n));
+      all[idx] = n;
     } else {
       await be.addNotification(notificationToBackend(n));
+      all.push(n);
     }
   } catch (err) {
     console.error("saveNotificationToBackend failed:", err);
     throw err;
   }
-  const all = getNotifications();
-  const idx = all.findIndex((x) => x.id === n.id);
-  if (idx >= 0) all[idx] = n;
-  else all.push(n);
   setLS(KEYS.NOTIFICATIONS, all);
 }
 
@@ -1905,26 +1872,21 @@ export async function deleteNotificationFromBackend(id: string): Promise<void> {
 
 // --- Homework ---
 export async function saveHomeworkToBackend(h: HomeworkPost): Promise<void> {
+  const all = getHomework();
+  const idx = all.findIndex((x) => x.id === h.id);
   try {
     const be = await getBackend();
-    const existing = await be
-      .getAllHomework()
-      .then((list: BackendHomework[]) =>
-        list.find((x: BackendHomework) => x.id === h.id),
-      );
-    if (existing) {
+    if (idx >= 0) {
       await be.updateHomework(h.id, homeworkToBackend(h));
+      all[idx] = h;
     } else {
       await be.addHomework(homeworkToBackend(h));
+      all.push(h);
     }
   } catch (err) {
     console.error("saveHomeworkToBackend failed:", err);
     throw err;
   }
-  const all = getHomework();
-  const idx = all.findIndex((x) => x.id === h.id);
-  if (idx >= 0) all[idx] = h;
-  else all.push(h);
   setLS(KEYS.HOMEWORK, all);
 }
 
@@ -1946,26 +1908,21 @@ export async function deleteHomeworkFromBackend(id: string): Promise<void> {
 export async function saveCalendarEventToBackend(
   e: CalendarEvent,
 ): Promise<void> {
+  const all = getCalendarEvents();
+  const idx = all.findIndex((x) => x.id === e.id);
   try {
     const be = await getBackend();
-    const existing = await be
-      .getAllCalendarEvents()
-      .then((list: BackendCalendarEvent[]) =>
-        list.find((x: BackendCalendarEvent) => x.id === e.id),
-      );
-    if (existing) {
+    if (idx >= 0) {
       await be.updateCalendarEvent(e.id, calendarEventToBackend(e));
+      all[idx] = e;
     } else {
       await be.addCalendarEvent(calendarEventToBackend(e));
+      all.push(e);
     }
   } catch (err) {
     console.error("saveCalendarEventToBackend failed:", err);
     throw err;
   }
-  const all = getCalendarEvents();
-  const idx = all.findIndex((x) => x.id === e.id);
-  if (idx >= 0) all[idx] = e;
-  else all.push(e);
   setLS(KEYS.CALENDAR, all);
 }
 
@@ -1987,63 +1944,52 @@ export async function deleteCalendarEventFromBackend(
 
 // --- Leaves ---
 export async function saveLeaveToBackend(l: LeaveApplication): Promise<void> {
+  const all = getLeaves();
+  const idx = all.findIndex((x) => x.id === l.id);
   try {
     const be = await getBackend();
-    const existing = await be
-      .getAllLeaveApplications()
-      .then((list: BackendLeaveApplication[]) =>
-        list.find((x: BackendLeaveApplication) => x.id === l.id),
-      );
-    if (existing) {
+    if (idx >= 0) {
       await be.updateLeaveApplication(l.id, leaveToBackend(l));
+      all[idx] = l;
     } else {
       await be.addLeaveApplication(leaveToBackend(l));
+      all.push(l);
     }
   } catch (err) {
     console.error("saveLeaveToBackend failed:", err);
     throw err;
   }
-  const all = getLeaves();
-  const idx = all.findIndex((x) => x.id === l.id);
-  if (idx >= 0) all[idx] = l;
-  else all.push(l);
   setLS(KEYS.LEAVES, all);
 }
 
 // --- Timetables ---
 export async function saveTimetableToBackend(t: Timetable): Promise<void> {
+  const all = getTimetables();
+  const idx = all.findIndex((x) => x.id === t.id);
   try {
     const be = await getBackend();
-    const existing = await be
-      .getAllTimetables()
-      .then((list: BackendTimetable[]) =>
-        list.find((x: BackendTimetable) => x.id === t.id),
-      );
-    if (existing) {
+    if (idx >= 0) {
       await be.updateTimetable(t.id, timetableToBackend(t));
+      all[idx] = t;
     } else {
       await be.addTimetable(timetableToBackend(t));
+      all.push(t);
     }
   } catch (err) {
     console.error("saveTimetableToBackend failed:", err);
     throw err;
   }
-  const all = getTimetables();
-  const idx = all.findIndex((x) => x.id === t.id);
-  if (idx >= 0) all[idx] = t;
-  else all.push(t);
   setLS(KEYS.TIMETABLE, all);
 }
 
 export async function saveTimetablesToBackend(
   timetables: Timetable[],
 ): Promise<void> {
+  const cachedIds = new Set(getTimetables().map((t) => t.id));
   try {
     const be = await getBackend();
-    const existing = await be.getAllTimetables();
-    const existingIds = new Set(existing.map((t: BackendTimetable) => t.id));
     for (const t of timetables) {
-      if (existingIds.has(t.id)) {
+      if (cachedIds.has(t.id)) {
         await be.updateTimetable(t.id, timetableToBackend(t));
       } else {
         await be.addTimetable(timetableToBackend(t));
@@ -2058,36 +2004,30 @@ export async function saveTimetablesToBackend(
 
 // --- Online Exams ---
 export async function saveExamToBackend(e: OnlineExam): Promise<void> {
+  const all = getExams();
+  const idx = all.findIndex((x) => x.id === e.id);
   try {
     const be = await getBackend();
-    const existing = await be
-      .getAllExams()
-      .then((list: BackendExam[]) =>
-        list.find((x: BackendExam) => x.id === e.id),
-      );
-    if (existing) {
+    if (idx >= 0) {
       await be.updateExam(e.id, examToBackend(e));
+      all[idx] = e;
     } else {
       await be.addExam(examToBackend(e));
+      all.push(e);
     }
   } catch (err) {
     console.error("saveExamToBackend failed:", err);
     throw err;
   }
-  const all = getExams();
-  const idx = all.findIndex((x) => x.id === e.id);
-  if (idx >= 0) all[idx] = e;
-  else all.push(e);
   setLS(KEYS.EXAMS, all);
 }
 
 export async function saveExamsToBackend(exams: OnlineExam[]): Promise<void> {
+  const cachedIds = new Set(getExams().map((e) => e.id));
   try {
     const be = await getBackend();
-    const existing = await be.getAllExams();
-    const existingIds = new Set(existing.map((e: BackendExam) => e.id));
     for (const e of exams) {
-      if (existingIds.has(e.id)) {
+      if (cachedIds.has(e.id)) {
         await be.updateExam(e.id, examToBackend(e));
       } else {
         await be.addExam(examToBackend(e));
@@ -2118,26 +2058,21 @@ export async function saveExamAttemptToBackend(a: ExamAttempt): Promise<void> {
 export async function savePortfolioEntryToBackend(
   p: PortfolioEntry,
 ): Promise<void> {
+  const all = getPortfolio();
+  const idx = all.findIndex((x) => x.id === p.id);
   try {
     const be = await getBackend();
-    const existing = await be
-      .getAllPortfolioEntries()
-      .then((list: BackendPortfolioEntry[]) =>
-        list.find((x: BackendPortfolioEntry) => x.id === p.id),
-      );
-    if (existing) {
+    if (idx >= 0) {
       await be.updatePortfolioEntry(p.id, portfolioToBackend(p));
+      all[idx] = p;
     } else {
       await be.addPortfolioEntry(portfolioToBackend(p));
+      all.push(p);
     }
   } catch (err) {
     console.error("savePortfolioEntryToBackend failed:", err);
     throw err;
   }
-  const all = getPortfolio();
-  const idx = all.findIndex((x) => x.id === p.id);
-  if (idx >= 0) all[idx] = p;
-  else all.push(p);
   setLS(KEYS.PORTFOLIO, all);
 }
 
@@ -2161,26 +2096,21 @@ export async function deletePortfolioEntryFromBackend(
 export async function saveSuggestionToBackend(
   s: SuggestionQuery,
 ): Promise<void> {
+  const all = getSuggestions();
+  const idx = all.findIndex((x) => x.id === s.id);
   try {
     const be = await getBackend();
-    const existing = await be
-      .getAllSuggestions()
-      .then((list: BackendSuggestion[]) =>
-        list.find((x: BackendSuggestion) => x.id === s.id),
-      );
-    if (existing) {
+    if (idx >= 0) {
       await be.updateSuggestion(s.id, suggestionToBackend(s));
+      all[idx] = s;
     } else {
       await be.addSuggestion(suggestionToBackend(s));
+      all.push(s);
     }
   } catch (err) {
     console.error("saveSuggestionToBackend failed:", err);
     throw err;
   }
-  const all = getSuggestions();
-  const idx = all.findIndex((x) => x.id === s.id);
-  if (idx >= 0) all[idx] = s;
-  else all.push(s);
   setLS(KEYS.SUGGESTIONS, all);
 }
 

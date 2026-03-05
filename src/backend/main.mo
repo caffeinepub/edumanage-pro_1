@@ -1,10 +1,10 @@
 import List "mo:core/List";
 import Text "mo:core/Text";
 import Float "mo:core/Float";
-import Migration "migration";
+
 
 // EduManage Pro - Complete backend implementation
-(with migration = Migration.run)
+
 actor {
   ///////////////////// DATA MODELS //////////////////////
 
