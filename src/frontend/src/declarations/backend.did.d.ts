@@ -10,6 +10,119 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface AuthResult { 'id' : string, 'name' : string, 'role' : string }
+export interface AuthWithClassResult {
+  'id' : string,
+  'class' : string,
+  'name' : string,
+  'role' : string,
+}
+export interface CalendarEvent {
+  'id' : string,
+  'title' : string,
+  'date' : string,
+  'createdBy' : string,
+  'type' : string,
+  'description' : string,
+}
+export interface Exam {
+  'id' : string,
+  'status' : string,
+  'title' : string,
+  'duration' : bigint,
+  'subject' : string,
+  'class' : string,
+  'createdAt' : string,
+  'questionsJson' : string,
+  'teacherId' : string,
+}
+export interface ExamAttempt {
+  'id' : string,
+  'studentId' : string,
+  'answersJson' : string,
+  'submittedAt' : string,
+  'score' : number,
+  'examId' : string,
+  'timeTaken' : bigint,
+}
+export interface ExamResult {
+  'id' : string,
+  'status' : string,
+  'studentId' : string,
+  'subjects' : Array<SubjectMarks>,
+  'approvedAt' : string,
+  'class' : string,
+  'submittedAt' : string,
+  'teacherId' : string,
+  'examName' : string,
+}
+export interface FeeRecord {
+  'id' : string,
+  'status' : FeeStatus,
+  'method' : string,
+  'studentId' : string,
+  'date' : string,
+  'description' : string,
+  'amount' : number,
+  'receiptNumber' : string,
+}
+export type FeeStatus = string;
+export interface HallTicketDesign {
+  'borderStyle' : string,
+  'institutionName' : string,
+  'tagline' : string,
+  'headerBg' : string,
+  'showLogo' : boolean,
+  'examName' : string,
+  'showPrincipalSign' : boolean,
+  'subjectsJson' : string,
+  'examYear' : string,
+  'showClassTeacherSign' : boolean,
+}
+export interface Homework {
+  'id' : string,
+  'title' : string,
+  'postedAt' : string,
+  'subject' : string,
+  'class' : string,
+  'dueDate' : string,
+  'description' : string,
+  'teacherId' : string,
+}
+export interface LeaveApplication {
+  'id' : string,
+  'status' : string,
+  'applicantName' : string,
+  'applicantRole' : string,
+  'applicantId' : string,
+  'type' : string,
+  'submittedAt' : string,
+  'reviewedAt' : string,
+  'reviewedBy' : string,
+  'toDate' : string,
+  'fromDate' : string,
+  'reason' : string,
+}
+export interface Notification {
+  'id' : string,
+  'title' : string,
+  'postedBy' : string,
+  'date' : string,
+  'type' : string,
+  'message' : string,
+  'attachmentName' : string,
+  'targetClass' : string,
+  'attachment' : string,
+}
+export interface PortfolioEntry {
+  'id' : string,
+  'title' : string,
+  'studentId' : string,
+  'date' : string,
+  'type' : string,
+  'description' : string,
+  'addedBy' : string,
+}
 export interface PrincipalProfile {
   'id' : string,
   'institutionLogo' : string,
@@ -34,6 +147,27 @@ export interface Student {
   'rollNo' : string,
   'parentName' : string,
 }
+export interface StudentAttendance {
+  'id' : string,
+  'status' : string,
+  'studentId' : string,
+  'date' : string,
+  'markedBy' : string,
+}
+export interface SubjectMarks {
+  'marks' : number,
+  'subject' : string,
+  'maxMarks' : number,
+}
+export interface Suggestion {
+  'id' : string,
+  'studentId' : string,
+  'studentName' : string,
+  'submittedAt' : string,
+  'message' : string,
+  'response' : string,
+  'respondedAt' : string,
+}
 export interface Teacher {
   'id' : string,
   'subject' : string,
@@ -45,36 +179,99 @@ export interface Teacher {
   'phone' : string,
   'photo' : string,
 }
+export interface TeacherAttendance {
+  'id' : string,
+  'status' : string,
+  'date' : string,
+  'approvedBy' : string,
+  'checkInTime' : string,
+  'approvalStatus' : string,
+  'approvalNote' : string,
+  'teacherId' : string,
+  'checkOutTime' : string,
+}
+export interface Timetable {
+  'id' : string,
+  'approvedAt' : string,
+  'approvedBy' : string,
+  'class' : string,
+  'approvalStatus' : string,
+  'approvalNote' : string,
+  'updatedAt' : string,
+  'updatedBy' : string,
+  'scheduleJson' : string,
+}
 export interface _SERVICE {
+  'addCalendarEvent' : ActorMethod<[CalendarEvent], undefined>,
+  'addExam' : ActorMethod<[Exam], undefined>,
+  'addExamAttempt' : ActorMethod<[ExamAttempt], undefined>,
+  'addExamResult' : ActorMethod<[ExamResult], undefined>,
+  'addFeeRecord' : ActorMethod<[FeeRecord], undefined>,
+  'addHomework' : ActorMethod<[Homework], undefined>,
+  'addLeaveApplication' : ActorMethod<[LeaveApplication], undefined>,
+  'addNotification' : ActorMethod<[Notification], undefined>,
+  'addPortfolioEntry' : ActorMethod<[PortfolioEntry], undefined>,
   'addStudent' : ActorMethod<[Student], undefined>,
+  'addStudentAttendance' : ActorMethod<[StudentAttendance], undefined>,
+  'addSuggestion' : ActorMethod<[Suggestion], undefined>,
   'addTeacher' : ActorMethod<[Teacher], undefined>,
+  'addTeacherAttendance' : ActorMethod<[TeacherAttendance], undefined>,
+  'addTimetable' : ActorMethod<[Timetable], undefined>,
+  'deleteCalendarEvent' : ActorMethod<[string], undefined>,
+  'deleteExam' : ActorMethod<[string], undefined>,
+  'deleteExamAttempt' : ActorMethod<[string], undefined>,
+  'deleteExamResult' : ActorMethod<[string], undefined>,
+  'deleteFeeRecord' : ActorMethod<[string], undefined>,
+  'deleteHomework' : ActorMethod<[string], undefined>,
+  'deleteLeaveApplication' : ActorMethod<[string], undefined>,
+  'deleteNotification' : ActorMethod<[string], undefined>,
+  'deletePortfolioEntry' : ActorMethod<[string], undefined>,
   'deleteStudent' : ActorMethod<[string], undefined>,
+  'deleteStudentAttendance' : ActorMethod<[string], undefined>,
+  'deleteSuggestion' : ActorMethod<[string], undefined>,
   'deleteTeacher' : ActorMethod<[string], undefined>,
+  'deleteTeacherAttendance' : ActorMethod<[string], undefined>,
+  'deleteTimetable' : ActorMethod<[string], undefined>,
+  'getAllCalendarEvents' : ActorMethod<[], Array<CalendarEvent>>,
+  'getAllExamAttempts' : ActorMethod<[], Array<ExamAttempt>>,
+  'getAllExamResults' : ActorMethod<[], Array<ExamResult>>,
+  'getAllExams' : ActorMethod<[], Array<Exam>>,
+  'getAllFeeRecords' : ActorMethod<[], Array<FeeRecord>>,
+  'getAllHomework' : ActorMethod<[], Array<Homework>>,
+  'getAllLeaveApplications' : ActorMethod<[], Array<LeaveApplication>>,
+  'getAllNotifications' : ActorMethod<[], Array<Notification>>,
+  'getAllPortfolioEntries' : ActorMethod<[], Array<PortfolioEntry>>,
+  'getAllStudentAttendance' : ActorMethod<[], Array<StudentAttendance>>,
+  'getAllStudents' : ActorMethod<[], Array<Student>>,
+  'getAllSuggestions' : ActorMethod<[], Array<Suggestion>>,
+  'getAllTeacherAttendance' : ActorMethod<[], Array<TeacherAttendance>>,
+  'getAllTeachers' : ActorMethod<[], Array<Teacher>>,
+  'getAllTimetables' : ActorMethod<[], Array<Timetable>>,
+  'getHallTicketDesign' : ActorMethod<[], [] | [HallTicketDesign]>,
   'getPrincipalProfile' : ActorMethod<[], PrincipalProfile>,
-  'getStudentById' : ActorMethod<[string], [] | [Student]>,
-  'getStudents' : ActorMethod<[], Array<Student>>,
-  'getStudentsByClass' : ActorMethod<[string], Array<Student>>,
-  'getStudentsByTeacher' : ActorMethod<[string], Array<Student>>,
-  'getTeacherById' : ActorMethod<[string], [] | [Teacher]>,
-  'getTeachers' : ActorMethod<[], Array<Teacher>>,
   'initializeIfNeeded' : ActorMethod<[], undefined>,
   'initializeStudents' : ActorMethod<[], undefined>,
   'initializeTeachers' : ActorMethod<[], undefined>,
-  'loginPrincipal' : ActorMethod<
-    [string, string],
-    [] | [{ 'id' : string, 'name' : string, 'role' : string }]
-  >,
-  'loginStudent' : ActorMethod<
-    [string, string],
-    [] | [{ 'id' : string, 'class' : string, 'name' : string, 'role' : string }]
-  >,
-  'loginTeacher' : ActorMethod<
-    [string, string],
-    [] | [{ 'id' : string, 'class' : string, 'name' : string, 'role' : string }]
-  >,
+  'loginPrincipal' : ActorMethod<[string, string], [] | [AuthResult]>,
+  'loginStudent' : ActorMethod<[string, string], [] | [AuthWithClassResult]>,
+  'loginTeacher' : ActorMethod<[string, string], [] | [AuthWithClassResult]>,
+  'saveHallTicketDesign' : ActorMethod<[HallTicketDesign], undefined>,
   'savePrincipalProfile' : ActorMethod<[PrincipalProfile], undefined>,
+  'updateCalendarEvent' : ActorMethod<[string, CalendarEvent], boolean>,
+  'updateExam' : ActorMethod<[string, Exam], boolean>,
+  'updateExamAttempt' : ActorMethod<[string, ExamAttempt], boolean>,
+  'updateExamResult' : ActorMethod<[string, ExamResult], boolean>,
+  'updateFeeRecord' : ActorMethod<[string, FeeRecord], boolean>,
+  'updateHomework' : ActorMethod<[string, Homework], boolean>,
+  'updateLeaveApplication' : ActorMethod<[string, LeaveApplication], boolean>,
+  'updateNotification' : ActorMethod<[string, Notification], boolean>,
+  'updatePortfolioEntry' : ActorMethod<[string, PortfolioEntry], boolean>,
   'updateStudent' : ActorMethod<[string, Student], boolean>,
+  'updateStudentAttendance' : ActorMethod<[string, StudentAttendance], boolean>,
+  'updateSuggestion' : ActorMethod<[string, Suggestion], boolean>,
   'updateTeacher' : ActorMethod<[string, Teacher], boolean>,
+  'updateTeacherAttendance' : ActorMethod<[string, TeacherAttendance], boolean>,
+  'updateTimetable' : ActorMethod<[string, Timetable], boolean>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

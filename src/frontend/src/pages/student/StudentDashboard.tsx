@@ -59,8 +59,11 @@ import {
   getSuggestions,
   getTeacherById,
   getTimetableByClass,
+  saveExamAttemptToBackend,
   saveExamAttempts,
+  saveLeaveToBackend,
   saveLeaves,
+  saveSuggestionToBackend,
   saveSuggestions,
 } from "@/store/data";
 
@@ -654,7 +657,7 @@ function OnlineExamsStudent({ user }: { user: CurrentUser }) {
     };
   }, [attempting, submitted]);
 
-  const handleSubmit = (auto = false) => {
+  const handleSubmit = async (auto = false) => {
     if (!attempting) return;
     const exam = exams.find((e) => e.id === attempting);
     if (!exam) return;
@@ -680,8 +683,13 @@ function OnlineExamsStudent({ user }: { user: CurrentUser }) {
       submittedAt: new Date().toISOString(),
     };
 
-    const allAttempts = getExamAttempts();
-    saveExamAttempts([...allAttempts, attempt]);
+    try {
+      await saveExamAttemptToBackend(attempt);
+    } catch (err) {
+      console.error("saveExamAttemptToBackend failed:", err);
+      const allAttempts = getExamAttempts();
+      saveExamAttempts([...allAttempts, attempt]);
+    }
     setSubmitted(true);
     setLastScore(score);
     if (auto) toast.info("Time up! Exam auto-submitted.");
@@ -1137,7 +1145,7 @@ function StudentLeave({ user }: { user: CurrentUser }) {
     reason: "",
   });
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.fromDate || !form.toDate || !form.reason) {
       toast.error("All fields are required");
       return;
@@ -1151,9 +1159,13 @@ function StudentLeave({ user }: { user: CurrentUser }) {
       status: "pending",
       submittedAt: new Date().toISOString().split("T")[0],
     };
-    const allLeaves = [...getLeaves(), leave];
-    saveLeaves(allLeaves);
-    setLeaves(allLeaves.filter((l) => l.applicantId === user.id));
+    try {
+      await saveLeaveToBackend(leave);
+    } catch (err) {
+      console.error("saveLeaveToBackend (student) failed:", err);
+      saveLeaves([...getLeaves(), leave]);
+    }
+    setLeaves((prev) => [...prev, leave]);
     setForm({ type: "sick", fromDate: "", toDate: "", reason: "" });
     toast.success("Leave application submitted");
   };
@@ -1298,7 +1310,7 @@ function SuggestionsAndQueries({ user }: { user: CurrentUser }) {
   );
   const [message, setMessage] = useState("");
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!message.trim()) {
       toast.error("Please write your query/suggestion");
       return;
@@ -1310,9 +1322,13 @@ function SuggestionsAndQueries({ user }: { user: CurrentUser }) {
       message: message.trim(),
       submittedAt: new Date().toISOString().split("T")[0],
     };
-    const allS = getSuggestions();
-    saveSuggestions([...allS, newS]);
-    setSuggestions([...suggestions, newS]);
+    try {
+      await saveSuggestionToBackend(newS);
+    } catch (err) {
+      console.error("saveSuggestionToBackend failed:", err);
+      saveSuggestions([...getSuggestions(), newS]);
+    }
+    setSuggestions((prev) => [...prev, newS]);
     setMessage("");
     toast.success("Suggestion submitted to principal");
   };

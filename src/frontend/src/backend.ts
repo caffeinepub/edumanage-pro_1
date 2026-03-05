@@ -89,6 +89,15 @@ export class ExternalBlob {
         return this;
     }
 }
+export interface ExamAttempt {
+    id: string;
+    studentId: string;
+    answersJson: string;
+    submittedAt: string;
+    score: number;
+    examId: string;
+    timeTaken: bigint;
+}
 export interface PrincipalProfile {
     id: string;
     institutionLogo: string;
@@ -101,6 +110,29 @@ export interface PrincipalProfile {
     phone: string;
     photo: string;
 }
+export interface StudentAttendance {
+    id: string;
+    status: string;
+    studentId: string;
+    date: string;
+    markedBy: string;
+}
+export interface Suggestion {
+    id: string;
+    studentId: string;
+    studentName: string;
+    submittedAt: string;
+    message: string;
+    response: string;
+    respondedAt: string;
+}
+export interface AuthWithClassResult {
+    id: string;
+    class: string;
+    name: string;
+    role: string;
+}
+export type FeeStatus = string;
 export interface Teacher {
     id: string;
     subject: string;
@@ -111,6 +143,134 @@ export interface Teacher {
     email: string;
     phone: string;
     photo: string;
+}
+export interface Timetable {
+    id: string;
+    approvedAt: string;
+    approvedBy: string;
+    class: string;
+    approvalStatus: string;
+    approvalNote: string;
+    updatedAt: string;
+    updatedBy: string;
+    scheduleJson: string;
+}
+export interface TeacherAttendance {
+    id: string;
+    status: string;
+    date: string;
+    approvedBy: string;
+    checkInTime: string;
+    approvalStatus: string;
+    approvalNote: string;
+    teacherId: string;
+    checkOutTime: string;
+}
+export interface SubjectMarks {
+    marks: number;
+    subject: string;
+    maxMarks: number;
+}
+export interface FeeRecord {
+    id: string;
+    status: FeeStatus;
+    method: string;
+    studentId: string;
+    date: string;
+    description: string;
+    amount: number;
+    receiptNumber: string;
+}
+export interface CalendarEvent {
+    id: string;
+    title: string;
+    date: string;
+    createdBy: string;
+    type: string;
+    description: string;
+}
+export interface Notification {
+    id: string;
+    title: string;
+    postedBy: string;
+    date: string;
+    type: string;
+    message: string;
+    attachmentName: string;
+    targetClass: string;
+    attachment: string;
+}
+export interface Exam {
+    id: string;
+    status: string;
+    title: string;
+    duration: bigint;
+    subject: string;
+    class: string;
+    createdAt: string;
+    questionsJson: string;
+    teacherId: string;
+}
+export interface LeaveApplication {
+    id: string;
+    status: string;
+    applicantName: string;
+    applicantRole: string;
+    applicantId: string;
+    type: string;
+    submittedAt: string;
+    reviewedAt: string;
+    reviewedBy: string;
+    toDate: string;
+    fromDate: string;
+    reason: string;
+}
+export interface HallTicketDesign {
+    borderStyle: string;
+    institutionName: string;
+    tagline: string;
+    headerBg: string;
+    showLogo: boolean;
+    examName: string;
+    showPrincipalSign: boolean;
+    subjectsJson: string;
+    examYear: string;
+    showClassTeacherSign: boolean;
+}
+export interface ExamResult {
+    id: string;
+    status: string;
+    studentId: string;
+    subjects: Array<SubjectMarks>;
+    approvedAt: string;
+    class: string;
+    submittedAt: string;
+    teacherId: string;
+    examName: string;
+}
+export interface Homework {
+    id: string;
+    title: string;
+    postedAt: string;
+    subject: string;
+    class: string;
+    dueDate: string;
+    description: string;
+    teacherId: string;
+}
+export interface PortfolioEntry {
+    id: string;
+    title: string;
+    studentId: string;
+    date: string;
+    type: string;
+    description: string;
+    addedBy: string;
+}
+export interface AuthResult {
+    id: string;
+    name: string;
+    role: string;
 }
 export interface Student {
     id: string;
@@ -125,44 +285,206 @@ export interface Student {
     parentName: string;
 }
 export interface backendInterface {
+    addCalendarEvent(event: CalendarEvent): Promise<void>;
+    addExam(exam: Exam): Promise<void>;
+    addExamAttempt(attempt: ExamAttempt): Promise<void>;
+    addExamResult(result: ExamResult): Promise<void>;
+    addFeeRecord(record: FeeRecord): Promise<void>;
+    addHomework(assignment: Homework): Promise<void>;
+    addLeaveApplication(application: LeaveApplication): Promise<void>;
+    addNotification(notification: Notification): Promise<void>;
+    addPortfolioEntry(entry: PortfolioEntry): Promise<void>;
     addStudent(student: Student): Promise<void>;
+    addStudentAttendance(attendance: StudentAttendance): Promise<void>;
+    addSuggestion(suggestion: Suggestion): Promise<void>;
     addTeacher(teacher: Teacher): Promise<void>;
+    addTeacherAttendance(attendance: TeacherAttendance): Promise<void>;
+    addTimetable(timetable: Timetable): Promise<void>;
+    deleteCalendarEvent(id: string): Promise<void>;
+    deleteExam(id: string): Promise<void>;
+    deleteExamAttempt(id: string): Promise<void>;
+    deleteExamResult(id: string): Promise<void>;
+    deleteFeeRecord(id: string): Promise<void>;
+    deleteHomework(id: string): Promise<void>;
+    deleteLeaveApplication(id: string): Promise<void>;
+    deleteNotification(id: string): Promise<void>;
+    deletePortfolioEntry(id: string): Promise<void>;
     deleteStudent(id: string): Promise<void>;
+    deleteStudentAttendance(id: string): Promise<void>;
+    deleteSuggestion(id: string): Promise<void>;
     deleteTeacher(id: string): Promise<void>;
+    deleteTeacherAttendance(id: string): Promise<void>;
+    deleteTimetable(id: string): Promise<void>;
+    getAllCalendarEvents(): Promise<Array<CalendarEvent>>;
+    getAllExamAttempts(): Promise<Array<ExamAttempt>>;
+    getAllExamResults(): Promise<Array<ExamResult>>;
+    getAllExams(): Promise<Array<Exam>>;
+    getAllFeeRecords(): Promise<Array<FeeRecord>>;
+    getAllHomework(): Promise<Array<Homework>>;
+    getAllLeaveApplications(): Promise<Array<LeaveApplication>>;
+    getAllNotifications(): Promise<Array<Notification>>;
+    getAllPortfolioEntries(): Promise<Array<PortfolioEntry>>;
+    getAllStudentAttendance(): Promise<Array<StudentAttendance>>;
+    getAllStudents(): Promise<Array<Student>>;
+    getAllSuggestions(): Promise<Array<Suggestion>>;
+    getAllTeacherAttendance(): Promise<Array<TeacherAttendance>>;
+    getAllTeachers(): Promise<Array<Teacher>>;
+    getAllTimetables(): Promise<Array<Timetable>>;
+    getHallTicketDesign(): Promise<HallTicketDesign | null>;
     getPrincipalProfile(): Promise<PrincipalProfile>;
-    getStudentById(id: string): Promise<Student | null>;
-    getStudents(): Promise<Array<Student>>;
-    getStudentsByClass(className: string): Promise<Array<Student>>;
-    getStudentsByTeacher(teacherId: string): Promise<Array<Student>>;
-    getTeacherById(id: string): Promise<Teacher | null>;
-    getTeachers(): Promise<Array<Teacher>>;
     initializeIfNeeded(): Promise<void>;
     initializeStudents(): Promise<void>;
     initializeTeachers(): Promise<void>;
-    loginPrincipal(id: string, password: string): Promise<{
-        id: string;
-        name: string;
-        role: string;
-    } | null>;
-    loginStudent(id: string, password: string): Promise<{
-        id: string;
-        studentClass: string;
-        name: string;
-        role: string;
-    } | null>;
-    loginTeacher(id: string, password: string): Promise<{
-        id: string;
-        studentClass: string;
-        name: string;
-        role: string;
-    } | null>;
+    loginPrincipal(id: string, password: string): Promise<AuthResult | null>;
+    loginStudent(id: string, password: string): Promise<AuthWithClassResult | null>;
+    loginTeacher(id: string, password: string): Promise<AuthWithClassResult | null>;
+    saveHallTicketDesign(newDesign: HallTicketDesign): Promise<void>;
     savePrincipalProfile(profile: PrincipalProfile): Promise<void>;
-    updateStudent(id: string, updatedStudent: Student): Promise<boolean>;
-    updateTeacher(id: string, updatedTeacher: Teacher): Promise<boolean>;
+    updateCalendarEvent(id: string, event: CalendarEvent): Promise<boolean>;
+    updateExam(id: string, exam: Exam): Promise<boolean>;
+    updateExamAttempt(id: string, attempt: ExamAttempt): Promise<boolean>;
+    updateExamResult(id: string, result: ExamResult): Promise<boolean>;
+    updateFeeRecord(id: string, record: FeeRecord): Promise<boolean>;
+    updateHomework(id: string, assignment: Homework): Promise<boolean>;
+    updateLeaveApplication(id: string, application: LeaveApplication): Promise<boolean>;
+    updateNotification(id: string, notification: Notification): Promise<boolean>;
+    updatePortfolioEntry(id: string, entry: PortfolioEntry): Promise<boolean>;
+    updateStudent(id: string, student: Student): Promise<boolean>;
+    updateStudentAttendance(id: string, attendance: StudentAttendance): Promise<boolean>;
+    updateSuggestion(id: string, suggestion: Suggestion): Promise<boolean>;
+    updateTeacher(id: string, teacher: Teacher): Promise<boolean>;
+    updateTeacherAttendance(id: string, attendance: TeacherAttendance): Promise<boolean>;
+    updateTimetable(id: string, timetable: Timetable): Promise<boolean>;
 }
-import type { Student as _Student, Teacher as _Teacher } from "./declarations/backend.did.d.ts";
+import type { AuthResult as _AuthResult, AuthWithClassResult as _AuthWithClassResult, HallTicketDesign as _HallTicketDesign } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
+    async addCalendarEvent(arg0: CalendarEvent): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addCalendarEvent(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addCalendarEvent(arg0);
+            return result;
+        }
+    }
+    async addExam(arg0: Exam): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addExam(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addExam(arg0);
+            return result;
+        }
+    }
+    async addExamAttempt(arg0: ExamAttempt): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addExamAttempt(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addExamAttempt(arg0);
+            return result;
+        }
+    }
+    async addExamResult(arg0: ExamResult): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addExamResult(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addExamResult(arg0);
+            return result;
+        }
+    }
+    async addFeeRecord(arg0: FeeRecord): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addFeeRecord(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addFeeRecord(arg0);
+            return result;
+        }
+    }
+    async addHomework(arg0: Homework): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addHomework(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addHomework(arg0);
+            return result;
+        }
+    }
+    async addLeaveApplication(arg0: LeaveApplication): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addLeaveApplication(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addLeaveApplication(arg0);
+            return result;
+        }
+    }
+    async addNotification(arg0: Notification): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addNotification(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addNotification(arg0);
+            return result;
+        }
+    }
+    async addPortfolioEntry(arg0: PortfolioEntry): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addPortfolioEntry(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addPortfolioEntry(arg0);
+            return result;
+        }
+    }
     async addStudent(arg0: Student): Promise<void> {
         if (this.processError) {
             try {
@@ -174,6 +496,34 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.addStudent(arg0);
+            return result;
+        }
+    }
+    async addStudentAttendance(arg0: StudentAttendance): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addStudentAttendance(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addStudentAttendance(arg0);
+            return result;
+        }
+    }
+    async addSuggestion(arg0: Suggestion): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addSuggestion(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addSuggestion(arg0);
             return result;
         }
     }
@@ -191,6 +541,160 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async addTeacherAttendance(arg0: TeacherAttendance): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addTeacherAttendance(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addTeacherAttendance(arg0);
+            return result;
+        }
+    }
+    async addTimetable(arg0: Timetable): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addTimetable(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addTimetable(arg0);
+            return result;
+        }
+    }
+    async deleteCalendarEvent(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteCalendarEvent(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteCalendarEvent(arg0);
+            return result;
+        }
+    }
+    async deleteExam(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteExam(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteExam(arg0);
+            return result;
+        }
+    }
+    async deleteExamAttempt(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteExamAttempt(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteExamAttempt(arg0);
+            return result;
+        }
+    }
+    async deleteExamResult(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteExamResult(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteExamResult(arg0);
+            return result;
+        }
+    }
+    async deleteFeeRecord(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteFeeRecord(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteFeeRecord(arg0);
+            return result;
+        }
+    }
+    async deleteHomework(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteHomework(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteHomework(arg0);
+            return result;
+        }
+    }
+    async deleteLeaveApplication(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteLeaveApplication(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteLeaveApplication(arg0);
+            return result;
+        }
+    }
+    async deleteNotification(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteNotification(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteNotification(arg0);
+            return result;
+        }
+    }
+    async deletePortfolioEntry(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deletePortfolioEntry(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deletePortfolioEntry(arg0);
+            return result;
+        }
+    }
     async deleteStudent(arg0: string): Promise<void> {
         if (this.processError) {
             try {
@@ -202,6 +706,34 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.deleteStudent(arg0);
+            return result;
+        }
+    }
+    async deleteStudentAttendance(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteStudentAttendance(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteStudentAttendance(arg0);
+            return result;
+        }
+    }
+    async deleteSuggestion(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteSuggestion(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteSuggestion(arg0);
             return result;
         }
     }
@@ -219,6 +751,258 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async deleteTeacherAttendance(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteTeacherAttendance(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteTeacherAttendance(arg0);
+            return result;
+        }
+    }
+    async deleteTimetable(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteTimetable(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteTimetable(arg0);
+            return result;
+        }
+    }
+    async getAllCalendarEvents(): Promise<Array<CalendarEvent>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllCalendarEvents();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllCalendarEvents();
+            return result;
+        }
+    }
+    async getAllExamAttempts(): Promise<Array<ExamAttempt>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllExamAttempts();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllExamAttempts();
+            return result;
+        }
+    }
+    async getAllExamResults(): Promise<Array<ExamResult>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllExamResults();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllExamResults();
+            return result;
+        }
+    }
+    async getAllExams(): Promise<Array<Exam>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllExams();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllExams();
+            return result;
+        }
+    }
+    async getAllFeeRecords(): Promise<Array<FeeRecord>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllFeeRecords();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllFeeRecords();
+            return result;
+        }
+    }
+    async getAllHomework(): Promise<Array<Homework>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllHomework();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllHomework();
+            return result;
+        }
+    }
+    async getAllLeaveApplications(): Promise<Array<LeaveApplication>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllLeaveApplications();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllLeaveApplications();
+            return result;
+        }
+    }
+    async getAllNotifications(): Promise<Array<Notification>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllNotifications();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllNotifications();
+            return result;
+        }
+    }
+    async getAllPortfolioEntries(): Promise<Array<PortfolioEntry>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllPortfolioEntries();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllPortfolioEntries();
+            return result;
+        }
+    }
+    async getAllStudentAttendance(): Promise<Array<StudentAttendance>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllStudentAttendance();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllStudentAttendance();
+            return result;
+        }
+    }
+    async getAllStudents(): Promise<Array<Student>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllStudents();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllStudents();
+            return result;
+        }
+    }
+    async getAllSuggestions(): Promise<Array<Suggestion>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllSuggestions();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllSuggestions();
+            return result;
+        }
+    }
+    async getAllTeacherAttendance(): Promise<Array<TeacherAttendance>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllTeacherAttendance();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllTeacherAttendance();
+            return result;
+        }
+    }
+    async getAllTeachers(): Promise<Array<Teacher>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllTeachers();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllTeachers();
+            return result;
+        }
+    }
+    async getAllTimetables(): Promise<Array<Timetable>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllTimetables();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllTimetables();
+            return result;
+        }
+    }
+    async getHallTicketDesign(): Promise<HallTicketDesign | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getHallTicketDesign();
+                return from_candid_opt_n1(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getHallTicketDesign();
+            return from_candid_opt_n1(this._uploadFile, this._downloadFile, result);
+        }
+    }
     async getPrincipalProfile(): Promise<PrincipalProfile> {
         if (this.processError) {
             try {
@@ -230,90 +1014,6 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.getPrincipalProfile();
-            return result;
-        }
-    }
-    async getStudentById(arg0: string): Promise<Student | null> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getStudentById(arg0);
-                return from_candid_opt_n1(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getStudentById(arg0);
-            return from_candid_opt_n1(this._uploadFile, this._downloadFile, result);
-        }
-    }
-    async getStudents(): Promise<Array<Student>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getStudents();
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getStudents();
-            return result;
-        }
-    }
-    async getStudentsByClass(arg0: string): Promise<Array<Student>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getStudentsByClass(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getStudentsByClass(arg0);
-            return result;
-        }
-    }
-    async getStudentsByTeacher(arg0: string): Promise<Array<Student>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getStudentsByTeacher(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getStudentsByTeacher(arg0);
-            return result;
-        }
-    }
-    async getTeacherById(arg0: string): Promise<Teacher | null> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getTeacherById(arg0);
-                return from_candid_opt_n2(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getTeacherById(arg0);
-            return from_candid_opt_n2(this._uploadFile, this._downloadFile, result);
-        }
-    }
-    async getTeachers(): Promise<Array<Teacher>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getTeachers();
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getTeachers();
             return result;
         }
     }
@@ -359,60 +1059,60 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async loginPrincipal(arg0: string, arg1: string): Promise<{
-        id: string;
-        name: string;
-        role: string;
-    } | null> {
+    async loginPrincipal(arg0: string, arg1: string): Promise<AuthResult | null> {
         if (this.processError) {
             try {
                 const result = await this.actor.loginPrincipal(arg0, arg1);
-                return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
+                return from_candid_opt_n2(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.loginPrincipal(arg0, arg1);
-            return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
+            return from_candid_opt_n2(this._uploadFile, this._downloadFile, result);
         }
     }
-    async loginStudent(arg0: string, arg1: string): Promise<{
-        id: string;
-        studentClass: string;
-        name: string;
-        role: string;
-    } | null> {
+    async loginStudent(arg0: string, arg1: string): Promise<AuthWithClassResult | null> {
         if (this.processError) {
             try {
                 const result = await this.actor.loginStudent(arg0, arg1);
-                return from_candid_opt_n4(this._uploadFile, this._downloadFile, result);
+                return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.loginStudent(arg0, arg1);
-            return from_candid_opt_n4(this._uploadFile, this._downloadFile, result);
+            return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
         }
     }
-    async loginTeacher(arg0: string, arg1: string): Promise<{
-        id: string;
-        studentClass: string;
-        name: string;
-        role: string;
-    } | null> {
+    async loginTeacher(arg0: string, arg1: string): Promise<AuthWithClassResult | null> {
         if (this.processError) {
             try {
                 const result = await this.actor.loginTeacher(arg0, arg1);
-                return from_candid_opt_n4(this._uploadFile, this._downloadFile, result);
+                return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.loginTeacher(arg0, arg1);
-            return from_candid_opt_n4(this._uploadFile, this._downloadFile, result);
+            return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async saveHallTicketDesign(arg0: HallTicketDesign): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.saveHallTicketDesign(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.saveHallTicketDesign(arg0);
+            return result;
         }
     }
     async savePrincipalProfile(arg0: PrincipalProfile): Promise<void> {
@@ -426,6 +1126,132 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.savePrincipalProfile(arg0);
+            return result;
+        }
+    }
+    async updateCalendarEvent(arg0: string, arg1: CalendarEvent): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateCalendarEvent(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateCalendarEvent(arg0, arg1);
+            return result;
+        }
+    }
+    async updateExam(arg0: string, arg1: Exam): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateExam(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateExam(arg0, arg1);
+            return result;
+        }
+    }
+    async updateExamAttempt(arg0: string, arg1: ExamAttempt): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateExamAttempt(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateExamAttempt(arg0, arg1);
+            return result;
+        }
+    }
+    async updateExamResult(arg0: string, arg1: ExamResult): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateExamResult(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateExamResult(arg0, arg1);
+            return result;
+        }
+    }
+    async updateFeeRecord(arg0: string, arg1: FeeRecord): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateFeeRecord(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateFeeRecord(arg0, arg1);
+            return result;
+        }
+    }
+    async updateHomework(arg0: string, arg1: Homework): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateHomework(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateHomework(arg0, arg1);
+            return result;
+        }
+    }
+    async updateLeaveApplication(arg0: string, arg1: LeaveApplication): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateLeaveApplication(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateLeaveApplication(arg0, arg1);
+            return result;
+        }
+    }
+    async updateNotification(arg0: string, arg1: Notification): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateNotification(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateNotification(arg0, arg1);
+            return result;
+        }
+    }
+    async updatePortfolioEntry(arg0: string, arg1: PortfolioEntry): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updatePortfolioEntry(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updatePortfolioEntry(arg0, arg1);
             return result;
         }
     }
@@ -443,6 +1269,34 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async updateStudentAttendance(arg0: string, arg1: StudentAttendance): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateStudentAttendance(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateStudentAttendance(arg0, arg1);
+            return result;
+        }
+    }
+    async updateSuggestion(arg0: string, arg1: Suggestion): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateSuggestion(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateSuggestion(arg0, arg1);
+            return result;
+        }
+    }
     async updateTeacher(arg0: string, arg1: Teacher): Promise<boolean> {
         if (this.processError) {
             try {
@@ -457,35 +1311,42 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async updateTeacherAttendance(arg0: string, arg1: TeacherAttendance): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateTeacherAttendance(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateTeacherAttendance(arg0, arg1);
+            return result;
+        }
+    }
+    async updateTimetable(arg0: string, arg1: Timetable): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateTimetable(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateTimetable(arg0, arg1);
+            return result;
+        }
+    }
 }
-function from_candid_opt_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_Student]): Student | null {
+function from_candid_opt_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_HallTicketDesign]): HallTicketDesign | null {
     return value.length === 0 ? null : value[0];
 }
-function from_candid_opt_n2(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_Teacher]): Teacher | null {
+function from_candid_opt_n2(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_AuthResult]): AuthResult | null {
     return value.length === 0 ? null : value[0];
 }
-function from_candid_opt_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [{
-        id: string;
-        name: string;
-        role: string;
-    }]): {
-    id: string;
-    name: string;
-    role: string;
-} | null {
-    return value.length === 0 ? null : value[0];
-}
-function from_candid_opt_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [{
-        id: string;
-        studentClass: string;
-        name: string;
-        role: string;
-    }]): {
-    id: string;
-    studentClass: string;
-    name: string;
-    role: string;
-} | null {
+function from_candid_opt_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_AuthWithClassResult]): AuthWithClassResult | null {
     return value.length === 0 ? null : value[0];
 }
 export interface CreateActorOptions {

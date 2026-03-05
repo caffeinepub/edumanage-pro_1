@@ -55,6 +55,9 @@ import {
   type TeacherAttendance,
   type Timetable,
   calcAttendancePercent,
+  deleteCalendarEventFromBackend,
+  deleteNotificationFromBackend,
+  deleteResultFromBackend,
   deleteStudentFromBackend,
   deleteTeacherFromBackend,
   formatDate,
@@ -72,23 +75,31 @@ import {
   getTeacherAttendance,
   getTeachers,
   getTimetables,
+  saveCalendarEventToBackend,
   saveCalendarEvents,
   saveHallTicketDesign,
+  saveHallTicketDesignToBackend,
+  saveLeaveToBackend,
   saveLeaves,
+  saveNotificationToBackend,
   saveNotifications,
   savePrincipalProfile,
   savePrincipalToBackend,
+  saveResultToBackend,
   saveResults,
   saveStudentToBackend,
   saveStudents,
+  saveSuggestionToBackend,
   saveSuggestions,
   saveTeacherAttendance,
   saveTeacherToBackend,
   saveTeachers,
+  saveTimetableToBackend,
   saveTimetables,
   setCurrentUser,
   syncStudentsFromBackend,
   syncTeachersFromBackend,
+  updateTeacherAttendanceInBackend,
 } from "@/store/data";
 import {
   Check,
@@ -1316,7 +1327,7 @@ function PostNotifications() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handlePost = () => {
+  const handlePost = async () => {
     if (!form.title || !form.message) {
       toast.error("Title and message are required");
       return;
@@ -1330,18 +1341,26 @@ function PostNotifications() {
       type: "general",
       ...(attachment && attachmentName ? { attachment, attachmentName } : {}),
     };
-    const updated = [newN, ...notifications];
-    saveNotifications(updated);
-    setNotifications(updated);
+    try {
+      await saveNotificationToBackend(newN);
+    } catch (err) {
+      console.error("saveNotificationToBackend failed:", err);
+      saveNotifications([newN, ...notifications]);
+    }
+    setNotifications((prev) => [newN, ...prev]);
     setForm({ title: "", message: "" });
     clearAttachment();
     toast.success("Notification posted");
   };
 
-  const handleDelete = (id: string) => {
-    const updated = notifications.filter((n) => n.id !== id);
-    saveNotifications(updated);
-    setNotifications(updated);
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteNotificationFromBackend(id);
+    } catch (err) {
+      console.error("deleteNotificationFromBackend failed:", err);
+      saveNotifications(notifications.filter((n) => n.id !== id));
+    }
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
     toast.success("Notification deleted");
   };
 
@@ -1550,7 +1569,7 @@ function AcademicCalendar() {
     description: "",
   });
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!form.title || !form.date) {
       toast.error("Title and date are required");
       return;
@@ -1560,19 +1579,28 @@ function AcademicCalendar() {
       ...form,
       createdBy: "principal001",
     };
-    const updated = [...events, newE].sort((a, b) =>
+    const sorted = [...events, newE].sort((a, b) =>
       a.date.localeCompare(b.date),
     );
-    saveCalendarEvents(updated);
-    setEvents(updated);
+    try {
+      await saveCalendarEventToBackend(newE);
+    } catch (err) {
+      console.error("saveCalendarEventToBackend failed:", err);
+      saveCalendarEvents(sorted);
+    }
+    setEvents(sorted);
     setForm({ title: "", type: "event", date: "", description: "" });
     toast.success("Event added to calendar");
   };
 
-  const handleDelete = (id: string) => {
-    const updated = events.filter((e) => e.id !== id);
-    saveCalendarEvents(updated);
-    setEvents(updated);
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteCalendarEventFromBackend(id);
+    } catch (err) {
+      console.error("deleteCalendarEventFromBackend failed:", err);
+      saveCalendarEvents(events.filter((e) => e.id !== id));
+    }
+    setEvents((prev) => prev.filter((e) => e.id !== id));
     toast.success("Event removed");
   };
 
@@ -1737,7 +1765,8 @@ function PublishResults() {
   const { paged: pagedPublished, pagination: publishedPagination } =
     usePagination(filteredPublished, 15);
 
-  const handleApprove = (id: string) => {
+  const handleApprove = async (id: string) => {
+    const approvedRecord = results.find((r) => r.id === id);
     const updated = results.map((r) =>
       r.id === id
         ? {
@@ -1747,24 +1776,44 @@ function PublishResults() {
           }
         : r,
     );
-    saveResults(updated);
+    const updatedRecord = updated.find((r) => r.id === id);
+    if (updatedRecord) {
+      try {
+        await saveResultToBackend(updatedRecord);
+      } catch (err) {
+        console.error("saveResultToBackend failed:", err);
+        if (approvedRecord) saveResults(updated);
+      }
+    }
     setResults(updated);
     toast.success("Result approved and published");
   };
 
-  const handleReject = (id: string) => {
+  const handleReject = async (id: string) => {
     const updated = results.map((r) =>
       r.id === id ? { ...r, status: "rejected" as const } : r,
     );
-    saveResults(updated);
+    const updatedRecord = updated.find((r) => r.id === id);
+    if (updatedRecord) {
+      try {
+        await saveResultToBackend(updatedRecord);
+      } catch (err) {
+        console.error("saveResultToBackend (reject) failed:", err);
+        saveResults(updated);
+      }
+    }
     setResults(updated);
     toast.success("Result rejected");
   };
 
-  const handleDelete = (id: string) => {
-    const updated = results.filter((r) => r.id !== id);
-    saveResults(updated);
-    setResults(updated);
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteResultFromBackend(id);
+    } catch (err) {
+      console.error("deleteResultFromBackend failed:", err);
+      saveResults(results.filter((r) => r.id !== id));
+    }
+    setResults((prev) => prev.filter((r) => r.id !== id));
     toast.success("Result deleted");
   };
 
@@ -2149,7 +2198,7 @@ function LeaveApprovals() {
 
   const teacherLeaves = leaves.filter((l) => l.applicantRole === "teacher");
 
-  const handleApprove = (id: string) => {
+  const handleApprove = async (id: string) => {
     const updated = leaves.map((l) =>
       l.id === id
         ? {
@@ -2160,12 +2209,20 @@ function LeaveApprovals() {
           }
         : l,
     );
-    saveLeaves(updated);
+    const updatedRecord = updated.find((l) => l.id === id);
+    if (updatedRecord) {
+      try {
+        await saveLeaveToBackend(updatedRecord);
+      } catch (err) {
+        console.error("saveLeaveToBackend (approve) failed:", err);
+        saveLeaves(updated);
+      }
+    }
     setLeaves(updated);
     toast.success("Leave approved");
   };
 
-  const handleReject = (id: string) => {
+  const handleReject = async (id: string) => {
     const updated = leaves.map((l) =>
       l.id === id
         ? {
@@ -2176,7 +2233,15 @@ function LeaveApprovals() {
           }
         : l,
     );
-    saveLeaves(updated);
+    const updatedRecord = updated.find((l) => l.id === id);
+    if (updatedRecord) {
+      try {
+        await saveLeaveToBackend(updatedRecord);
+      } catch (err) {
+        console.error("saveLeaveToBackend (reject) failed:", err);
+        saveLeaves(updated);
+      }
+    }
     setLeaves(updated);
     toast.success("Leave rejected");
   };
@@ -2676,7 +2741,7 @@ function TeacherAttendanceApprovals() {
   const teacherName = (id: string) =>
     teachers.find((t) => t.id === id)?.name ?? id;
 
-  const handleApprove = (recordId: string) => {
+  const handleApprove = async (recordId: string) => {
     const updated = records.map((r) =>
       r.id === recordId
         ? {
@@ -2687,12 +2752,23 @@ function TeacherAttendanceApprovals() {
           }
         : r,
     );
-    saveTeacherAttendance(updated);
+    const updatedRecord = updated.find((r) => r.id === recordId);
+    if (updatedRecord) {
+      try {
+        await updateTeacherAttendanceInBackend(updatedRecord);
+      } catch (err) {
+        console.error(
+          "updateTeacherAttendanceInBackend (approve) failed:",
+          err,
+        );
+        saveTeacherAttendance(updated);
+      }
+    }
     setRecords(updated);
     toast.success("Attendance approved");
   };
 
-  const handleReject = (recordId: string) => {
+  const handleReject = async (recordId: string) => {
     const updated = records.map((r) =>
       r.id === recordId
         ? {
@@ -2703,7 +2779,15 @@ function TeacherAttendanceApprovals() {
           }
         : r,
     );
-    saveTeacherAttendance(updated);
+    const updatedRecord = updated.find((r) => r.id === recordId);
+    if (updatedRecord) {
+      try {
+        await updateTeacherAttendanceInBackend(updatedRecord);
+      } catch (err) {
+        console.error("updateTeacherAttendanceInBackend (reject) failed:", err);
+        saveTeacherAttendance(updated);
+      }
+    }
     setRecords(updated);
     toast.success("Attendance rejected");
   };
@@ -2871,7 +2955,7 @@ function StudentSuggestions() {
   );
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
 
-  const handleReply = (id: string) => {
+  const handleReply = async (id: string) => {
     const text = replyTexts[id]?.trim();
     if (!text) {
       toast.error("Please write a reply before submitting");
@@ -2886,7 +2970,15 @@ function StudentSuggestions() {
           }
         : s,
     );
-    saveSuggestions(updated);
+    const updatedRecord = updated.find((s) => s.id === id);
+    if (updatedRecord) {
+      try {
+        await saveSuggestionToBackend(updatedRecord);
+      } catch (err) {
+        console.error("saveSuggestionToBackend (reply) failed:", err);
+        saveSuggestions(updated);
+      }
+    }
     setSuggestions(updated);
     setReplyTexts((prev) => ({ ...prev, [id]: "" }));
     toast.success("Reply sent to student");
@@ -3056,8 +3148,13 @@ function PrincipalHallTickets() {
     };
   }, []);
 
-  const handleSaveDesign = () => {
-    saveHallTicketDesign(design);
+  const handleSaveDesign = async () => {
+    try {
+      await saveHallTicketDesignToBackend(design);
+    } catch (err) {
+      console.error("saveHallTicketDesignToBackend failed:", err);
+      saveHallTicketDesign(design);
+    }
     toast.success("Hall ticket design saved");
   };
 
@@ -3792,7 +3889,7 @@ function TimetableApproval({ user }: { user: CurrentUser }) {
     return t.approvalStatus === filterTab;
   });
 
-  const handleApprove = (tt: Timetable) => {
+  const handleApprove = async (tt: Timetable) => {
     const updated = timetables.map((t) =>
       t.id === tt.id
         ? {
@@ -3804,14 +3901,22 @@ function TimetableApproval({ user }: { user: CurrentUser }) {
           }
         : t,
     );
-    saveTimetables(updated);
+    const updatedRecord = updated.find((t) => t.id === tt.id);
+    if (updatedRecord) {
+      try {
+        await saveTimetableToBackend(updatedRecord);
+      } catch (err) {
+        console.error("saveTimetableToBackend (approve) failed:", err);
+        saveTimetables(updated);
+      }
+    }
     setTimetables(updated);
     setSelectedTT(null);
     setShowRejectInput(false);
     toast.success(`Timetable for Class ${tt.class} approved`);
   };
 
-  const handleReject = (tt: Timetable) => {
+  const handleReject = async (tt: Timetable) => {
     if (!rejectNote.trim()) {
       toast.error("Please provide a rejection note");
       return;
@@ -3827,7 +3932,15 @@ function TimetableApproval({ user }: { user: CurrentUser }) {
           }
         : t,
     );
-    saveTimetables(updated);
+    const updatedRecord = updated.find((t) => t.id === tt.id);
+    if (updatedRecord) {
+      try {
+        await saveTimetableToBackend(updatedRecord);
+      } catch (err) {
+        console.error("saveTimetableToBackend (reject) failed:", err);
+        saveTimetables(updated);
+      }
+    }
     setTimetables(updated);
     setSelectedTT(null);
     setShowRejectInput(false);

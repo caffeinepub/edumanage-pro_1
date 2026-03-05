@@ -1,67 +1,29 @@
 # EduManage Pro
 
 ## Current State
-
-The app is a full school management system (Principal, Teacher, Student portals) with all data stored entirely in browser `localStorage`. This means data entered on one device is not visible on any other device -- each browser has its own isolated copy.
-
-Key data types currently in localStorage:
-- Principal profile (name, password, photo, logo)
-- Teachers list (with photos)
-- Students list (with photos)
-- Attendance records (student & teacher)
-- Fee records
-- Exam results
-- Notifications (with attachments)
-- Homework posts
-- Calendar events
-- Leave applications
-- Timetables
-- Online exams & attempts
-- Portfolio entries
-- Suggestions/queries
-- Hall ticket design
-
-The backend canister (`main.mo`) is a minimal stub with only a `ping()` function.
+The app has a Motoko backend canister that stores only: principal profile, teachers, and students. All other data (attendance, teacher attendance, fees, exam results, notifications, homework, calendar events, leave applications, timetables, online exams, exam attempts, portfolio entries, suggestions, hall ticket design) is stored exclusively in browser localStorage. This means any data added or changed on one device is invisible on any other device.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Full Motoko backend with stable storage for all data types
-- Backend API functions for CRUD operations on every data type
-- Auth functions: login (principal/teacher/student)
-- Principal profile management (name, password, photo as base64, institution logo as base64)
-- Teacher management (add, update, delete, get all, get by id)
-- Student management (add, update, delete, get all, get by id, get by class, get by teacher)
-- Attendance (student): add record, get all, get by student
-- Teacher attendance: add record, get all, update approval status
-- Fee records: add, update, get all, get by student
-- Exam results: add, update status (approve/reject), get all, get by student, delete
-- Notifications: add (with optional attachment), delete, get all
-- Homework: add, delete, get all
-- Calendar events: add, delete, get all
-- Leave applications: add, update status, get all
-- Timetables: save/update by class, get all, get by class, update approval
-- Online exams: add, update status, delete, get all
-- Exam attempts: add, get all, get by exam, get by student
-- Portfolio entries: add, delete, get all, get by student
-- Suggestions: add, update with response, get all
-- Hall ticket design: save, get
+- Backend canister storage for all remaining data types: StudentAttendance, TeacherAttendance, FeeRecord, ExamResult, Notification, HomeworkPost, CalendarEvent, LeaveApplication, Timetable, OnlineExam, ExamAttempt, PortfolioEntry, SuggestionQuery, HallTicketDesign
+- Backend CRUD functions for each new data type: get all, add, update by id, delete by id
+- Frontend async sync functions in data.ts for all new data types: load from backend into localStorage cache, save to backend and cache
+- On app load (initializeBackend), sync all data types from canister, not just teachers/students/principal
+- All dashboard write operations (add, update, delete) must call the async backend function so data is persisted in the canister and visible on all devices
 
 ### Modify
-- Frontend `store/data.ts`: replace all `localStorage` reads/writes with async calls to the backend canister
-- `App.tsx`: handle async initialization (loading state while fetching from canister)
-- All dashboard pages: update to call backend functions instead of localStorage helpers
+- Motoko main.mo: add storage variables and CRUD methods for all missing data types
+- data.ts initializeBackend(): extend to sync all data types from canister
+- PrincipalDashboard, TeacherDashboard, StudentDashboard: switch all mutating operations (save, delete, update) to use the new async backend functions instead of pure localStorage writes
 
 ### Remove
-- `localStorage`-based data persistence (replace entirely with canister calls)
-- `initializeData()` seed function that wrote to localStorage (seed data will be initialized in the Motoko backend)
+- No features removed; no UI changes
 
 ## Implementation Plan
-
-1. Generate Motoko backend with stable vars for all data types, typed records, and full CRUD + auth query/update functions
-2. Update `backend.d.ts` bindings to expose all new canister functions
-3. Rewrite `store/data.ts` to be an async API layer calling the backend canister
-4. Update `App.tsx` and all pages/components to use async data calls with proper loading states
-5. Remove all direct `localStorage` usage from app logic
-6. Ensure photos/attachments stored as base64 Text in the canister
-7. Validate, typecheck, and build
+1. Extend main.mo with stable variables and CRUD for: StudentAttendance, TeacherAttendance, FeeRecord, ExamResult, Notification, HomeworkPost, CalendarEvent, LeaveApplication, Timetable, OnlineExam, ExamAttempt, PortfolioEntry, SuggestionQuery, HallTicketDesign
+2. Add JSON-based storage for complex/nested types (schedule, questions, answers, subjects) using Text fields serialized as JSON strings
+3. In data.ts, add async sync/save/delete functions for each new data type mirroring the existing teacher/student pattern
+4. Extend initializeBackend() to call all new sync functions
+5. Update all dashboard mutation handlers to use async backend functions (show loading states where needed)
+6. Seed data on first run via initializeIfNeeded() on the backend

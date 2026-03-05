@@ -57,7 +57,10 @@ import {
   type Student,
   type TeacherAttendance,
   type Timetable,
+  addTeacherAttendanceToBackend,
   calcAttendancePercent,
+  deleteHomeworkFromBackend,
+  deletePortfolioEntryFromBackend,
   deleteStudentFromBackend,
   formatDate,
   generateId,
@@ -77,17 +80,26 @@ import {
   getTeacherById,
   getTimetables,
   saveAttendance,
+  saveAttendanceBatchToBackend,
+  saveExamToBackend,
   saveExams,
+  saveFeeToBackend,
   saveFees,
   saveHomework,
+  saveHomeworkToBackend,
+  saveLeaveToBackend,
   saveLeaves,
   savePortfolio,
+  savePortfolioEntryToBackend,
   saveResults,
+  saveResultsBatchToBackend,
   saveStudentToBackend,
   saveStudents,
   saveTeacherAttendance,
+  saveTimetableToBackend,
   saveTimetables,
   syncStudentsFromBackend,
+  updateTeacherAttendanceInBackend,
 } from "@/store/data";
 import {
   BookOpen,
@@ -536,7 +548,7 @@ function MarkAttendance({
     initStatuses();
   });
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const att = getAttendance().filter(
       (a) => !(a.date === date && students.some((s) => s.id === a.studentId)),
     );
@@ -547,7 +559,12 @@ function MarkAttendance({
       status: statuses[s.id] ?? "present",
       markedBy: teacherId,
     }));
-    saveAttendance([...att, ...newRecs]);
+    try {
+      await saveAttendanceBatchToBackend(newRecs);
+    } catch (err) {
+      console.error("saveAttendanceBatchToBackend failed:", err);
+      saveAttendance([...att, ...newRecs]);
+    }
     toast.success(`Attendance saved for ${formatDate(date)}`);
   };
 
@@ -708,7 +725,7 @@ function FeeUpdates({ teacherId }: { teacherId: string }) {
 
   const getLatestFee = (studentId: string) => latestFeeMap[studentId];
 
-  const handleSaveFee = () => {
+  const handleSaveFee = async () => {
     if (!editStudent || !feeForm.amount) return;
     const newFee: FeeRecord = {
       id: generateId("fee"),
@@ -720,9 +737,13 @@ function FeeUpdates({ teacherId }: { teacherId: string }) {
       description: feeForm.description,
       receiptNumber: feeForm.receiptNumber || undefined,
     };
-    const updated = [...fees, newFee];
-    saveFees(updated);
-    setFees(updated);
+    try {
+      await saveFeeToBackend(newFee);
+    } catch (err) {
+      console.error("saveFeeToBackend failed:", err);
+      saveFees([...fees, newFee]);
+    }
+    setFees((prev) => [...prev, newFee]);
     setEditStudent(null);
     toast.success("Fee record updated");
   };
@@ -930,7 +951,7 @@ function UploadMarks({
     }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!examName) {
       toast.error("Enter exam name");
       return;
@@ -951,7 +972,12 @@ function UploadMarks({
       submittedAt: now,
       status: "pending" as const,
     }));
-    saveResults([...allResults, ...newResults]);
+    try {
+      await saveResultsBatchToBackend(newResults);
+    } catch (err) {
+      console.error("saveResultsBatchToBackend failed:", err);
+      saveResults([...allResults, ...newResults]);
+    }
     toast.success("Marks submitted for principal approval");
     setMarks({});
     setExamName("");
@@ -1284,7 +1310,7 @@ function UpdatePortfolio({ teacherId }: { teacherId: string }) {
 
   const studentPortfolio = portfolio.filter((p) => p.studentId === selectedId);
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!form.title) {
       toast.error("Title is required");
       return;
@@ -1295,9 +1321,13 @@ function UpdatePortfolio({ teacherId }: { teacherId: string }) {
       ...form,
       addedBy: teacherId,
     };
-    const updated = [...portfolio, entry];
-    savePortfolio(updated);
-    setPortfolio(updated);
+    try {
+      await savePortfolioEntryToBackend(entry);
+    } catch (err) {
+      console.error("savePortfolioEntryToBackend failed:", err);
+      savePortfolio([...portfolio, entry]);
+    }
+    setPortfolio((prev) => [...prev, entry]);
     setForm({
       title: "",
       description: "",
@@ -1307,10 +1337,14 @@ function UpdatePortfolio({ teacherId }: { teacherId: string }) {
     toast.success("Portfolio entry added");
   };
 
-  const handleDelete = (id: string) => {
-    const updated = portfolio.filter((p) => p.id !== id);
-    savePortfolio(updated);
-    setPortfolio(updated);
+  const handleDelete = async (id: string) => {
+    try {
+      await deletePortfolioEntryFromBackend(id);
+    } catch (err) {
+      console.error("deletePortfolioEntryFromBackend failed:", err);
+      savePortfolio(portfolio.filter((p) => p.id !== id));
+    }
+    setPortfolio((prev) => prev.filter((p) => p.id !== id));
     toast.success("Entry removed");
   };
 
@@ -1498,7 +1532,7 @@ function UploadTimetable({
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const tt = getTimetables();
     const idx = tt.findIndex((t) => t.class === teacherClass);
     const newTT: Timetable = {
@@ -1514,7 +1548,12 @@ function UploadTimetable({
     };
     const updated =
       idx >= 0 ? tt.map((t, i) => (i === idx ? newTT : t)) : [...tt, newTT];
-    saveTimetables(updated);
+    try {
+      await saveTimetableToBackend(newTT);
+    } catch (err) {
+      console.error("saveTimetableToBackend failed:", err);
+      saveTimetables(updated);
+    }
     setExisting(newTT);
     toast.success("Timetable submitted for principal approval");
   };
@@ -1646,7 +1685,7 @@ function Homework({
 
   const myHW = homework.filter((h) => h.teacherId === teacherId);
 
-  const handlePost = () => {
+  const handlePost = async () => {
     if (!form.subject || !form.title || !form.dueDate) {
       toast.error("Subject, title and due date required");
       return;
@@ -1657,9 +1696,13 @@ function Homework({
       teacherId,
       postedAt: new Date().toISOString().split("T")[0],
     };
-    const updated = [hw, ...homework];
-    saveHomework(updated);
-    setHomework(updated);
+    try {
+      await saveHomeworkToBackend(hw);
+    } catch (err) {
+      console.error("saveHomeworkToBackend failed:", err);
+      saveHomework([hw, ...homework]);
+    }
+    setHomework((prev) => [hw, ...prev]);
     setForm({
       subject: "",
       title: "",
@@ -1670,10 +1713,14 @@ function Homework({
     toast.success("Homework posted");
   };
 
-  const handleDelete = (id: string) => {
-    const updated = homework.filter((h) => h.id !== id);
-    saveHomework(updated);
-    setHomework(updated);
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteHomeworkFromBackend(id);
+    } catch (err) {
+      console.error("deleteHomeworkFromBackend failed:", err);
+      saveHomework(homework.filter((h) => h.id !== id));
+    }
+    setHomework((prev) => prev.filter((h) => h.id !== id));
     toast.success("Homework removed");
   };
 
@@ -1837,7 +1884,7 @@ function OnlineExamsTeacher({
     });
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!form.title || questions.length === 0) {
       toast.error("Title and at least one question required");
       return;
@@ -1854,8 +1901,13 @@ function OnlineExamsTeacher({
       status: "active",
     };
     const allExams = getExams();
-    saveExams([...allExams, exam]);
-    setExams([...exams, exam]);
+    try {
+      await saveExamToBackend(exam);
+    } catch (err) {
+      console.error("saveExamToBackend failed:", err);
+      saveExams([...allExams, exam]);
+    }
+    setExams((prev) => [...prev, exam]);
     setCreating(false);
     setForm({ title: "", subject: "", duration: "30", class: teacherClass });
     setQuestions([]);
@@ -2259,7 +2311,7 @@ function MyAttendance({ teacherId }: { teacherId: string }) {
 
   const todayRecord = records.find((r) => r.date === form.date);
 
-  const handleMark = () => {
+  const handleMark = async () => {
     if (!form.checkInTime) {
       toast.error("Please enter check-in time");
       return;
@@ -2277,9 +2329,13 @@ function MyAttendance({ teacherId }: { teacherId: string }) {
       checkOutTime: form.checkOutTime || undefined,
       approvalStatus: "pending",
     };
-    const all = [...getTeacherAttendance(), newRecord];
-    saveTeacherAttendance(all);
-    setRecords(all.filter((r) => r.teacherId === teacherId));
+    try {
+      await addTeacherAttendanceToBackend(newRecord);
+    } catch (err) {
+      console.error("addTeacherAttendanceToBackend failed:", err);
+      saveTeacherAttendance([...getTeacherAttendance(), newRecord]);
+    }
+    setRecords((prev) => [...prev, newRecord]);
     setForm({
       date: today,
       status: "present",
@@ -2289,7 +2345,7 @@ function MyAttendance({ teacherId }: { teacherId: string }) {
     toast.success("Attendance submitted — awaiting principal approval");
   };
 
-  const handleCheckOut = () => {
+  const handleCheckOut = async () => {
     if (!todayRecord) {
       toast.error("Mark check-in first");
       return;
@@ -2298,11 +2354,19 @@ function MyAttendance({ teacherId }: { teacherId: string }) {
       toast.error("Please enter check-out time");
       return;
     }
-    const all = getTeacherAttendance().map((r) =>
-      r.id === todayRecord.id ? { ...r, checkOutTime: form.checkOutTime } : r,
+    const updatedRecord = { ...todayRecord, checkOutTime: form.checkOutTime };
+    try {
+      await updateTeacherAttendanceInBackend(updatedRecord);
+    } catch (err) {
+      console.error("updateTeacherAttendanceInBackend (checkout) failed:", err);
+      const all = getTeacherAttendance().map((r) =>
+        r.id === todayRecord.id ? updatedRecord : r,
+      );
+      saveTeacherAttendance(all);
+    }
+    setRecords((prev) =>
+      prev.map((r) => (r.id === todayRecord.id ? updatedRecord : r)),
     );
-    saveTeacherAttendance(all);
-    setRecords(all.filter((r) => r.teacherId === teacherId));
     toast.success("Check-out time saved");
   };
 
@@ -2477,7 +2541,7 @@ function TeacherLeaveApplication({ user }: { user: CurrentUser }) {
     reason: "",
   });
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.fromDate || !form.toDate || !form.reason) {
       toast.error("All fields are required");
       return;
@@ -2491,9 +2555,13 @@ function TeacherLeaveApplication({ user }: { user: CurrentUser }) {
       status: "pending",
       submittedAt: new Date().toISOString().split("T")[0],
     };
-    const allLeaves = [...getLeaves(), leave];
-    saveLeaves(allLeaves);
-    setLeaves(allLeaves.filter((l) => l.applicantId === user.id));
+    try {
+      await saveLeaveToBackend(leave);
+    } catch (err) {
+      console.error("saveLeaveToBackend (teacher) failed:", err);
+      saveLeaves([...getLeaves(), leave]);
+    }
+    setLeaves((prev) => [...prev, leave]);
     setForm({ type: "sick", fromDate: "", toDate: "", reason: "" });
     toast.success("Leave application submitted");
   };

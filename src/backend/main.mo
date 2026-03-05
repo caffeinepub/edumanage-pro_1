@@ -1,12 +1,14 @@
 import List "mo:core/List";
 import Text "mo:core/Text";
 import Float "mo:core/Float";
+import Migration "migration";
 
 // EduManage Pro - Complete backend implementation
+(with migration = Migration.run)
 actor {
   ///////////////////// DATA MODELS //////////////////////
 
-  type PrincipalProfile = {
+  public type PrincipalProfile = {
     id : Text;
     password : Text;
     name : Text;
@@ -211,6 +213,20 @@ actor {
 
   ///////////////// INITIAL DATA ////////////////////
 
+  public type AuthResult = {
+    id : Text;
+    name : Text;
+    role : Text;
+  };
+
+  public type AuthWithClassResult = {
+    id : Text;
+    name : Text;
+    role : Text;
+    class_ : Text;
+  };
+
+  // Persistent State initialization (Store all data in the canister)
   var principalProfile : PrincipalProfile = {
     id = "principal001";
     password = "admin123";
@@ -224,22 +240,45 @@ actor {
     institutionTagline = "Excellence in Education";
   };
 
+  var hallTicketDesign : ?HallTicketDesign = null;
+  var teachers = List.empty<Teacher>();
+  var students = List.empty<Student>();
+  // New persistent lists for all data types (empty)
+  var studentAttendance = List.empty<StudentAttendance>();
+  var teacherAttendance = List.empty<TeacherAttendance>();
+  var feeRecords = List.empty<FeeRecord>();
+  var examResults = List.empty<ExamResult>();
+  var notifications = List.empty<Notification>();
+  var homework = List.empty<Homework>();
+  var calendarEvents = List.empty<CalendarEvent>();
+  var leaveApplications = List.empty<LeaveApplication>();
+  var timetables = List.empty<Timetable>();
+  var exams = List.empty<Exam>();
+  var examAttempts = List.empty<ExamAttempt>();
+  var portfolioEntries = List.empty<PortfolioEntry>();
+  var suggestions = List.empty<Suggestion>();
+
+  // Principal and Hall Ticket (single record)
   public query ({ caller }) func getPrincipalProfile() : async PrincipalProfile {
     principalProfile;
   };
 
-  public shared ({ caller }) func savePrincipalProfile(profile : PrincipalProfile) : async () {
+  public func savePrincipalProfile(profile : PrincipalProfile) : async () {
     principalProfile := profile;
   };
 
-  public query ({ caller }) func loginPrincipal(id : Text, password : Text) : async ?{
-    id : Text;
-    name : Text;
-    role : Text;
-  } {
-    // Trim input password
-    var trimmedPassword = password.trim(#char ' ');
+  public query ({ caller }) func getHallTicketDesign() : async ?HallTicketDesign {
+    hallTicketDesign;
+  };
 
+  public shared ({ caller }) func saveHallTicketDesign(newDesign : HallTicketDesign) : async () {
+    hallTicketDesign := ?newDesign;
+  };
+
+  /////////////////// AUTH /////////////////////////
+
+  public query ({ caller }) func loginPrincipal(id : Text, password : Text) : async ?AuthResult {
+    var trimmedPassword = password.trim(#char ' ');
     if (
       id == principalProfile.id and trimmedPassword == principalProfile.password
     ) {
@@ -253,9 +292,69 @@ actor {
     };
   };
 
+  public query ({ caller }) func loginTeacher(id : Text, password : Text) : async ?AuthWithClassResult {
+    let trimmedPassword = password.trim(#char ' ');
+    let teacher = teachers.find(
+      func(t) {
+        t.id == id and t.password.trim(#char ' ') == trimmedPassword
+      }
+    );
+    switch (teacher) {
+      case (null) { null };
+      case (?t) {
+        ?{
+          id = t.id;
+          name = t.name;
+          role = t.role;
+          class_ = t.class_;
+        };
+      };
+    };
+  };
+
+  public query ({ caller }) func loginStudent(id : Text, password : Text) : async ?AuthWithClassResult {
+    let trimmedPassword = password.trim(#char ' ');
+    let student = students.find(
+      func(s) {
+        s.id == id and s.password.trim(#char ' ') == trimmedPassword
+      }
+    );
+    switch (student) {
+      case (null) { null };
+      case (?s) {
+        ?{
+          id = s.id;
+          name = s.name;
+          role = s.role;
+          class_ = s.class_;
+        };
+      };
+    };
+  };
+
+  /////////////// INITIAL DATA SEEDING /////////////////
+
   public func initializeIfNeeded() : async () {
-    if (students.isEmpty()) { initializeStudents() };
-    if (teachers.isEmpty()) { initializeTeachers() };
+    if (
+      students.isEmpty() and
+      teachers.isEmpty() and
+      studentAttendance.isEmpty() and
+      teacherAttendance.isEmpty() and
+      feeRecords.isEmpty() and
+      examResults.isEmpty() and
+      notifications.isEmpty() and
+      homework.isEmpty() and
+      calendarEvents.isEmpty() and
+      leaveApplications.isEmpty() and
+      timetables.isEmpty() and
+      exams.isEmpty() and
+      examAttempts.isEmpty() and
+      portfolioEntries.isEmpty() and
+      suggestions.isEmpty()
+    ) {
+      initializeStudents();
+      initializeTeachers();
+    };
   };
 
   public func initializeStudents() {
@@ -363,102 +462,408 @@ actor {
     });
   };
 
-  var teachers = List.empty<Teacher>();
-  var students = List.empty<Student>();
+  ///////////////// GENERIC LIST OPERATIONS ////////////////////
 
-  ///////////////// TEACHERS ////////////////////
-
-  public query ({ caller }) func getTeachers() : async [Teacher] {
+  // TEACHERS
+  public query ({ caller }) func getAllTeachers() : async [Teacher] {
     teachers.toArray();
-  };
-
-  public query ({ caller }) func getTeacherById(id : Text) : async ?Teacher {
-    teachers.find(func(t) { t.id == id });
   };
 
   public func addTeacher(teacher : Teacher) : async () {
     teachers.add(teacher);
   };
 
-  public func updateTeacher(id : Text, updatedTeacher : Teacher) : async Bool {
-    let previousSize = teachers.size();
-    teachers := teachers.filter(func(t) { t.id != id });
-    let newSize = teachers.size();
-
-    if (newSize < previousSize) {
-      teachers.add(updatedTeacher);
-      true;
-    } else { false };
+  public func updateTeacher(id : Text, teacher : Teacher) : async Bool {
+    let index = teachers.findIndex(func(t) { t.id == id });
+    switch (index) {
+      case (?i) {
+        let filtered = teachers.filter(func(t) { t.id != id });
+        teachers := filtered;
+        teachers.add(teacher);
+        true;
+      };
+      case (null) { false };
+    };
   };
 
   public func deleteTeacher(id : Text) : async () {
     teachers := teachers.filter(func(t) { t.id != id });
   };
 
-  ////////////////// STUDENTS /////////////////////
-
-  public query ({ caller }) func getStudents() : async [Student] {
+  // STUDENTS
+  public query ({ caller }) func getAllStudents() : async [Student] {
     students.toArray();
-  };
-
-  public query ({ caller }) func getStudentById(id : Text) : async ?Student {
-    students.find(func(s) { s.id == id });
-  };
-
-  public query ({ caller }) func getStudentsByClass(class_ : Text) : async [Student] {
-    students.filter(func(s) { s.class_ == class_ }).toArray();
-  };
-
-  public query ({ caller }) func getStudentsByTeacher(teacherId : Text) : async [Student] {
-    students.filter(func(s) { s.teacherId == teacherId }).toArray();
   };
 
   public func addStudent(student : Student) : async () {
     students.add(student);
   };
 
-  public func updateStudent(id : Text, updatedStudent : Student) : async Bool {
-    let previousSize = students.size();
-    students := students.filter(func(s) { s.id != id });
-    let newSize = students.size();
-
-    if (newSize < previousSize) {
-      students.add(updatedStudent);
-      true;
-    } else { false };
+  public func updateStudent(id : Text, student : Student) : async Bool {
+    let index = students.findIndex(func(s) { s.id == id });
+    switch (index) {
+      case (?i) {
+        let filtered = students.filter(func(s) { s.id != id });
+        students := filtered;
+        students.add(student);
+        true;
+      };
+      case (null) { false };
+    };
   };
 
   public func deleteStudent(id : Text) : async () {
     students := students.filter(func(s) { s.id != id });
   };
 
-  /////////////////////// AUTH /////////////////////////////
-
-  public query ({ caller }) func loginTeacher(id : Text, password : Text) : async ?{
-    id : Text;
-    name : Text;
-    role : Text;
-    class_ : Text;
-  } {
-    let trimmedPassword = password.trim(#char ' ');
-    teachers.find(
-      func(t) {
-        t.id == id and t.password.trim(#char ' ') == trimmedPassword
-      }
-    );
+  // STUDENT ATTENDANCE
+  public query ({ caller }) func getAllStudentAttendance() : async [StudentAttendance] {
+    studentAttendance.toArray();
   };
 
-  public query ({ caller }) func loginStudent(id : Text, password : Text) : async ?{
-    id : Text;
-    name : Text;
-    role : Text;
-    class_ : Text;
-  } {
-    let trimmedPassword = password.trim(#char ' ');
-    students.find(
-      func(s) {
-        s.id == id and s.password.trim(#char ' ') == trimmedPassword
-      }
-    );
+  public func addStudentAttendance(attendance : StudentAttendance) : async () {
+    studentAttendance.add(attendance);
+  };
+
+  public func updateStudentAttendance(id : Text, attendance : StudentAttendance) : async Bool {
+    let filtered = studentAttendance.filter(func(a) { a.id != id });
+    let originalSize = studentAttendance.size();
+    let newSize = filtered.size();
+
+    if (newSize < originalSize) {
+      studentAttendance := filtered;
+      studentAttendance.add(attendance);
+      true;
+    } else {
+      false;
+    };
+  };
+
+  public func deleteStudentAttendance(id : Text) : async () {
+    studentAttendance := studentAttendance.filter(func(a) { a.id != id });
+  };
+
+  // TEACHER ATTENDANCE
+  public query ({ caller }) func getAllTeacherAttendance() : async [TeacherAttendance] {
+    teacherAttendance.toArray();
+  };
+
+  public func addTeacherAttendance(attendance : TeacherAttendance) : async () {
+    teacherAttendance.add(attendance);
+  };
+
+  public func updateTeacherAttendance(id : Text, attendance : TeacherAttendance) : async Bool {
+    let filtered = teacherAttendance.filter(func(a) { a.id != id });
+    let originalSize = teacherAttendance.size();
+    let newSize = filtered.size();
+
+    if (newSize < originalSize) {
+      teacherAttendance := filtered;
+      teacherAttendance.add(attendance);
+      true;
+    } else {
+      false;
+    };
+  };
+
+  public func deleteTeacherAttendance(id : Text) : async () {
+    teacherAttendance := teacherAttendance.filter(func(a) { a.id != id });
+  };
+
+  // FEE RECORDS
+  public query ({ caller }) func getAllFeeRecords() : async [FeeRecord] {
+    feeRecords.toArray();
+  };
+
+  public func addFeeRecord(record : FeeRecord) : async () {
+    feeRecords.add(record);
+  };
+
+  public func updateFeeRecord(id : Text, record : FeeRecord) : async Bool {
+    let filtered = feeRecords.filter(func(r) { r.id != id });
+    let originalSize = feeRecords.size();
+    let newSize = filtered.size();
+
+    if (newSize < originalSize) {
+      feeRecords := filtered;
+      feeRecords.add(record);
+      true;
+    } else {
+      false;
+    };
+  };
+
+  public func deleteFeeRecord(id : Text) : async () {
+    feeRecords := feeRecords.filter(func(r) { r.id != id });
+  };
+
+  // EXAM RESULTS
+  public query ({ caller }) func getAllExamResults() : async [ExamResult] {
+    examResults.toArray();
+  };
+
+  public func addExamResult(result : ExamResult) : async () {
+    examResults.add(result);
+  };
+
+  public func updateExamResult(id : Text, result : ExamResult) : async Bool {
+    let filtered = examResults.filter(func(r) { r.id != id });
+    let originalSize = examResults.size();
+    let newSize = filtered.size();
+
+    if (newSize < originalSize) {
+      examResults := filtered;
+      examResults.add(result);
+      true;
+    } else {
+      false;
+    };
+  };
+
+  public func deleteExamResult(id : Text) : async () {
+    examResults := examResults.filter(func(r) { r.id != id });
+  };
+
+  // NOTIFICATIONS
+  public query ({ caller }) func getAllNotifications() : async [Notification] {
+    notifications.toArray();
+  };
+
+  public func addNotification(notification : Notification) : async () {
+    notifications.add(notification);
+  };
+
+  public func updateNotification(id : Text, notification : Notification) : async Bool {
+    let filtered = notifications.filter(func(n) { n.id != id });
+    let originalSize = notifications.size();
+    let newSize = filtered.size();
+
+    if (newSize < originalSize) {
+      notifications := filtered;
+      notifications.add(notification);
+      true;
+    } else {
+      false;
+    };
+  };
+
+  public func deleteNotification(id : Text) : async () {
+    notifications := notifications.filter(func(n) { n.id != id });
+  };
+
+  // HOMEWORK
+  public query ({ caller }) func getAllHomework() : async [Homework] {
+    homework.toArray();
+  };
+
+  public func addHomework(assignment : Homework) : async () {
+    homework.add(assignment);
+  };
+
+  public func updateHomework(id : Text, assignment : Homework) : async Bool {
+    let filtered = homework.filter(func(a) { a.id != id });
+    let originalSize = homework.size();
+    let newSize = filtered.size();
+
+    if (newSize < originalSize) {
+      homework := filtered;
+      homework.add(assignment);
+      true;
+    } else {
+      false;
+    };
+  };
+
+  public func deleteHomework(id : Text) : async () {
+    homework := homework.filter(func(a) { a.id != id });
+  };
+
+  // CALENDAR EVENTS
+  public query ({ caller }) func getAllCalendarEvents() : async [CalendarEvent] {
+    calendarEvents.toArray();
+  };
+
+  public func addCalendarEvent(event : CalendarEvent) : async () {
+    calendarEvents.add(event);
+  };
+
+  public func updateCalendarEvent(id : Text, event : CalendarEvent) : async Bool {
+    let filtered = calendarEvents.filter(func(e) { e.id != id });
+    let originalSize = calendarEvents.size();
+    let newSize = filtered.size();
+
+    if (newSize < originalSize) {
+      calendarEvents := filtered;
+      calendarEvents.add(event);
+      true;
+    } else {
+      false;
+    };
+  };
+
+  public func deleteCalendarEvent(id : Text) : async () {
+    calendarEvents := calendarEvents.filter(func(e) { e.id != id });
+  };
+
+  // LEAVE APPLICATIONS
+  public query ({ caller }) func getAllLeaveApplications() : async [LeaveApplication] {
+    leaveApplications.toArray();
+  };
+
+  public func addLeaveApplication(application : LeaveApplication) : async () {
+    leaveApplications.add(application);
+  };
+
+  public func updateLeaveApplication(id : Text, application : LeaveApplication) : async Bool {
+    let filtered = leaveApplications.filter(func(a) { a.id != id });
+    let originalSize = leaveApplications.size();
+    let newSize = filtered.size();
+
+    if (newSize < originalSize) {
+      leaveApplications := filtered;
+      leaveApplications.add(application);
+      true;
+    } else {
+      false;
+    };
+  };
+
+  public func deleteLeaveApplication(id : Text) : async () {
+    leaveApplications := leaveApplications.filter(func(a) { a.id != id });
+  };
+
+  // TIMETABLES
+  public query ({ caller }) func getAllTimetables() : async [Timetable] {
+    timetables.toArray();
+  };
+
+  public func addTimetable(timetable : Timetable) : async () {
+    timetables.add(timetable);
+  };
+
+  public func updateTimetable(id : Text, timetable : Timetable) : async Bool {
+    let filtered = timetables.filter(func(t) { t.id != id });
+    let originalSize = timetables.size();
+    let newSize = filtered.size();
+
+    if (newSize < originalSize) {
+      timetables := filtered;
+      timetables.add(timetable);
+      true;
+    } else {
+      false;
+    };
+  };
+
+  public func deleteTimetable(id : Text) : async () {
+    timetables := timetables.filter(func(t) { t.id != id });
+  };
+
+  // EXAMS
+  public query ({ caller }) func getAllExams() : async [Exam] {
+    exams.toArray();
+  };
+
+  public func addExam(exam : Exam) : async () {
+    exams.add(exam);
+  };
+
+  public func updateExam(id : Text, exam : Exam) : async Bool {
+    let filtered = exams.filter(func(e) { e.id != id });
+    let originalSize = exams.size();
+    let newSize = filtered.size();
+
+    if (newSize < originalSize) {
+      exams := filtered;
+      exams.add(exam);
+      true;
+    } else {
+      false;
+    };
+  };
+
+  public func deleteExam(id : Text) : async () {
+    exams := exams.filter(func(e) { e.id != id });
+  };
+
+  // EXAM ATTEMPTS
+  public query ({ caller }) func getAllExamAttempts() : async [ExamAttempt] {
+    examAttempts.toArray();
+  };
+
+  public func addExamAttempt(attempt : ExamAttempt) : async () {
+    examAttempts.add(attempt);
+  };
+
+  public func updateExamAttempt(id : Text, attempt : ExamAttempt) : async Bool {
+    let filtered = examAttempts.filter(func(a) { a.id != id });
+    let originalSize = examAttempts.size();
+    let newSize = filtered.size();
+
+    if (newSize < originalSize) {
+      examAttempts := filtered;
+      examAttempts.add(attempt);
+      true;
+    } else {
+      false;
+    };
+  };
+
+  public func deleteExamAttempt(id : Text) : async () {
+    examAttempts := examAttempts.filter(func(a) { a.id != id });
+  };
+
+  // PORTFOLIO ENTRIES
+  public query ({ caller }) func getAllPortfolioEntries() : async [PortfolioEntry] {
+    portfolioEntries.toArray();
+  };
+
+  public func addPortfolioEntry(entry : PortfolioEntry) : async () {
+    portfolioEntries.add(entry);
+  };
+
+  public func updatePortfolioEntry(id : Text, entry : PortfolioEntry) : async Bool {
+    let filtered = portfolioEntries.filter(func(e) { e.id != id });
+    let originalSize = portfolioEntries.size();
+    let newSize = filtered.size();
+
+    if (newSize < originalSize) {
+      portfolioEntries := filtered;
+      portfolioEntries.add(entry);
+      true;
+    } else {
+      false;
+    };
+  };
+
+  public func deletePortfolioEntry(id : Text) : async () {
+    portfolioEntries := portfolioEntries.filter(func(e) { e.id != id });
+  };
+
+  // SUGGESTIONS
+  public query ({ caller }) func getAllSuggestions() : async [Suggestion] {
+    suggestions.toArray();
+  };
+
+  public func addSuggestion(suggestion : Suggestion) : async () {
+    suggestions.add(suggestion);
+  };
+
+  public func updateSuggestion(id : Text, suggestion : Suggestion) : async Bool {
+    let filtered = suggestions.filter(func(s) { s.id != id });
+    let originalSize = suggestions.size();
+    let newSize = filtered.size();
+
+    if (newSize < originalSize) {
+      suggestions := filtered;
+      suggestions.add(suggestion);
+      true;
+    } else {
+      false;
+    };
+  };
+
+  public func deleteSuggestion(id : Text) : async () {
+    suggestions := suggestions.filter(func(s) { s.id != id });
   };
 };

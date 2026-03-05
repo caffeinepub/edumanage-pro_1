@@ -1,5 +1,7 @@
 // ============================================================
-// EduManage Pro - Data Store (localStorage + Backend Canister)
+// EduManage Pro - Data Store (Backend Canister + localStorage cache)
+// ALL data is now stored in the backend canister so it is
+// shared across ALL devices.
 // ============================================================
 
 import { createActorWithConfig } from "@/config";
@@ -209,7 +211,7 @@ export interface CurrentUser {
 }
 
 // ============================================================
-// localStorage keys
+// localStorage keys (for caching only)
 // ============================================================
 const KEYS = {
   INITIALIZED: "edu_initialized",
@@ -230,6 +232,7 @@ const KEYS = {
   EXAM_ATTEMPTS: "edu_exam_attempts",
   PORTFOLIO: "edu_portfolio",
   SUGGESTIONS: "edu_suggestions",
+  HALL_TICKET: "edu_hall_ticket_design",
 };
 
 // ============================================================
@@ -247,624 +250,6 @@ export function getLS<T>(key: string, fallback: T): T {
 
 export function setLS<T>(key: string, value: T): void {
   localStorage.setItem(key, JSON.stringify(value));
-}
-
-// ============================================================
-// Seed / Initialize
-// ============================================================
-export function initializeData(): void {
-  if (localStorage.getItem(KEYS.INITIALIZED)) return;
-
-  const teachers: Teacher[] = [
-    {
-      id: "teacher001",
-      password: "teacher123",
-      name: "Mrs. Priya Sharma",
-      subject: "Mathematics",
-      email: "priya@school.edu",
-      phone: "9876543210",
-      class: "10A",
-      role: "teacher",
-    },
-    {
-      id: "teacher002",
-      password: "teacher123",
-      name: "Mr. Amit Verma",
-      subject: "Science",
-      email: "amit@school.edu",
-      phone: "9876543211",
-      class: "9B",
-      role: "teacher",
-    },
-    {
-      id: "teacher003",
-      password: "teacher123",
-      name: "Ms. Neha Gupta",
-      subject: "English",
-      email: "neha@school.edu",
-      phone: "9876543212",
-      class: "8C",
-      role: "teacher",
-    },
-  ];
-
-  const students: Student[] = [
-    {
-      id: "student001",
-      password: "student123",
-      name: "Rahul Mehra",
-      class: "10A",
-      rollNo: "01",
-      parentName: "Mr. Suresh Mehra",
-      parentPhone: "9876500001",
-      teacherId: "teacher001",
-      role: "student",
-    },
-    {
-      id: "student002",
-      password: "student123",
-      name: "Priya Singh",
-      class: "10A",
-      rollNo: "02",
-      parentName: "Mr. Vikram Singh",
-      parentPhone: "9876500002",
-      teacherId: "teacher001",
-      role: "student",
-    },
-    {
-      id: "student003",
-      password: "student123",
-      name: "Arjun Patel",
-      class: "9B",
-      rollNo: "01",
-      parentName: "Mr. Ravi Patel",
-      parentPhone: "9876500003",
-      teacherId: "teacher002",
-      role: "student",
-    },
-    {
-      id: "student004",
-      password: "student123",
-      name: "Sneha Joshi",
-      class: "9B",
-      rollNo: "02",
-      parentName: "Mr. Anand Joshi",
-      parentPhone: "9876500004",
-      teacherId: "teacher002",
-      role: "student",
-    },
-    {
-      id: "student005",
-      password: "student123",
-      name: "Vikram Das",
-      class: "8C",
-      rollNo: "01",
-      parentName: "Mr. Mohan Das",
-      parentPhone: "9876500005",
-      teacherId: "teacher003",
-      role: "student",
-    },
-  ];
-
-  // Attendance for last 10 days
-  const attendance: AttendanceRecord[] = [];
-  const today = new Date();
-  const statuses: ("present" | "absent" | "late")[] = [
-    "present",
-    "present",
-    "present",
-    "present",
-    "absent",
-    "present",
-    "late",
-    "present",
-    "present",
-    "present",
-  ];
-  for (const s of students) {
-    for (let i = 0; i < 10; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      attendance.push({
-        id: `att_${s.id}_${i}`,
-        studentId: s.id,
-        date: d.toISOString().split("T")[0],
-        status: statuses[i % statuses.length],
-        markedBy: s.teacherId,
-      });
-    }
-  }
-
-  // Teacher attendance
-  const teacherAttendance: TeacherAttendance[] = [];
-  for (const t of teachers) {
-    for (let i = 0; i < 10; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      teacherAttendance.push({
-        id: `tatt_${t.id}_${i}`,
-        teacherId: t.id,
-        date: d.toISOString().split("T")[0],
-        status: i === 4 ? "absent" : "present",
-        checkInTime: i === 4 ? undefined : "08:30",
-        checkOutTime: i === 4 ? undefined : "15:30",
-        approvalStatus: "approved",
-      });
-    }
-  }
-
-  // Fee records
-  const fees: FeeRecord[] = [
-    {
-      id: "fee001",
-      studentId: "student001",
-      amount: 15000,
-      date: "2026-01-15",
-      status: "paid",
-      method: "Online Transfer",
-      description: "Term 1 Tuition Fee",
-      receiptNumber: "RPS-2026-001",
-    },
-    {
-      id: "fee002",
-      studentId: "student002",
-      amount: 15000,
-      date: "2026-01-20",
-      status: "paid",
-      method: "Cheque",
-      description: "Term 1 Tuition Fee",
-      receiptNumber: "RPS-2026-002",
-    },
-    {
-      id: "fee003",
-      studentId: "student003",
-      amount: 15000,
-      date: "2026-02-01",
-      status: "partial",
-      method: "Cash",
-      description: "Term 1 Tuition Fee (partial)",
-      receiptNumber: "RPS-2026-003",
-    },
-    {
-      id: "fee004",
-      studentId: "student004",
-      amount: 15000,
-      date: "",
-      status: "pending",
-      method: "",
-      description: "Term 1 Tuition Fee",
-    },
-    {
-      id: "fee005",
-      studentId: "student005",
-      amount: 15000,
-      date: "",
-      status: "pending",
-      method: "",
-      description: "Term 1 Tuition Fee",
-    },
-    {
-      id: "fee006",
-      studentId: "student001",
-      amount: 2500,
-      date: "2026-01-15",
-      status: "paid",
-      method: "Online Transfer",
-      description: "Lab Fee",
-      receiptNumber: "RPS-2026-004",
-    },
-  ];
-
-  // Exam results
-  const results: ExamResult[] = [
-    {
-      id: "res001",
-      examName: "Unit Test 1",
-      studentId: "student001",
-      teacherId: "teacher001",
-      class: "10A",
-      subjects: [
-        { subject: "Mathematics", marks: 88, maxMarks: 100 },
-        { subject: "Science", marks: 82, maxMarks: 100 },
-        { subject: "English", marks: 79, maxMarks: 100 },
-        { subject: "Social Studies", marks: 85, maxMarks: 100 },
-        { subject: "Hindi", marks: 90, maxMarks: 100 },
-      ],
-      submittedAt: "2026-01-25",
-      status: "approved",
-      approvedAt: "2026-01-26",
-    },
-    {
-      id: "res002",
-      examName: "Unit Test 1",
-      studentId: "student002",
-      teacherId: "teacher001",
-      class: "10A",
-      subjects: [
-        { subject: "Mathematics", marks: 75, maxMarks: 100 },
-        { subject: "Science", marks: 80, maxMarks: 100 },
-        { subject: "English", marks: 92, maxMarks: 100 },
-        { subject: "Social Studies", marks: 78, maxMarks: 100 },
-        { subject: "Hindi", marks: 85, maxMarks: 100 },
-      ],
-      submittedAt: "2026-01-25",
-      status: "approved",
-      approvedAt: "2026-01-26",
-    },
-    {
-      id: "res003",
-      examName: "Mid Term",
-      studentId: "student001",
-      teacherId: "teacher001",
-      class: "10A",
-      subjects: [
-        { subject: "Mathematics", marks: 91, maxMarks: 100 },
-        { subject: "Science", marks: 87, maxMarks: 100 },
-        { subject: "English", marks: 83, maxMarks: 100 },
-        { subject: "Social Studies", marks: 89, maxMarks: 100 },
-        { subject: "Hindi", marks: 94, maxMarks: 100 },
-      ],
-      submittedAt: "2026-02-20",
-      status: "pending",
-    },
-    {
-      id: "res004",
-      examName: "Unit Test 1",
-      studentId: "student003",
-      teacherId: "teacher002",
-      class: "9B",
-      subjects: [
-        { subject: "Mathematics", marks: 70, maxMarks: 100 },
-        { subject: "Science", marks: 88, maxMarks: 100 },
-        { subject: "English", marks: 76, maxMarks: 100 },
-      ],
-      submittedAt: "2026-01-25",
-      status: "approved",
-      approvedAt: "2026-01-27",
-    },
-  ];
-
-  // Notifications
-  const notifications: Notification[] = [
-    {
-      id: "notif001",
-      title: "Annual Sports Day Announcement",
-      message:
-        "We are pleased to announce that the Annual Sports Day will be held on March 15, 2026. All students are required to participate in at least one event. Registration forms are available from your class teachers.",
-      date: "2026-02-25",
-      postedBy: "principal001",
-      type: "general",
-    },
-    {
-      id: "notif002",
-      title: "Parent-Teacher Meeting",
-      message:
-        "A Parent-Teacher Meeting is scheduled for Saturday, March 8, 2026. Parents are requested to collect their ward's progress report and meet respective subject teachers between 9 AM - 1 PM.",
-      date: "2026-02-28",
-      postedBy: "principal001",
-      type: "general",
-    },
-    {
-      id: "notif003",
-      title: "Library Book Return",
-      message:
-        "All students must return borrowed library books by March 5, 2026. Fine will be charged at ₹5 per day for late returns.",
-      date: "2026-03-01",
-      postedBy: "principal001",
-      type: "general",
-    },
-  ];
-
-  // Homework
-  const homework: HomeworkPost[] = [
-    {
-      id: "hw001",
-      subject: "Mathematics",
-      title: "Quadratic Equations Practice",
-      description:
-        "Complete exercises 5.1 to 5.4 from Chapter 5. Solve at least 15 problems showing all working steps. Due Monday.",
-      dueDate: "2026-03-09",
-      class: "10A",
-      teacherId: "teacher001",
-      postedAt: "2026-03-02",
-    },
-    {
-      id: "hw002",
-      subject: "Science",
-      title: "Lab Report - Chemical Reactions",
-      description:
-        "Write a detailed lab report on the experiments conducted in class today. Include observations, reactions, and conclusions. Minimum 2 pages.",
-      dueDate: "2026-03-08",
-      class: "9B",
-      teacherId: "teacher002",
-      postedAt: "2026-03-01",
-    },
-    {
-      id: "hw003",
-      subject: "English",
-      title: "Essay - My Favourite Season",
-      description:
-        "Write a 500-word essay on 'My Favourite Season'. Focus on descriptive language and paragraph structure. Handwritten submissions only.",
-      dueDate: "2026-03-07",
-      class: "8C",
-      teacherId: "teacher003",
-      postedAt: "2026-03-01",
-    },
-  ];
-
-  // Calendar events
-  const calendar: CalendarEvent[] = [
-    {
-      id: "cal001",
-      title: "Holi Holiday",
-      type: "holiday",
-      date: "2026-03-14",
-      description:
-        "School closed for Holi festival. Classes resume on March 16.",
-      createdBy: "principal001",
-    },
-    {
-      id: "cal002",
-      title: "Annual Sports Day",
-      type: "event",
-      date: "2026-03-15",
-      description:
-        "Annual Sports Day at school ground. All students to report by 8:00 AM in sports uniform.",
-      createdBy: "principal001",
-    },
-    {
-      id: "cal003",
-      title: "Mid-Term Examinations Begin",
-      type: "exam",
-      date: "2026-03-20",
-      description:
-        "Mid-Term examinations start from March 20. Timetable will be shared by class teachers.",
-      createdBy: "principal001",
-    },
-    {
-      id: "cal004",
-      title: "Parent-Teacher Meeting",
-      type: "event",
-      date: "2026-03-08",
-      description:
-        "PTM for all classes from 9 AM to 1 PM. Parents are requested to bring ward's handbook.",
-      createdBy: "principal001",
-    },
-  ];
-
-  // Leave applications
-  const leaves: LeaveApplication[] = [
-    {
-      id: "leave001",
-      applicantId: "teacher002",
-      applicantName: "Mr. Amit Verma",
-      applicantRole: "teacher",
-      type: "sick",
-      fromDate: "2026-03-05",
-      toDate: "2026-03-06",
-      reason: "Suffering from fever and doctor has advised 2 days rest.",
-      status: "pending",
-      submittedAt: "2026-03-04",
-    },
-    {
-      id: "leave002",
-      applicantId: "student001",
-      applicantName: "Rahul Mehra",
-      applicantRole: "student",
-      type: "personal",
-      fromDate: "2026-03-10",
-      toDate: "2026-03-10",
-      reason: "Family function - cousin's wedding ceremony.",
-      status: "approved",
-      submittedAt: "2026-03-03",
-    },
-  ];
-
-  // Timetable for class 10A
-  const timetable: Timetable[] = [
-    {
-      id: "tt001",
-      class: "10A",
-      schedule: {
-        Monday: {
-          "Period 1": { subject: "Mathematics", teacher: "Mrs. Priya Sharma" },
-          "Period 2": { subject: "Science", teacher: "Mr. Amit Verma" },
-          "Period 3": { subject: "English", teacher: "Ms. Neha Gupta" },
-          "Period 4": { subject: "Social Studies", teacher: "Mr. Kumar" },
-          "Period 5": { subject: "Lunch Break", teacher: "" },
-          "Period 6": { subject: "Hindi", teacher: "Mrs. Dubey" },
-          "Period 7": { subject: "Mathematics", teacher: "Mrs. Priya Sharma" },
-          "Period 8": { subject: "Physical Education", teacher: "Mr. Rajan" },
-        },
-        Tuesday: {
-          "Period 1": { subject: "English", teacher: "Ms. Neha Gupta" },
-          "Period 2": { subject: "Mathematics", teacher: "Mrs. Priya Sharma" },
-          "Period 3": { subject: "Science Lab", teacher: "Mr. Amit Verma" },
-          "Period 4": { subject: "Science Lab", teacher: "Mr. Amit Verma" },
-          "Period 5": { subject: "Lunch Break", teacher: "" },
-          "Period 6": { subject: "Social Studies", teacher: "Mr. Kumar" },
-          "Period 7": { subject: "Hindi", teacher: "Mrs. Dubey" },
-          "Period 8": { subject: "Art & Craft", teacher: "Ms. Patel" },
-        },
-        Wednesday: {
-          "Period 1": { subject: "Science", teacher: "Mr. Amit Verma" },
-          "Period 2": { subject: "Hindi", teacher: "Mrs. Dubey" },
-          "Period 3": { subject: "Mathematics", teacher: "Mrs. Priya Sharma" },
-          "Period 4": { subject: "English", teacher: "Ms. Neha Gupta" },
-          "Period 5": { subject: "Lunch Break", teacher: "" },
-          "Period 6": { subject: "Computer Science", teacher: "Mr. Sinha" },
-          "Period 7": { subject: "Social Studies", teacher: "Mr. Kumar" },
-          "Period 8": { subject: "Mathematics", teacher: "Mrs. Priya Sharma" },
-        },
-        Thursday: {
-          "Period 1": { subject: "Hindi", teacher: "Mrs. Dubey" },
-          "Period 2": { subject: "English", teacher: "Ms. Neha Gupta" },
-          "Period 3": { subject: "Social Studies", teacher: "Mr. Kumar" },
-          "Period 4": { subject: "Mathematics", teacher: "Mrs. Priya Sharma" },
-          "Period 5": { subject: "Lunch Break", teacher: "" },
-          "Period 6": { subject: "Science", teacher: "Mr. Amit Verma" },
-          "Period 7": { subject: "Computer Science", teacher: "Mr. Sinha" },
-          "Period 8": { subject: "Music", teacher: "Mrs. Roy" },
-        },
-        Friday: {
-          "Period 1": { subject: "Computer Science", teacher: "Mr. Sinha" },
-          "Period 2": { subject: "Science", teacher: "Mr. Amit Verma" },
-          "Period 3": { subject: "Hindi", teacher: "Mrs. Dubey" },
-          "Period 4": { subject: "Mathematics", teacher: "Mrs. Priya Sharma" },
-          "Period 5": { subject: "Lunch Break", teacher: "" },
-          "Period 6": { subject: "English", teacher: "Ms. Neha Gupta" },
-          "Period 7": { subject: "Social Studies", teacher: "Mr. Kumar" },
-          "Period 8": { subject: "Library", teacher: "Mrs. Kaur" },
-        },
-        Saturday: {
-          "Period 1": { subject: "Mathematics", teacher: "Mrs. Priya Sharma" },
-          "Period 2": { subject: "English", teacher: "Ms. Neha Gupta" },
-          "Period 3": { subject: "Science", teacher: "Mr. Amit Verma" },
-          "Period 4": { subject: "Hindi", teacher: "Mrs. Dubey" },
-          "Period 5": { subject: "Lunch Break", teacher: "" },
-          "Period 6": { subject: "Social Studies", teacher: "Mr. Kumar" },
-          "Period 7": { subject: "Physical Education", teacher: "Mr. Rajan" },
-          "Period 8": { subject: "Assembly / Activities", teacher: "" },
-        },
-      },
-      updatedAt: "2026-02-01",
-      updatedBy: "teacher001",
-      approvalStatus: "approved",
-    },
-  ];
-
-  // Online exam sample
-  const exams: OnlineExam[] = [
-    {
-      id: "exam001",
-      title: "Mathematics Quick Quiz",
-      subject: "Mathematics",
-      duration: 20,
-      class: "10A",
-      teacherId: "teacher001",
-      createdAt: "2026-03-01",
-      status: "active",
-      questions: [
-        {
-          id: "q1",
-          type: "mcq",
-          question: "What is the value of x in the equation 2x + 5 = 15?",
-          options: ["3", "5", "7", "10"],
-          correctAnswer: "5",
-        },
-        {
-          id: "q2",
-          type: "mcq",
-          question: "Which of the following is a quadratic equation?",
-          options: ["2x + 3 = 0", "x² + 3x + 2 = 0", "x³ - 1 = 0", "√x = 4"],
-          correctAnswer: "x² + 3x + 2 = 0",
-        },
-        {
-          id: "q3",
-          type: "mcq",
-          question: "The sum of angles in a triangle is:",
-          options: ["90°", "180°", "270°", "360°"],
-          correctAnswer: "180°",
-        },
-        {
-          id: "q4",
-          type: "short",
-          question: "Define the Pythagorean theorem and write its formula.",
-        },
-        {
-          id: "q5",
-          type: "mcq",
-          question: "What is the HCF of 12 and 18?",
-          options: ["3", "4", "6", "9"],
-          correctAnswer: "6",
-        },
-      ],
-    },
-  ];
-
-  // Portfolio entries
-  const portfolio: PortfolioEntry[] = [
-    {
-      id: "port001",
-      studentId: "student001",
-      title: "Science Olympiad - District Winner",
-      description:
-        "Won first prize at the District Level Science Olympiad 2025. Project on renewable energy sources.",
-      date: "2025-11-15",
-      type: "academic",
-      addedBy: "teacher001",
-    },
-    {
-      id: "port002",
-      studentId: "student002",
-      title: "Inter-School Debate Champion",
-      description:
-        "Won the inter-school debate competition on the topic 'Technology and Education'. Represented the school at state level.",
-      date: "2025-12-10",
-      type: "cultural",
-      addedBy: "teacher001",
-    },
-    {
-      id: "port003",
-      studentId: "student001",
-      title: "Football Team Captain",
-      description:
-        "Led the school football team to victory in the inter-school tournament. Scored 5 goals in the final match.",
-      date: "2026-01-20",
-      type: "sports",
-      addedBy: "teacher001",
-    },
-    {
-      id: "port004",
-      studentId: "student003",
-      title: "Advanced Programming Skills",
-      description:
-        "Completed Python programming certification from NPTEL. Built a weather app as final project.",
-      date: "2026-02-05",
-      type: "skill",
-      addedBy: "teacher002",
-    },
-  ];
-
-  const suggestions: SuggestionQuery[] = [
-    {
-      id: "sug001",
-      studentId: "student001",
-      studentName: "Rahul Mehra",
-      message:
-        "Can we have more practical sessions in the science lab? It would help us understand concepts better.",
-      submittedAt: "2026-02-28",
-      response:
-        "Thank you for your suggestion. We will look into increasing practical sessions in the upcoming term.",
-      respondedAt: "2026-03-01",
-    },
-  ];
-
-  // Save all to localStorage
-  setLS(KEYS.PRINCIPAL, {
-    id: "principal001",
-    password: "admin123",
-    name: "Dr. Rajesh Kumar",
-    email: "",
-    phone: "",
-    role: "principal" as Role,
-  });
-  setLS(KEYS.TEACHERS, teachers);
-  setLS(KEYS.STUDENTS, students);
-  setLS(KEYS.ATTENDANCE, attendance);
-  setLS(KEYS.TEACHER_ATTENDANCE, teacherAttendance);
-  setLS(KEYS.FEES, fees);
-  setLS(KEYS.RESULTS, results);
-  setLS(KEYS.NOTIFICATIONS, notifications);
-  setLS(KEYS.HOMEWORK, homework);
-  setLS(KEYS.CALENDAR, calendar);
-  setLS(KEYS.LEAVES, leaves);
-  setLS(KEYS.TIMETABLE, timetable);
-  setLS(KEYS.EXAMS, exams);
-  setLS(KEYS.EXAM_ATTEMPTS, []);
-  setLS(KEYS.PORTFOLIO, portfolio);
-  setLS(KEYS.SUGGESTIONS, suggestions);
-  localStorage.setItem(KEYS.INITIALIZED, "true");
 }
 
 // ============================================================
@@ -945,10 +330,9 @@ export function logout(): void {
 }
 
 // ============================================================
-// Data accessors / mutators
+// Data accessors (read from localStorage cache)
 // ============================================================
 
-// Teachers
 export function getTeachers(): Teacher[] {
   return getLS<Teacher[]>(KEYS.TEACHERS, []);
 }
@@ -959,7 +343,6 @@ export function getTeacherById(id: string): Teacher | undefined {
   return getTeachers().find((t) => t.id === id);
 }
 
-// Students
 export function getStudents(): Student[] {
   return getLS<Student[]>(KEYS.STUDENTS, []);
 }
@@ -976,7 +359,6 @@ export function getStudentsByTeacher(teacherId: string): Student[] {
   return getStudents().filter((s) => s.teacherId === teacherId);
 }
 
-// Attendance
 export function getAttendance(): AttendanceRecord[] {
   return getLS<AttendanceRecord[]>(KEYS.ATTENDANCE, []);
 }
@@ -987,7 +369,6 @@ export function getStudentAttendance(studentId: string): AttendanceRecord[] {
   return getAttendance().filter((a) => a.studentId === studentId);
 }
 
-// Teacher Attendance
 export function getTeacherAttendance(): TeacherAttendance[] {
   return getLS<TeacherAttendance[]>(KEYS.TEACHER_ATTENDANCE, []);
 }
@@ -995,7 +376,6 @@ export function saveTeacherAttendance(records: TeacherAttendance[]): void {
   setLS(KEYS.TEACHER_ATTENDANCE, records);
 }
 
-// Fees
 export function getFees(): FeeRecord[] {
   return getLS<FeeRecord[]>(KEYS.FEES, []);
 }
@@ -1006,7 +386,6 @@ export function getStudentFees(studentId: string): FeeRecord[] {
   return getFees().filter((f) => f.studentId === studentId);
 }
 
-// Results
 export function getResults(): ExamResult[] {
   return getLS<ExamResult[]>(KEYS.RESULTS, []);
 }
@@ -1019,7 +398,6 @@ export function getStudentResults(studentId: string): ExamResult[] {
   );
 }
 
-// Notifications
 export function getNotifications(): Notification[] {
   return getLS<Notification[]>(KEYS.NOTIFICATIONS, []);
 }
@@ -1027,7 +405,6 @@ export function saveNotifications(n: Notification[]): void {
   setLS(KEYS.NOTIFICATIONS, n);
 }
 
-// Homework
 export function getHomework(): HomeworkPost[] {
   return getLS<HomeworkPost[]>(KEYS.HOMEWORK, []);
 }
@@ -1035,7 +412,6 @@ export function saveHomework(hw: HomeworkPost[]): void {
   setLS(KEYS.HOMEWORK, hw);
 }
 
-// Calendar
 export function getCalendarEvents(): CalendarEvent[] {
   return getLS<CalendarEvent[]>(KEYS.CALENDAR, []);
 }
@@ -1043,7 +419,6 @@ export function saveCalendarEvents(events: CalendarEvent[]): void {
   setLS(KEYS.CALENDAR, events);
 }
 
-// Leaves
 export function getLeaves(): LeaveApplication[] {
   return getLS<LeaveApplication[]>(KEYS.LEAVES, []);
 }
@@ -1051,7 +426,6 @@ export function saveLeaves(leaves: LeaveApplication[]): void {
   setLS(KEYS.LEAVES, leaves);
 }
 
-// Timetable
 export function getTimetables(): Timetable[] {
   return getLS<Timetable[]>(KEYS.TIMETABLE, []);
 }
@@ -1062,7 +436,6 @@ export function getTimetableByClass(cls: string): Timetable | undefined {
   return getTimetables().find((t) => t.class === cls);
 }
 
-// Exams
 export function getExams(): OnlineExam[] {
   return getLS<OnlineExam[]>(KEYS.EXAMS, []);
 }
@@ -1070,7 +443,6 @@ export function saveExams(exams: OnlineExam[]): void {
   setLS(KEYS.EXAMS, exams);
 }
 
-// Exam Attempts
 export function getExamAttempts(): ExamAttempt[] {
   return getLS<ExamAttempt[]>(KEYS.EXAM_ATTEMPTS, []);
 }
@@ -1078,7 +450,6 @@ export function saveExamAttempts(attempts: ExamAttempt[]): void {
   setLS(KEYS.EXAM_ATTEMPTS, attempts);
 }
 
-// Portfolio
 export function getPortfolio(): PortfolioEntry[] {
   return getLS<PortfolioEntry[]>(KEYS.PORTFOLIO, []);
 }
@@ -1089,7 +460,6 @@ export function getStudentPortfolio(studentId: string): PortfolioEntry[] {
   return getPortfolio().filter((p) => p.studentId === studentId);
 }
 
-// Suggestions
 export function getSuggestions(): SuggestionQuery[] {
   return getLS<SuggestionQuery[]>(KEYS.SUGGESTIONS, []);
 }
@@ -1138,14 +508,11 @@ const DEFAULT_HALL_TICKET_DESIGN: HallTicketDesign = {
 };
 
 export function getHallTicketDesign(): HallTicketDesign {
-  return getLS<HallTicketDesign>(
-    "edu_hall_ticket_design",
-    DEFAULT_HALL_TICKET_DESIGN,
-  );
+  return getLS<HallTicketDesign>(KEYS.HALL_TICKET, DEFAULT_HALL_TICKET_DESIGN);
 }
 
 export function saveHallTicketDesign(d: HallTicketDesign): void {
-  setLS("edu_hall_ticket_design", d);
+  setLS(KEYS.HALL_TICKET, d);
 }
 
 // ============================================================
@@ -1175,7 +542,6 @@ function setSyncStatus(s: "idle" | "syncing" | "synced" | "error") {
 // Type mapping helpers (frontend ↔ backend)
 // ============================================================
 
-// Local type aliases matching backend canister interface shapes
 type BackendTeacher = {
   id: string;
   subject: string;
@@ -1213,6 +579,165 @@ type BackendPrincipalProfile = {
   phone: string;
   photo: string;
 };
+
+type BackendStudentAttendance = {
+  id: string;
+  status: string;
+  studentId: string;
+  date: string;
+  markedBy: string;
+};
+
+type BackendTeacherAttendance = {
+  id: string;
+  status: string;
+  date: string;
+  approvedBy: string;
+  checkInTime: string;
+  approvalStatus: string;
+  approvalNote: string;
+  teacherId: string;
+  checkOutTime: string;
+};
+
+type BackendFeeRecord = {
+  id: string;
+  status: string;
+  method: string;
+  studentId: string;
+  date: string;
+  description: string;
+  amount: number;
+  receiptNumber: string;
+};
+
+type BackendExamResult = {
+  id: string;
+  status: string;
+  studentId: string;
+  subjects: Array<{ marks: number; subject: string; maxMarks: number }>;
+  approvedAt: string;
+  class: string;
+  submittedAt: string;
+  teacherId: string;
+  examName: string;
+};
+
+type BackendNotification = {
+  id: string;
+  title: string;
+  postedBy: string;
+  date: string;
+  type: string;
+  message: string;
+  attachmentName: string;
+  targetClass: string;
+  attachment: string;
+};
+
+type BackendHomework = {
+  id: string;
+  title: string;
+  postedAt: string;
+  subject: string;
+  class: string;
+  dueDate: string;
+  description: string;
+  teacherId: string;
+};
+
+type BackendCalendarEvent = {
+  id: string;
+  title: string;
+  date: string;
+  createdBy: string;
+  type: string;
+  description: string;
+};
+
+type BackendLeaveApplication = {
+  id: string;
+  status: string;
+  applicantName: string;
+  applicantRole: string;
+  applicantId: string;
+  type: string;
+  submittedAt: string;
+  reviewedAt: string;
+  reviewedBy: string;
+  toDate: string;
+  fromDate: string;
+  reason: string;
+};
+
+type BackendTimetable = {
+  id: string;
+  approvedAt: string;
+  approvedBy: string;
+  class: string;
+  approvalStatus: string;
+  approvalNote: string;
+  updatedAt: string;
+  updatedBy: string;
+  scheduleJson: string;
+};
+
+type BackendExam = {
+  id: string;
+  status: string;
+  title: string;
+  duration: bigint;
+  subject: string;
+  class: string;
+  createdAt: string;
+  questionsJson: string;
+  teacherId: string;
+};
+
+type BackendExamAttempt = {
+  id: string;
+  studentId: string;
+  answersJson: string;
+  submittedAt: string;
+  score: number;
+  examId: string;
+  timeTaken: bigint;
+};
+
+type BackendPortfolioEntry = {
+  id: string;
+  title: string;
+  studentId: string;
+  date: string;
+  type: string;
+  description: string;
+  addedBy: string;
+};
+
+type BackendSuggestion = {
+  id: string;
+  studentId: string;
+  studentName: string;
+  submittedAt: string;
+  message: string;
+  response: string;
+  respondedAt: string;
+};
+
+type BackendHallTicketDesign = {
+  borderStyle: string;
+  institutionName: string;
+  tagline: string;
+  headerBg: string;
+  showLogo: boolean;
+  examName: string;
+  showPrincipalSign: boolean;
+  subjectsJson: string;
+  examYear: string;
+  showClassTeacherSign: boolean;
+};
+
+// --- Converters ---
 
 function teacherToBackend(t: Teacher): BackendTeacher {
   return {
@@ -1302,8 +827,406 @@ function principalFromBackend(p: BackendPrincipalProfile): PrincipalProfile {
   };
 }
 
+function attendanceToBackend(a: AttendanceRecord): BackendStudentAttendance {
+  return {
+    id: a.id,
+    studentId: a.studentId,
+    date: a.date,
+    status: a.status,
+    markedBy: a.markedBy,
+  };
+}
+
+function attendanceFromBackend(a: BackendStudentAttendance): AttendanceRecord {
+  return {
+    id: a.id,
+    studentId: a.studentId,
+    date: a.date,
+    status: a.status as "present" | "absent" | "late",
+    markedBy: a.markedBy,
+  };
+}
+
+function teacherAttendanceToBackend(
+  a: TeacherAttendance,
+): BackendTeacherAttendance {
+  return {
+    id: a.id,
+    teacherId: a.teacherId,
+    date: a.date,
+    status: a.status,
+    checkInTime: a.checkInTime ?? "",
+    checkOutTime: a.checkOutTime ?? "",
+    approvalStatus: a.approvalStatus,
+    approvedBy: a.approvedBy ?? "",
+    approvalNote: a.approvalNote ?? "",
+  };
+}
+
+function teacherAttendanceFromBackend(
+  a: BackendTeacherAttendance,
+): TeacherAttendance {
+  return {
+    id: a.id,
+    teacherId: a.teacherId,
+    date: a.date,
+    status: a.status as "present" | "absent" | "late",
+    checkInTime: a.checkInTime || undefined,
+    checkOutTime: a.checkOutTime || undefined,
+    approvalStatus: a.approvalStatus as "pending" | "approved" | "rejected",
+    approvedBy: a.approvedBy || undefined,
+    approvalNote: a.approvalNote || undefined,
+  };
+}
+
+function feeToBackend(f: FeeRecord): BackendFeeRecord {
+  return {
+    id: f.id,
+    studentId: f.studentId,
+    amount: f.amount,
+    date: f.date,
+    status: f.status,
+    method: f.method,
+    description: f.description,
+    receiptNumber: f.receiptNumber ?? "",
+  };
+}
+
+function feeFromBackend(f: BackendFeeRecord): FeeRecord {
+  return {
+    id: f.id,
+    studentId: f.studentId,
+    amount: f.amount,
+    date: f.date,
+    status: f.status as "paid" | "pending" | "partial",
+    method: f.method,
+    description: f.description,
+    receiptNumber: f.receiptNumber || undefined,
+  };
+}
+
+function resultToBackend(r: ExamResult): BackendExamResult {
+  return {
+    id: r.id,
+    examName: r.examName,
+    studentId: r.studentId,
+    teacherId: r.teacherId,
+    class: r.class,
+    subjects: r.subjects,
+    submittedAt: r.submittedAt,
+    status: r.status,
+    approvedAt: r.approvedAt ?? "",
+  };
+}
+
+function resultFromBackend(r: BackendExamResult): ExamResult {
+  return {
+    id: r.id,
+    examName: r.examName,
+    studentId: r.studentId,
+    teacherId: r.teacherId,
+    class: r.class,
+    subjects: r.subjects,
+    submittedAt: r.submittedAt,
+    status: r.status as "pending" | "approved" | "rejected",
+    approvedAt: r.approvedAt || undefined,
+  };
+}
+
+function notificationToBackend(n: Notification): BackendNotification {
+  return {
+    id: n.id,
+    title: n.title,
+    message: n.message,
+    date: n.date,
+    postedBy: n.postedBy,
+    type: n.type,
+    targetClass: n.targetClass ?? "",
+    attachment: n.attachment ?? "",
+    attachmentName: n.attachmentName ?? "",
+  };
+}
+
+function notificationFromBackend(n: BackendNotification): Notification {
+  return {
+    id: n.id,
+    title: n.title,
+    message: n.message,
+    date: n.date,
+    postedBy: n.postedBy,
+    type: n.type as "general" | "homework" | "exam",
+    targetClass: n.targetClass || undefined,
+    attachment: n.attachment || undefined,
+    attachmentName: n.attachmentName || undefined,
+  };
+}
+
+function homeworkToBackend(h: HomeworkPost): BackendHomework {
+  return {
+    id: h.id,
+    subject: h.subject,
+    title: h.title,
+    description: h.description,
+    dueDate: h.dueDate,
+    class: h.class,
+    teacherId: h.teacherId,
+    postedAt: h.postedAt,
+  };
+}
+
+function homeworkFromBackend(h: BackendHomework): HomeworkPost {
+  return {
+    id: h.id,
+    subject: h.subject,
+    title: h.title,
+    description: h.description,
+    dueDate: h.dueDate,
+    class: h.class,
+    teacherId: h.teacherId,
+    postedAt: h.postedAt,
+  };
+}
+
+function calendarEventToBackend(e: CalendarEvent): BackendCalendarEvent {
+  return {
+    id: e.id,
+    title: e.title,
+    type: e.type,
+    date: e.date,
+    description: e.description,
+    createdBy: e.createdBy,
+  };
+}
+
+function calendarEventFromBackend(e: BackendCalendarEvent): CalendarEvent {
+  return {
+    id: e.id,
+    title: e.title,
+    type: e.type as "holiday" | "exam" | "event",
+    date: e.date,
+    description: e.description,
+    createdBy: e.createdBy,
+  };
+}
+
+function leaveToBackend(l: LeaveApplication): BackendLeaveApplication {
+  return {
+    id: l.id,
+    applicantId: l.applicantId,
+    applicantName: l.applicantName,
+    applicantRole: l.applicantRole,
+    type: l.type,
+    fromDate: l.fromDate,
+    toDate: l.toDate,
+    reason: l.reason,
+    status: l.status,
+    submittedAt: l.submittedAt,
+    reviewedBy: l.reviewedBy ?? "",
+    reviewedAt: l.reviewedAt ?? "",
+  };
+}
+
+function leaveFromBackend(l: BackendLeaveApplication): LeaveApplication {
+  return {
+    id: l.id,
+    applicantId: l.applicantId,
+    applicantName: l.applicantName,
+    applicantRole: l.applicantRole as "teacher" | "student",
+    type: l.type as "sick" | "casual" | "personal",
+    fromDate: l.fromDate,
+    toDate: l.toDate,
+    reason: l.reason,
+    status: l.status as "pending" | "approved" | "rejected",
+    submittedAt: l.submittedAt,
+    reviewedBy: l.reviewedBy || undefined,
+    reviewedAt: l.reviewedAt || undefined,
+  };
+}
+
+function timetableToBackend(t: Timetable): BackendTimetable {
+  return {
+    id: t.id,
+    class: t.class,
+    scheduleJson: JSON.stringify(t.schedule),
+    updatedAt: t.updatedAt,
+    updatedBy: t.updatedBy,
+    approvalStatus: t.approvalStatus,
+    approvalNote: t.approvalNote ?? "",
+    approvedBy: t.approvedBy ?? "",
+    approvedAt: t.approvedAt ?? "",
+  };
+}
+
+function timetableFromBackend(t: BackendTimetable): Timetable {
+  let schedule: Timetable["schedule"] = {};
+  try {
+    schedule = JSON.parse(t.scheduleJson);
+  } catch {
+    schedule = {};
+  }
+  return {
+    id: t.id,
+    class: t.class,
+    schedule,
+    updatedAt: t.updatedAt,
+    updatedBy: t.updatedBy,
+    approvalStatus: t.approvalStatus as "pending" | "approved" | "rejected",
+    approvalNote: t.approvalNote || undefined,
+    approvedBy: t.approvedBy || undefined,
+    approvedAt: t.approvedAt || undefined,
+  };
+}
+
+function examToBackend(e: OnlineExam): BackendExam {
+  return {
+    id: e.id,
+    title: e.title,
+    subject: e.subject,
+    duration: BigInt(e.duration),
+    class: e.class,
+    teacherId: e.teacherId,
+    createdAt: e.createdAt,
+    questionsJson: JSON.stringify(e.questions),
+    status: e.status,
+  };
+}
+
+function examFromBackend(e: BackendExam): OnlineExam {
+  let questions: ExamQuestion[] = [];
+  try {
+    questions = JSON.parse(e.questionsJson);
+  } catch {
+    questions = [];
+  }
+  return {
+    id: e.id,
+    title: e.title,
+    subject: e.subject,
+    duration: Number(e.duration),
+    class: e.class,
+    teacherId: e.teacherId,
+    createdAt: e.createdAt,
+    questions,
+    status: e.status as "active" | "closed",
+  };
+}
+
+function examAttemptToBackend(a: ExamAttempt): BackendExamAttempt {
+  return {
+    id: a.id,
+    examId: a.examId,
+    studentId: a.studentId,
+    answersJson: JSON.stringify(a.answers),
+    score: a.score ?? 0,
+    submittedAt: a.submittedAt,
+    timeTaken: BigInt(a.timeTaken ?? 0),
+  };
+}
+
+function examAttemptFromBackend(a: BackendExamAttempt): ExamAttempt {
+  let answers: ExamAttempt["answers"] = [];
+  try {
+    answers = JSON.parse(a.answersJson);
+  } catch {
+    answers = [];
+  }
+  return {
+    id: a.id,
+    examId: a.examId,
+    studentId: a.studentId,
+    answers,
+    score: a.score,
+    submittedAt: a.submittedAt,
+    timeTaken: Number(a.timeTaken),
+  };
+}
+
+function portfolioToBackend(p: PortfolioEntry): BackendPortfolioEntry {
+  return {
+    id: p.id,
+    studentId: p.studentId,
+    title: p.title,
+    description: p.description,
+    date: p.date,
+    type: p.type,
+    addedBy: p.addedBy,
+  };
+}
+
+function portfolioFromBackend(p: BackendPortfolioEntry): PortfolioEntry {
+  return {
+    id: p.id,
+    studentId: p.studentId,
+    title: p.title,
+    description: p.description,
+    date: p.date,
+    type: p.type as "academic" | "sports" | "cultural" | "skill",
+    addedBy: p.addedBy,
+  };
+}
+
+function suggestionToBackend(s: SuggestionQuery): BackendSuggestion {
+  return {
+    id: s.id,
+    studentId: s.studentId,
+    studentName: s.studentName,
+    message: s.message,
+    submittedAt: s.submittedAt,
+    response: s.response ?? "",
+    respondedAt: s.respondedAt ?? "",
+  };
+}
+
+function suggestionFromBackend(s: BackendSuggestion): SuggestionQuery {
+  return {
+    id: s.id,
+    studentId: s.studentId,
+    studentName: s.studentName,
+    message: s.message,
+    submittedAt: s.submittedAt,
+    response: s.response || undefined,
+    respondedAt: s.respondedAt || undefined,
+  };
+}
+
+function hallTicketToBackend(d: HallTicketDesign): BackendHallTicketDesign {
+  return {
+    institutionName: d.institutionName,
+    tagline: d.tagline,
+    headerBg: d.headerBg,
+    examName: d.examName,
+    examYear: d.examYear,
+    subjectsJson: JSON.stringify(d.subjects),
+    showPrincipalSign: d.showPrincipalSign,
+    showClassTeacherSign: d.showClassTeacherSign,
+    showLogo: d.showLogo,
+    borderStyle: d.borderStyle,
+  };
+}
+
+function hallTicketFromBackend(d: BackendHallTicketDesign): HallTicketDesign {
+  let subjects: HallTicketSubject[] = [];
+  try {
+    subjects = JSON.parse(d.subjectsJson);
+  } catch {
+    subjects = [];
+  }
+  return {
+    institutionName: d.institutionName,
+    tagline: d.tagline,
+    headerBg: d.headerBg,
+    examName: d.examName,
+    examYear: d.examYear,
+    subjects,
+    showPrincipalSign: d.showPrincipalSign,
+    showClassTeacherSign: d.showClassTeacherSign,
+    showLogo: d.showLogo,
+    borderStyle: d.borderStyle as "solid" | "double" | "dotted",
+  };
+}
+
 // ============================================================
-// Backend async API
+// Backend async API - Initialize & Sync ALL data types
 // ============================================================
 
 /** Initialize backend and sync all data from canister to localStorage cache */
@@ -1316,53 +1239,25 @@ export async function initializeBackend(): Promise<void> {
       syncTeachersFromBackend(),
       syncStudentsFromBackend(),
       syncPrincipalFromBackend(),
+      syncAttendanceFromBackend(),
+      syncTeacherAttendanceFromBackend(),
+      syncFeesFromBackend(),
+      syncResultsFromBackend(),
+      syncNotificationsFromBackend(),
+      syncHomeworkFromBackend(),
+      syncCalendarEventsFromBackend(),
+      syncLeavesFromBackend(),
+      syncTimetablesFromBackend(),
+      syncExamsFromBackend(),
+      syncExamAttemptsFromBackend(),
+      syncPortfolioFromBackend(),
+      syncSuggestionsFromBackend(),
+      syncHallTicketDesignFromBackend(),
     ]);
     setSyncStatus("synced");
   } catch (err) {
     console.error("Backend init failed, using localStorage:", err);
     setSyncStatus("error");
-    // Fall back to initializing from localStorage
-    initializeData();
-  }
-}
-
-/** Load teachers from backend canister and update localStorage cache */
-export async function syncTeachersFromBackend(): Promise<Teacher[]> {
-  try {
-    const be = await getBackend();
-    const backendTeachers = await be.getTeachers();
-    const teachers = backendTeachers.map(teacherFromBackend);
-    setLS(KEYS.TEACHERS, teachers);
-    return teachers;
-  } catch (err) {
-    console.error("syncTeachersFromBackend failed:", err);
-    return getLS<Teacher[]>(KEYS.TEACHERS, []);
-  }
-}
-
-/** Load students from backend canister and update localStorage cache */
-export async function syncStudentsFromBackend(): Promise<Student[]> {
-  try {
-    const be = await getBackend();
-    const backendStudents = await be.getStudents();
-    const students = backendStudents.map(studentFromBackend);
-    setLS(KEYS.STUDENTS, students);
-    return students;
-  } catch (err) {
-    console.error("syncStudentsFromBackend failed:", err);
-    return getLS<Student[]>(KEYS.STUDENTS, []);
-  }
-}
-
-/** Load principal profile from backend canister and update localStorage cache */
-export async function syncPrincipalFromBackend(): Promise<void> {
-  try {
-    const be = await getBackend();
-    const p = await be.getPrincipalProfile();
-    const profile = principalFromBackend(p);
-    setLS(KEYS.PRINCIPAL, profile);
-  } catch (err) {
-    console.error("syncPrincipalFromBackend failed:", err);
   }
 }
 
@@ -1386,7 +1281,7 @@ export async function authenticateAsync(
         id: result.id,
         name: result.name,
         role: "teacher",
-        class: result.studentClass ?? result.class ?? "",
+        class: result.class_ ?? result.class ?? "",
       };
     }
     if (role === "student") {
@@ -1396,7 +1291,7 @@ export async function authenticateAsync(
         id: result.id,
         name: result.name,
         role: "student",
-        class: result.studentClass ?? result.class ?? "",
+        class: result.class_ ?? result.class ?? "",
       };
     }
     return null;
@@ -1405,39 +1300,265 @@ export async function authenticateAsync(
       "authenticateAsync failed, falling back to localStorage:",
       err,
     );
-    // Fall back to sync auth from localStorage cache
     return authenticate(role, id, password);
   }
 }
 
-/** Save (add or update) a teacher to the backend canister and localStorage cache */
-export async function saveTeacherToBackend(teacher: Teacher): Promise<void> {
-  const backendTeacher = teacherToBackend(teacher);
+// ============================================================
+// Sync functions (backend → localStorage cache)
+// ============================================================
+
+export async function syncTeachersFromBackend(): Promise<Teacher[]> {
   try {
     const be = await getBackend();
-    // Check if teacher already exists
-    const existing = await be.getTeacherById(teacher.id);
+    const items = await be.getAllTeachers();
+    const mapped = items.map(teacherFromBackend);
+    setLS(KEYS.TEACHERS, mapped);
+    return mapped;
+  } catch (err) {
+    console.error("syncTeachersFromBackend failed:", err);
+    return getTeachers();
+  }
+}
+
+export async function syncStudentsFromBackend(): Promise<Student[]> {
+  try {
+    const be = await getBackend();
+    const items = await be.getAllStudents();
+    const mapped = items.map(studentFromBackend);
+    setLS(KEYS.STUDENTS, mapped);
+    return mapped;
+  } catch (err) {
+    console.error("syncStudentsFromBackend failed:", err);
+    return getStudents();
+  }
+}
+
+export async function syncPrincipalFromBackend(): Promise<void> {
+  try {
+    const be = await getBackend();
+    const p = await be.getPrincipalProfile();
+    setLS(KEYS.PRINCIPAL, principalFromBackend(p));
+  } catch (err) {
+    console.error("syncPrincipalFromBackend failed:", err);
+  }
+}
+
+export async function syncAttendanceFromBackend(): Promise<AttendanceRecord[]> {
+  try {
+    const be = await getBackend();
+    const items = await be.getAllStudentAttendance();
+    const mapped = items.map(attendanceFromBackend);
+    setLS(KEYS.ATTENDANCE, mapped);
+    return mapped;
+  } catch (err) {
+    console.error("syncAttendanceFromBackend failed:", err);
+    return getAttendance();
+  }
+}
+
+export async function syncTeacherAttendanceFromBackend(): Promise<
+  TeacherAttendance[]
+> {
+  try {
+    const be = await getBackend();
+    const items = await be.getAllTeacherAttendance();
+    const mapped = items.map(teacherAttendanceFromBackend);
+    setLS(KEYS.TEACHER_ATTENDANCE, mapped);
+    return mapped;
+  } catch (err) {
+    console.error("syncTeacherAttendanceFromBackend failed:", err);
+    return getTeacherAttendance();
+  }
+}
+
+export async function syncFeesFromBackend(): Promise<FeeRecord[]> {
+  try {
+    const be = await getBackend();
+    const items = await be.getAllFeeRecords();
+    const mapped = items.map(feeFromBackend);
+    setLS(KEYS.FEES, mapped);
+    return mapped;
+  } catch (err) {
+    console.error("syncFeesFromBackend failed:", err);
+    return getFees();
+  }
+}
+
+export async function syncResultsFromBackend(): Promise<ExamResult[]> {
+  try {
+    const be = await getBackend();
+    const items = await be.getAllExamResults();
+    const mapped = items.map(resultFromBackend);
+    setLS(KEYS.RESULTS, mapped);
+    return mapped;
+  } catch (err) {
+    console.error("syncResultsFromBackend failed:", err);
+    return getResults();
+  }
+}
+
+export async function syncNotificationsFromBackend(): Promise<Notification[]> {
+  try {
+    const be = await getBackend();
+    const items = await be.getAllNotifications();
+    const mapped = items.map(notificationFromBackend);
+    setLS(KEYS.NOTIFICATIONS, mapped);
+    return mapped;
+  } catch (err) {
+    console.error("syncNotificationsFromBackend failed:", err);
+    return getNotifications();
+  }
+}
+
+export async function syncHomeworkFromBackend(): Promise<HomeworkPost[]> {
+  try {
+    const be = await getBackend();
+    const items = await be.getAllHomework();
+    const mapped = items.map(homeworkFromBackend);
+    setLS(KEYS.HOMEWORK, mapped);
+    return mapped;
+  } catch (err) {
+    console.error("syncHomeworkFromBackend failed:", err);
+    return getHomework();
+  }
+}
+
+export async function syncCalendarEventsFromBackend(): Promise<
+  CalendarEvent[]
+> {
+  try {
+    const be = await getBackend();
+    const items = await be.getAllCalendarEvents();
+    const mapped = items.map(calendarEventFromBackend);
+    setLS(KEYS.CALENDAR, mapped);
+    return mapped;
+  } catch (err) {
+    console.error("syncCalendarEventsFromBackend failed:", err);
+    return getCalendarEvents();
+  }
+}
+
+export async function syncLeavesFromBackend(): Promise<LeaveApplication[]> {
+  try {
+    const be = await getBackend();
+    const items = await be.getAllLeaveApplications();
+    const mapped = items.map(leaveFromBackend);
+    setLS(KEYS.LEAVES, mapped);
+    return mapped;
+  } catch (err) {
+    console.error("syncLeavesFromBackend failed:", err);
+    return getLeaves();
+  }
+}
+
+export async function syncTimetablesFromBackend(): Promise<Timetable[]> {
+  try {
+    const be = await getBackend();
+    const items = await be.getAllTimetables();
+    const mapped = items.map(timetableFromBackend);
+    setLS(KEYS.TIMETABLE, mapped);
+    return mapped;
+  } catch (err) {
+    console.error("syncTimetablesFromBackend failed:", err);
+    return getTimetables();
+  }
+}
+
+export async function syncExamsFromBackend(): Promise<OnlineExam[]> {
+  try {
+    const be = await getBackend();
+    const items = await be.getAllExams();
+    const mapped = items.map(examFromBackend);
+    setLS(KEYS.EXAMS, mapped);
+    return mapped;
+  } catch (err) {
+    console.error("syncExamsFromBackend failed:", err);
+    return getExams();
+  }
+}
+
+export async function syncExamAttemptsFromBackend(): Promise<ExamAttempt[]> {
+  try {
+    const be = await getBackend();
+    const items = await be.getAllExamAttempts();
+    const mapped = items.map(examAttemptFromBackend);
+    setLS(KEYS.EXAM_ATTEMPTS, mapped);
+    return mapped;
+  } catch (err) {
+    console.error("syncExamAttemptsFromBackend failed:", err);
+    return getExamAttempts();
+  }
+}
+
+export async function syncPortfolioFromBackend(): Promise<PortfolioEntry[]> {
+  try {
+    const be = await getBackend();
+    const items = await be.getAllPortfolioEntries();
+    const mapped = items.map(portfolioFromBackend);
+    setLS(KEYS.PORTFOLIO, mapped);
+    return mapped;
+  } catch (err) {
+    console.error("syncPortfolioFromBackend failed:", err);
+    return getPortfolio();
+  }
+}
+
+export async function syncSuggestionsFromBackend(): Promise<SuggestionQuery[]> {
+  try {
+    const be = await getBackend();
+    const items = await be.getAllSuggestions();
+    const mapped = items.map(suggestionFromBackend);
+    setLS(KEYS.SUGGESTIONS, mapped);
+    return mapped;
+  } catch (err) {
+    console.error("syncSuggestionsFromBackend failed:", err);
+    return getSuggestions();
+  }
+}
+
+export async function syncHallTicketDesignFromBackend(): Promise<void> {
+  try {
+    const be = await getBackend();
+    const d = await be.getHallTicketDesign();
+    if (d) {
+      setLS(KEYS.HALL_TICKET, hallTicketFromBackend(d));
+    }
+  } catch (err) {
+    console.error("syncHallTicketDesignFromBackend failed:", err);
+  }
+}
+
+// ============================================================
+// Backend write operations (persist to canister + update cache)
+// ============================================================
+
+// --- Teachers ---
+export async function saveTeacherToBackend(teacher: Teacher): Promise<void> {
+  const be = await getBackend();
+  const b = teacherToBackend(teacher);
+  try {
+    const existing = await be
+      .getAllTeachers()
+      .then((list: BackendTeacher[]) =>
+        list.find((t: BackendTeacher) => t.id === teacher.id),
+      );
     if (existing) {
-      await be.updateTeacher(teacher.id, backendTeacher);
+      await be.updateTeacher(teacher.id, b);
     } else {
-      await be.addTeacher(backendTeacher);
+      await be.addTeacher(b);
     }
   } catch (err) {
     console.error("saveTeacherToBackend failed:", err);
     throw err;
   }
-  // Always update localStorage cache
-  const teachers = getLS<Teacher[]>(KEYS.TEACHERS, []);
+  const teachers = getTeachers();
   const idx = teachers.findIndex((t) => t.id === teacher.id);
-  if (idx >= 0) {
-    teachers[idx] = teacher;
-  } else {
-    teachers.push(teacher);
-  }
+  if (idx >= 0) teachers[idx] = teacher;
+  else teachers.push(teacher);
   setLS(KEYS.TEACHERS, teachers);
 }
 
-/** Delete a teacher from the backend canister and localStorage cache */
 export async function deleteTeacherFromBackend(id: string): Promise<void> {
   try {
     const be = await getBackend();
@@ -1446,38 +1567,38 @@ export async function deleteTeacherFromBackend(id: string): Promise<void> {
     console.error("deleteTeacherFromBackend failed:", err);
     throw err;
   }
-  const teachers = getLS<Teacher[]>(KEYS.TEACHERS, []).filter(
-    (t) => t.id !== id,
+  setLS(
+    KEYS.TEACHERS,
+    getTeachers().filter((t) => t.id !== id),
   );
-  setLS(KEYS.TEACHERS, teachers);
 }
 
-/** Save (add or update) a student to the backend canister and localStorage cache */
+// --- Students ---
 export async function saveStudentToBackend(student: Student): Promise<void> {
-  const backendStudent = studentToBackend(student);
+  const be = await getBackend();
+  const b = studentToBackend(student);
   try {
-    const be = await getBackend();
-    const existing = await be.getStudentById(student.id);
+    const existing = await be
+      .getAllStudents()
+      .then((list: BackendStudent[]) =>
+        list.find((s: BackendStudent) => s.id === student.id),
+      );
     if (existing) {
-      await be.updateStudent(student.id, backendStudent);
+      await be.updateStudent(student.id, b);
     } else {
-      await be.addStudent(backendStudent);
+      await be.addStudent(b);
     }
   } catch (err) {
     console.error("saveStudentToBackend failed:", err);
     throw err;
   }
-  const students = getLS<Student[]>(KEYS.STUDENTS, []);
+  const students = getStudents();
   const idx = students.findIndex((s) => s.id === student.id);
-  if (idx >= 0) {
-    students[idx] = student;
-  } else {
-    students.push(student);
-  }
+  if (idx >= 0) students[idx] = student;
+  else students.push(student);
   setLS(KEYS.STUDENTS, students);
 }
 
-/** Delete a student from the backend canister and localStorage cache */
 export async function deleteStudentFromBackend(id: string): Promise<void> {
   try {
     const be = await getBackend();
@@ -1486,25 +1607,595 @@ export async function deleteStudentFromBackend(id: string): Promise<void> {
     console.error("deleteStudentFromBackend failed:", err);
     throw err;
   }
-  const students = getLS<Student[]>(KEYS.STUDENTS, []).filter(
-    (s) => s.id !== id,
+  setLS(
+    KEYS.STUDENTS,
+    getStudents().filter((s) => s.id !== id),
   );
-  setLS(KEYS.STUDENTS, students);
 }
 
-/** Save principal profile to backend canister and localStorage cache */
+// --- Principal ---
 export async function savePrincipalToBackend(
   profile: PrincipalProfile,
 ): Promise<void> {
-  const backendProfile = principalToBackend(profile);
   try {
     const be = await getBackend();
-    await be.savePrincipalProfile(backendProfile);
+    await be.savePrincipalProfile(principalToBackend(profile));
   } catch (err) {
     console.error("savePrincipalToBackend failed:", err);
     throw err;
   }
   setLS(KEYS.PRINCIPAL, profile);
+}
+
+// --- Student Attendance ---
+export async function addAttendanceToBackend(
+  record: AttendanceRecord,
+): Promise<void> {
+  try {
+    const be = await getBackend();
+    await be.addStudentAttendance(attendanceToBackend(record));
+  } catch (err) {
+    console.error("addAttendanceToBackend failed:", err);
+    throw err;
+  }
+  const all = getAttendance();
+  all.push(record);
+  setLS(KEYS.ATTENDANCE, all);
+}
+
+export async function updateAttendanceInBackend(
+  record: AttendanceRecord,
+): Promise<void> {
+  try {
+    const be = await getBackend();
+    await be.updateStudentAttendance(record.id, attendanceToBackend(record));
+  } catch (err) {
+    console.error("updateAttendanceInBackend failed:", err);
+    throw err;
+  }
+  const all = getAttendance().map((a) => (a.id === record.id ? record : a));
+  setLS(KEYS.ATTENDANCE, all);
+}
+
+export async function saveAttendanceBatchToBackend(
+  records: AttendanceRecord[],
+): Promise<void> {
+  // For batch saves (marking attendance for whole class), add each new record
+  try {
+    const be = await getBackend();
+    const existing = await be.getAllStudentAttendance();
+    const existingIds = new Set(
+      existing.map((a: BackendStudentAttendance) => a.id),
+    );
+    for (const r of records) {
+      if (existingIds.has(r.id)) {
+        await be.updateStudentAttendance(r.id, attendanceToBackend(r));
+      } else {
+        await be.addStudentAttendance(attendanceToBackend(r));
+      }
+    }
+  } catch (err) {
+    console.error("saveAttendanceBatchToBackend failed:", err);
+    throw err;
+  }
+  // Merge into local cache
+  const all = getAttendance();
+  for (const r of records) {
+    const idx = all.findIndex((a) => a.id === r.id);
+    if (idx >= 0) all[idx] = r;
+    else all.push(r);
+  }
+  setLS(KEYS.ATTENDANCE, all);
+}
+
+// --- Teacher Attendance ---
+export async function addTeacherAttendanceToBackend(
+  record: TeacherAttendance,
+): Promise<void> {
+  try {
+    const be = await getBackend();
+    await be.addTeacherAttendance(teacherAttendanceToBackend(record));
+  } catch (err) {
+    console.error("addTeacherAttendanceToBackend failed:", err);
+    throw err;
+  }
+  const all = getTeacherAttendance();
+  all.push(record);
+  setLS(KEYS.TEACHER_ATTENDANCE, all);
+}
+
+export async function updateTeacherAttendanceInBackend(
+  record: TeacherAttendance,
+): Promise<void> {
+  try {
+    const be = await getBackend();
+    await be.updateTeacherAttendance(
+      record.id,
+      teacherAttendanceToBackend(record),
+    );
+  } catch (err) {
+    console.error("updateTeacherAttendanceInBackend failed:", err);
+    throw err;
+  }
+  const all = getTeacherAttendance().map((a) =>
+    a.id === record.id ? record : a,
+  );
+  setLS(KEYS.TEACHER_ATTENDANCE, all);
+}
+
+export async function saveTeacherAttendanceBatchToBackend(
+  records: TeacherAttendance[],
+): Promise<void> {
+  try {
+    const be = await getBackend();
+    const existing = await be.getAllTeacherAttendance();
+    const existingIds = new Set(
+      existing.map((a: BackendTeacherAttendance) => a.id),
+    );
+    for (const r of records) {
+      if (existingIds.has(r.id)) {
+        await be.updateTeacherAttendance(r.id, teacherAttendanceToBackend(r));
+      } else {
+        await be.addTeacherAttendance(teacherAttendanceToBackend(r));
+      }
+    }
+  } catch (err) {
+    console.error("saveTeacherAttendanceBatchToBackend failed:", err);
+    throw err;
+  }
+  const all = getTeacherAttendance();
+  for (const r of records) {
+    const idx = all.findIndex((a) => a.id === r.id);
+    if (idx >= 0) all[idx] = r;
+    else all.push(r);
+  }
+  setLS(KEYS.TEACHER_ATTENDANCE, all);
+}
+
+// --- Fees ---
+export async function saveFeeToBackend(fee: FeeRecord): Promise<void> {
+  try {
+    const be = await getBackend();
+    const existing = await be
+      .getAllFeeRecords()
+      .then((list: BackendFeeRecord[]) =>
+        list.find((f: BackendFeeRecord) => f.id === fee.id),
+      );
+    if (existing) {
+      await be.updateFeeRecord(fee.id, feeToBackend(fee));
+    } else {
+      await be.addFeeRecord(feeToBackend(fee));
+    }
+  } catch (err) {
+    console.error("saveFeeToBackend failed:", err);
+    throw err;
+  }
+  const all = getFees();
+  const idx = all.findIndex((f) => f.id === fee.id);
+  if (idx >= 0) all[idx] = fee;
+  else all.push(fee);
+  setLS(KEYS.FEES, all);
+}
+
+export async function saveFeesToBackend(fees: FeeRecord[]): Promise<void> {
+  try {
+    const be = await getBackend();
+    const existing = await be.getAllFeeRecords();
+    const existingIds = new Set(existing.map((f: BackendFeeRecord) => f.id));
+    for (const fee of fees) {
+      if (existingIds.has(fee.id)) {
+        await be.updateFeeRecord(fee.id, feeToBackend(fee));
+      } else {
+        await be.addFeeRecord(feeToBackend(fee));
+      }
+    }
+  } catch (err) {
+    console.error("saveFeesToBackend failed:", err);
+    throw err;
+  }
+  setLS(KEYS.FEES, fees);
+}
+
+// --- Results ---
+export async function saveResultToBackend(result: ExamResult): Promise<void> {
+  try {
+    const be = await getBackend();
+    const existing = await be
+      .getAllExamResults()
+      .then((list: BackendExamResult[]) =>
+        list.find((r: BackendExamResult) => r.id === result.id),
+      );
+    if (existing) {
+      await be.updateExamResult(result.id, resultToBackend(result));
+    } else {
+      await be.addExamResult(resultToBackend(result));
+    }
+  } catch (err) {
+    console.error("saveResultToBackend failed:", err);
+    throw err;
+  }
+  const all = getResults();
+  const idx = all.findIndex((r) => r.id === result.id);
+  if (idx >= 0) all[idx] = result;
+  else all.push(result);
+  setLS(KEYS.RESULTS, all);
+}
+
+export async function deleteResultFromBackend(id: string): Promise<void> {
+  try {
+    const be = await getBackend();
+    await be.deleteExamResult(id);
+  } catch (err) {
+    console.error("deleteResultFromBackend failed:", err);
+    throw err;
+  }
+  setLS(
+    KEYS.RESULTS,
+    getResults().filter((r) => r.id !== id),
+  );
+}
+
+export async function saveResultsBatchToBackend(
+  results: ExamResult[],
+): Promise<void> {
+  try {
+    const be = await getBackend();
+    const existing = await be.getAllExamResults();
+    const existingIds = new Set(existing.map((r: BackendExamResult) => r.id));
+    for (const result of results) {
+      if (existingIds.has(result.id)) {
+        await be.updateExamResult(result.id, resultToBackend(result));
+      } else {
+        await be.addExamResult(resultToBackend(result));
+      }
+    }
+  } catch (err) {
+    console.error("saveResultsBatchToBackend failed:", err);
+    throw err;
+  }
+  const all = getResults();
+  for (const r of results) {
+    const idx = all.findIndex((x) => x.id === r.id);
+    if (idx >= 0) all[idx] = r;
+    else all.push(r);
+  }
+  setLS(KEYS.RESULTS, all);
+}
+
+// --- Notifications ---
+export async function saveNotificationToBackend(
+  n: Notification,
+): Promise<void> {
+  try {
+    const be = await getBackend();
+    const existing = await be
+      .getAllNotifications()
+      .then((list: BackendNotification[]) =>
+        list.find((x: BackendNotification) => x.id === n.id),
+      );
+    if (existing) {
+      await be.updateNotification(n.id, notificationToBackend(n));
+    } else {
+      await be.addNotification(notificationToBackend(n));
+    }
+  } catch (err) {
+    console.error("saveNotificationToBackend failed:", err);
+    throw err;
+  }
+  const all = getNotifications();
+  const idx = all.findIndex((x) => x.id === n.id);
+  if (idx >= 0) all[idx] = n;
+  else all.push(n);
+  setLS(KEYS.NOTIFICATIONS, all);
+}
+
+export async function deleteNotificationFromBackend(id: string): Promise<void> {
+  try {
+    const be = await getBackend();
+    await be.deleteNotification(id);
+  } catch (err) {
+    console.error("deleteNotificationFromBackend failed:", err);
+    throw err;
+  }
+  setLS(
+    KEYS.NOTIFICATIONS,
+    getNotifications().filter((n) => n.id !== id),
+  );
+}
+
+// --- Homework ---
+export async function saveHomeworkToBackend(h: HomeworkPost): Promise<void> {
+  try {
+    const be = await getBackend();
+    const existing = await be
+      .getAllHomework()
+      .then((list: BackendHomework[]) =>
+        list.find((x: BackendHomework) => x.id === h.id),
+      );
+    if (existing) {
+      await be.updateHomework(h.id, homeworkToBackend(h));
+    } else {
+      await be.addHomework(homeworkToBackend(h));
+    }
+  } catch (err) {
+    console.error("saveHomeworkToBackend failed:", err);
+    throw err;
+  }
+  const all = getHomework();
+  const idx = all.findIndex((x) => x.id === h.id);
+  if (idx >= 0) all[idx] = h;
+  else all.push(h);
+  setLS(KEYS.HOMEWORK, all);
+}
+
+export async function deleteHomeworkFromBackend(id: string): Promise<void> {
+  try {
+    const be = await getBackend();
+    await be.deleteHomework(id);
+  } catch (err) {
+    console.error("deleteHomeworkFromBackend failed:", err);
+    throw err;
+  }
+  setLS(
+    KEYS.HOMEWORK,
+    getHomework().filter((h) => h.id !== id),
+  );
+}
+
+// --- Calendar Events ---
+export async function saveCalendarEventToBackend(
+  e: CalendarEvent,
+): Promise<void> {
+  try {
+    const be = await getBackend();
+    const existing = await be
+      .getAllCalendarEvents()
+      .then((list: BackendCalendarEvent[]) =>
+        list.find((x: BackendCalendarEvent) => x.id === e.id),
+      );
+    if (existing) {
+      await be.updateCalendarEvent(e.id, calendarEventToBackend(e));
+    } else {
+      await be.addCalendarEvent(calendarEventToBackend(e));
+    }
+  } catch (err) {
+    console.error("saveCalendarEventToBackend failed:", err);
+    throw err;
+  }
+  const all = getCalendarEvents();
+  const idx = all.findIndex((x) => x.id === e.id);
+  if (idx >= 0) all[idx] = e;
+  else all.push(e);
+  setLS(KEYS.CALENDAR, all);
+}
+
+export async function deleteCalendarEventFromBackend(
+  id: string,
+): Promise<void> {
+  try {
+    const be = await getBackend();
+    await be.deleteCalendarEvent(id);
+  } catch (err) {
+    console.error("deleteCalendarEventFromBackend failed:", err);
+    throw err;
+  }
+  setLS(
+    KEYS.CALENDAR,
+    getCalendarEvents().filter((e) => e.id !== id),
+  );
+}
+
+// --- Leaves ---
+export async function saveLeaveToBackend(l: LeaveApplication): Promise<void> {
+  try {
+    const be = await getBackend();
+    const existing = await be
+      .getAllLeaveApplications()
+      .then((list: BackendLeaveApplication[]) =>
+        list.find((x: BackendLeaveApplication) => x.id === l.id),
+      );
+    if (existing) {
+      await be.updateLeaveApplication(l.id, leaveToBackend(l));
+    } else {
+      await be.addLeaveApplication(leaveToBackend(l));
+    }
+  } catch (err) {
+    console.error("saveLeaveToBackend failed:", err);
+    throw err;
+  }
+  const all = getLeaves();
+  const idx = all.findIndex((x) => x.id === l.id);
+  if (idx >= 0) all[idx] = l;
+  else all.push(l);
+  setLS(KEYS.LEAVES, all);
+}
+
+// --- Timetables ---
+export async function saveTimetableToBackend(t: Timetable): Promise<void> {
+  try {
+    const be = await getBackend();
+    const existing = await be
+      .getAllTimetables()
+      .then((list: BackendTimetable[]) =>
+        list.find((x: BackendTimetable) => x.id === t.id),
+      );
+    if (existing) {
+      await be.updateTimetable(t.id, timetableToBackend(t));
+    } else {
+      await be.addTimetable(timetableToBackend(t));
+    }
+  } catch (err) {
+    console.error("saveTimetableToBackend failed:", err);
+    throw err;
+  }
+  const all = getTimetables();
+  const idx = all.findIndex((x) => x.id === t.id);
+  if (idx >= 0) all[idx] = t;
+  else all.push(t);
+  setLS(KEYS.TIMETABLE, all);
+}
+
+export async function saveTimetablesToBackend(
+  timetables: Timetable[],
+): Promise<void> {
+  try {
+    const be = await getBackend();
+    const existing = await be.getAllTimetables();
+    const existingIds = new Set(existing.map((t: BackendTimetable) => t.id));
+    for (const t of timetables) {
+      if (existingIds.has(t.id)) {
+        await be.updateTimetable(t.id, timetableToBackend(t));
+      } else {
+        await be.addTimetable(timetableToBackend(t));
+      }
+    }
+  } catch (err) {
+    console.error("saveTimetablesToBackend failed:", err);
+    throw err;
+  }
+  setLS(KEYS.TIMETABLE, timetables);
+}
+
+// --- Online Exams ---
+export async function saveExamToBackend(e: OnlineExam): Promise<void> {
+  try {
+    const be = await getBackend();
+    const existing = await be
+      .getAllExams()
+      .then((list: BackendExam[]) =>
+        list.find((x: BackendExam) => x.id === e.id),
+      );
+    if (existing) {
+      await be.updateExam(e.id, examToBackend(e));
+    } else {
+      await be.addExam(examToBackend(e));
+    }
+  } catch (err) {
+    console.error("saveExamToBackend failed:", err);
+    throw err;
+  }
+  const all = getExams();
+  const idx = all.findIndex((x) => x.id === e.id);
+  if (idx >= 0) all[idx] = e;
+  else all.push(e);
+  setLS(KEYS.EXAMS, all);
+}
+
+export async function saveExamsToBackend(exams: OnlineExam[]): Promise<void> {
+  try {
+    const be = await getBackend();
+    const existing = await be.getAllExams();
+    const existingIds = new Set(existing.map((e: BackendExam) => e.id));
+    for (const e of exams) {
+      if (existingIds.has(e.id)) {
+        await be.updateExam(e.id, examToBackend(e));
+      } else {
+        await be.addExam(examToBackend(e));
+      }
+    }
+  } catch (err) {
+    console.error("saveExamsToBackend failed:", err);
+    throw err;
+  }
+  setLS(KEYS.EXAMS, exams);
+}
+
+// --- Exam Attempts ---
+export async function saveExamAttemptToBackend(a: ExamAttempt): Promise<void> {
+  try {
+    const be = await getBackend();
+    await be.addExamAttempt(examAttemptToBackend(a));
+  } catch (err) {
+    console.error("saveExamAttemptToBackend failed:", err);
+    throw err;
+  }
+  const all = getExamAttempts();
+  all.push(a);
+  setLS(KEYS.EXAM_ATTEMPTS, all);
+}
+
+// --- Portfolio ---
+export async function savePortfolioEntryToBackend(
+  p: PortfolioEntry,
+): Promise<void> {
+  try {
+    const be = await getBackend();
+    const existing = await be
+      .getAllPortfolioEntries()
+      .then((list: BackendPortfolioEntry[]) =>
+        list.find((x: BackendPortfolioEntry) => x.id === p.id),
+      );
+    if (existing) {
+      await be.updatePortfolioEntry(p.id, portfolioToBackend(p));
+    } else {
+      await be.addPortfolioEntry(portfolioToBackend(p));
+    }
+  } catch (err) {
+    console.error("savePortfolioEntryToBackend failed:", err);
+    throw err;
+  }
+  const all = getPortfolio();
+  const idx = all.findIndex((x) => x.id === p.id);
+  if (idx >= 0) all[idx] = p;
+  else all.push(p);
+  setLS(KEYS.PORTFOLIO, all);
+}
+
+export async function deletePortfolioEntryFromBackend(
+  id: string,
+): Promise<void> {
+  try {
+    const be = await getBackend();
+    await be.deletePortfolioEntry(id);
+  } catch (err) {
+    console.error("deletePortfolioEntryFromBackend failed:", err);
+    throw err;
+  }
+  setLS(
+    KEYS.PORTFOLIO,
+    getPortfolio().filter((p) => p.id !== id),
+  );
+}
+
+// --- Suggestions ---
+export async function saveSuggestionToBackend(
+  s: SuggestionQuery,
+): Promise<void> {
+  try {
+    const be = await getBackend();
+    const existing = await be
+      .getAllSuggestions()
+      .then((list: BackendSuggestion[]) =>
+        list.find((x: BackendSuggestion) => x.id === s.id),
+      );
+    if (existing) {
+      await be.updateSuggestion(s.id, suggestionToBackend(s));
+    } else {
+      await be.addSuggestion(suggestionToBackend(s));
+    }
+  } catch (err) {
+    console.error("saveSuggestionToBackend failed:", err);
+    throw err;
+  }
+  const all = getSuggestions();
+  const idx = all.findIndex((x) => x.id === s.id);
+  if (idx >= 0) all[idx] = s;
+  else all.push(s);
+  setLS(KEYS.SUGGESTIONS, all);
+}
+
+// --- Hall Ticket Design ---
+export async function saveHallTicketDesignToBackend(
+  d: HallTicketDesign,
+): Promise<void> {
+  try {
+    const be = await getBackend();
+    await be.saveHallTicketDesign(hallTicketToBackend(d));
+  } catch (err) {
+    console.error("saveHallTicketDesignToBackend failed:", err);
+    throw err;
+  }
+  setLS(KEYS.HALL_TICKET, d);
 }
 
 // ============================================================
@@ -1540,4 +2231,9 @@ export function formatDate(dateStr: string): string {
     month: "short",
     year: "numeric",
   });
+}
+
+// Legacy alias (kept for backwards compatibility with old code paths)
+export function initializeData(): void {
+  // No-op: data is now seeded in the backend canister via initializeIfNeeded()
 }

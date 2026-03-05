@@ -8,6 +8,105 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
+export const CalendarEvent = IDL.Record({
+  'id' : IDL.Text,
+  'title' : IDL.Text,
+  'date' : IDL.Text,
+  'createdBy' : IDL.Text,
+  'type' : IDL.Text,
+  'description' : IDL.Text,
+});
+export const Exam = IDL.Record({
+  'id' : IDL.Text,
+  'status' : IDL.Text,
+  'title' : IDL.Text,
+  'duration' : IDL.Nat,
+  'subject' : IDL.Text,
+  'class' : IDL.Text,
+  'createdAt' : IDL.Text,
+  'questionsJson' : IDL.Text,
+  'teacherId' : IDL.Text,
+});
+export const ExamAttempt = IDL.Record({
+  'id' : IDL.Text,
+  'studentId' : IDL.Text,
+  'answersJson' : IDL.Text,
+  'submittedAt' : IDL.Text,
+  'score' : IDL.Float64,
+  'examId' : IDL.Text,
+  'timeTaken' : IDL.Nat,
+});
+export const SubjectMarks = IDL.Record({
+  'marks' : IDL.Float64,
+  'subject' : IDL.Text,
+  'maxMarks' : IDL.Float64,
+});
+export const ExamResult = IDL.Record({
+  'id' : IDL.Text,
+  'status' : IDL.Text,
+  'studentId' : IDL.Text,
+  'subjects' : IDL.Vec(SubjectMarks),
+  'approvedAt' : IDL.Text,
+  'class' : IDL.Text,
+  'submittedAt' : IDL.Text,
+  'teacherId' : IDL.Text,
+  'examName' : IDL.Text,
+});
+export const FeeStatus = IDL.Text;
+export const FeeRecord = IDL.Record({
+  'id' : IDL.Text,
+  'status' : FeeStatus,
+  'method' : IDL.Text,
+  'studentId' : IDL.Text,
+  'date' : IDL.Text,
+  'description' : IDL.Text,
+  'amount' : IDL.Float64,
+  'receiptNumber' : IDL.Text,
+});
+export const Homework = IDL.Record({
+  'id' : IDL.Text,
+  'title' : IDL.Text,
+  'postedAt' : IDL.Text,
+  'subject' : IDL.Text,
+  'class' : IDL.Text,
+  'dueDate' : IDL.Text,
+  'description' : IDL.Text,
+  'teacherId' : IDL.Text,
+});
+export const LeaveApplication = IDL.Record({
+  'id' : IDL.Text,
+  'status' : IDL.Text,
+  'applicantName' : IDL.Text,
+  'applicantRole' : IDL.Text,
+  'applicantId' : IDL.Text,
+  'type' : IDL.Text,
+  'submittedAt' : IDL.Text,
+  'reviewedAt' : IDL.Text,
+  'reviewedBy' : IDL.Text,
+  'toDate' : IDL.Text,
+  'fromDate' : IDL.Text,
+  'reason' : IDL.Text,
+});
+export const Notification = IDL.Record({
+  'id' : IDL.Text,
+  'title' : IDL.Text,
+  'postedBy' : IDL.Text,
+  'date' : IDL.Text,
+  'type' : IDL.Text,
+  'message' : IDL.Text,
+  'attachmentName' : IDL.Text,
+  'targetClass' : IDL.Text,
+  'attachment' : IDL.Text,
+});
+export const PortfolioEntry = IDL.Record({
+  'id' : IDL.Text,
+  'title' : IDL.Text,
+  'studentId' : IDL.Text,
+  'date' : IDL.Text,
+  'type' : IDL.Text,
+  'description' : IDL.Text,
+  'addedBy' : IDL.Text,
+});
 export const Student = IDL.Record({
   'id' : IDL.Text,
   'class' : IDL.Text,
@@ -20,6 +119,22 @@ export const Student = IDL.Record({
   'rollNo' : IDL.Text,
   'parentName' : IDL.Text,
 });
+export const StudentAttendance = IDL.Record({
+  'id' : IDL.Text,
+  'status' : IDL.Text,
+  'studentId' : IDL.Text,
+  'date' : IDL.Text,
+  'markedBy' : IDL.Text,
+});
+export const Suggestion = IDL.Record({
+  'id' : IDL.Text,
+  'studentId' : IDL.Text,
+  'studentName' : IDL.Text,
+  'submittedAt' : IDL.Text,
+  'message' : IDL.Text,
+  'response' : IDL.Text,
+  'respondedAt' : IDL.Text,
+});
 export const Teacher = IDL.Record({
   'id' : IDL.Text,
   'subject' : IDL.Text,
@@ -30,6 +145,40 @@ export const Teacher = IDL.Record({
   'email' : IDL.Text,
   'phone' : IDL.Text,
   'photo' : IDL.Text,
+});
+export const TeacherAttendance = IDL.Record({
+  'id' : IDL.Text,
+  'status' : IDL.Text,
+  'date' : IDL.Text,
+  'approvedBy' : IDL.Text,
+  'checkInTime' : IDL.Text,
+  'approvalStatus' : IDL.Text,
+  'approvalNote' : IDL.Text,
+  'teacherId' : IDL.Text,
+  'checkOutTime' : IDL.Text,
+});
+export const Timetable = IDL.Record({
+  'id' : IDL.Text,
+  'approvedAt' : IDL.Text,
+  'approvedBy' : IDL.Text,
+  'class' : IDL.Text,
+  'approvalStatus' : IDL.Text,
+  'approvalNote' : IDL.Text,
+  'updatedAt' : IDL.Text,
+  'updatedBy' : IDL.Text,
+  'scheduleJson' : IDL.Text,
+});
+export const HallTicketDesign = IDL.Record({
+  'borderStyle' : IDL.Text,
+  'institutionName' : IDL.Text,
+  'tagline' : IDL.Text,
+  'headerBg' : IDL.Text,
+  'showLogo' : IDL.Bool,
+  'examName' : IDL.Text,
+  'showPrincipalSign' : IDL.Bool,
+  'subjectsJson' : IDL.Text,
+  'examYear' : IDL.Text,
+  'showClassTeacherSign' : IDL.Bool,
 });
 export const PrincipalProfile = IDL.Record({
   'id' : IDL.Text,
@@ -43,67 +192,229 @@ export const PrincipalProfile = IDL.Record({
   'phone' : IDL.Text,
   'photo' : IDL.Text,
 });
+export const AuthResult = IDL.Record({
+  'id' : IDL.Text,
+  'name' : IDL.Text,
+  'role' : IDL.Text,
+});
+export const AuthWithClassResult = IDL.Record({
+  'id' : IDL.Text,
+  'class' : IDL.Text,
+  'name' : IDL.Text,
+  'role' : IDL.Text,
+});
 
 export const idlService = IDL.Service({
+  'addCalendarEvent' : IDL.Func([CalendarEvent], [], []),
+  'addExam' : IDL.Func([Exam], [], []),
+  'addExamAttempt' : IDL.Func([ExamAttempt], [], []),
+  'addExamResult' : IDL.Func([ExamResult], [], []),
+  'addFeeRecord' : IDL.Func([FeeRecord], [], []),
+  'addHomework' : IDL.Func([Homework], [], []),
+  'addLeaveApplication' : IDL.Func([LeaveApplication], [], []),
+  'addNotification' : IDL.Func([Notification], [], []),
+  'addPortfolioEntry' : IDL.Func([PortfolioEntry], [], []),
   'addStudent' : IDL.Func([Student], [], []),
+  'addStudentAttendance' : IDL.Func([StudentAttendance], [], []),
+  'addSuggestion' : IDL.Func([Suggestion], [], []),
   'addTeacher' : IDL.Func([Teacher], [], []),
+  'addTeacherAttendance' : IDL.Func([TeacherAttendance], [], []),
+  'addTimetable' : IDL.Func([Timetable], [], []),
+  'deleteCalendarEvent' : IDL.Func([IDL.Text], [], []),
+  'deleteExam' : IDL.Func([IDL.Text], [], []),
+  'deleteExamAttempt' : IDL.Func([IDL.Text], [], []),
+  'deleteExamResult' : IDL.Func([IDL.Text], [], []),
+  'deleteFeeRecord' : IDL.Func([IDL.Text], [], []),
+  'deleteHomework' : IDL.Func([IDL.Text], [], []),
+  'deleteLeaveApplication' : IDL.Func([IDL.Text], [], []),
+  'deleteNotification' : IDL.Func([IDL.Text], [], []),
+  'deletePortfolioEntry' : IDL.Func([IDL.Text], [], []),
   'deleteStudent' : IDL.Func([IDL.Text], [], []),
+  'deleteStudentAttendance' : IDL.Func([IDL.Text], [], []),
+  'deleteSuggestion' : IDL.Func([IDL.Text], [], []),
   'deleteTeacher' : IDL.Func([IDL.Text], [], []),
+  'deleteTeacherAttendance' : IDL.Func([IDL.Text], [], []),
+  'deleteTimetable' : IDL.Func([IDL.Text], [], []),
+  'getAllCalendarEvents' : IDL.Func([], [IDL.Vec(CalendarEvent)], ['query']),
+  'getAllExamAttempts' : IDL.Func([], [IDL.Vec(ExamAttempt)], ['query']),
+  'getAllExamResults' : IDL.Func([], [IDL.Vec(ExamResult)], ['query']),
+  'getAllExams' : IDL.Func([], [IDL.Vec(Exam)], ['query']),
+  'getAllFeeRecords' : IDL.Func([], [IDL.Vec(FeeRecord)], ['query']),
+  'getAllHomework' : IDL.Func([], [IDL.Vec(Homework)], ['query']),
+  'getAllLeaveApplications' : IDL.Func(
+      [],
+      [IDL.Vec(LeaveApplication)],
+      ['query'],
+    ),
+  'getAllNotifications' : IDL.Func([], [IDL.Vec(Notification)], ['query']),
+  'getAllPortfolioEntries' : IDL.Func([], [IDL.Vec(PortfolioEntry)], ['query']),
+  'getAllStudentAttendance' : IDL.Func(
+      [],
+      [IDL.Vec(StudentAttendance)],
+      ['query'],
+    ),
+  'getAllStudents' : IDL.Func([], [IDL.Vec(Student)], ['query']),
+  'getAllSuggestions' : IDL.Func([], [IDL.Vec(Suggestion)], ['query']),
+  'getAllTeacherAttendance' : IDL.Func(
+      [],
+      [IDL.Vec(TeacherAttendance)],
+      ['query'],
+    ),
+  'getAllTeachers' : IDL.Func([], [IDL.Vec(Teacher)], ['query']),
+  'getAllTimetables' : IDL.Func([], [IDL.Vec(Timetable)], ['query']),
+  'getHallTicketDesign' : IDL.Func([], [IDL.Opt(HallTicketDesign)], ['query']),
   'getPrincipalProfile' : IDL.Func([], [PrincipalProfile], ['query']),
-  'getStudentById' : IDL.Func([IDL.Text], [IDL.Opt(Student)], ['query']),
-  'getStudents' : IDL.Func([], [IDL.Vec(Student)], ['query']),
-  'getStudentsByClass' : IDL.Func([IDL.Text], [IDL.Vec(Student)], ['query']),
-  'getStudentsByTeacher' : IDL.Func([IDL.Text], [IDL.Vec(Student)], ['query']),
-  'getTeacherById' : IDL.Func([IDL.Text], [IDL.Opt(Teacher)], ['query']),
-  'getTeachers' : IDL.Func([], [IDL.Vec(Teacher)], ['query']),
   'initializeIfNeeded' : IDL.Func([], [], []),
   'initializeStudents' : IDL.Func([], [], ['oneway']),
   'initializeTeachers' : IDL.Func([], [], ['oneway']),
   'loginPrincipal' : IDL.Func(
       [IDL.Text, IDL.Text],
-      [
-        IDL.Opt(
-          IDL.Record({ 'id' : IDL.Text, 'name' : IDL.Text, 'role' : IDL.Text })
-        ),
-      ],
+      [IDL.Opt(AuthResult)],
       ['query'],
     ),
   'loginStudent' : IDL.Func(
       [IDL.Text, IDL.Text],
-      [
-        IDL.Opt(
-          IDL.Record({
-            'id' : IDL.Text,
-            'class' : IDL.Text,
-            'name' : IDL.Text,
-            'role' : IDL.Text,
-          })
-        ),
-      ],
+      [IDL.Opt(AuthWithClassResult)],
       ['query'],
     ),
   'loginTeacher' : IDL.Func(
       [IDL.Text, IDL.Text],
-      [
-        IDL.Opt(
-          IDL.Record({
-            'id' : IDL.Text,
-            'class' : IDL.Text,
-            'name' : IDL.Text,
-            'role' : IDL.Text,
-          })
-        ),
-      ],
+      [IDL.Opt(AuthWithClassResult)],
       ['query'],
     ),
+  'saveHallTicketDesign' : IDL.Func([HallTicketDesign], [], []),
   'savePrincipalProfile' : IDL.Func([PrincipalProfile], [], []),
+  'updateCalendarEvent' : IDL.Func([IDL.Text, CalendarEvent], [IDL.Bool], []),
+  'updateExam' : IDL.Func([IDL.Text, Exam], [IDL.Bool], []),
+  'updateExamAttempt' : IDL.Func([IDL.Text, ExamAttempt], [IDL.Bool], []),
+  'updateExamResult' : IDL.Func([IDL.Text, ExamResult], [IDL.Bool], []),
+  'updateFeeRecord' : IDL.Func([IDL.Text, FeeRecord], [IDL.Bool], []),
+  'updateHomework' : IDL.Func([IDL.Text, Homework], [IDL.Bool], []),
+  'updateLeaveApplication' : IDL.Func(
+      [IDL.Text, LeaveApplication],
+      [IDL.Bool],
+      [],
+    ),
+  'updateNotification' : IDL.Func([IDL.Text, Notification], [IDL.Bool], []),
+  'updatePortfolioEntry' : IDL.Func([IDL.Text, PortfolioEntry], [IDL.Bool], []),
   'updateStudent' : IDL.Func([IDL.Text, Student], [IDL.Bool], []),
+  'updateStudentAttendance' : IDL.Func(
+      [IDL.Text, StudentAttendance],
+      [IDL.Bool],
+      [],
+    ),
+  'updateSuggestion' : IDL.Func([IDL.Text, Suggestion], [IDL.Bool], []),
   'updateTeacher' : IDL.Func([IDL.Text, Teacher], [IDL.Bool], []),
+  'updateTeacherAttendance' : IDL.Func(
+      [IDL.Text, TeacherAttendance],
+      [IDL.Bool],
+      [],
+    ),
+  'updateTimetable' : IDL.Func([IDL.Text, Timetable], [IDL.Bool], []),
 });
 
 export const idlInitArgs = [];
 
 export const idlFactory = ({ IDL }) => {
+  const CalendarEvent = IDL.Record({
+    'id' : IDL.Text,
+    'title' : IDL.Text,
+    'date' : IDL.Text,
+    'createdBy' : IDL.Text,
+    'type' : IDL.Text,
+    'description' : IDL.Text,
+  });
+  const Exam = IDL.Record({
+    'id' : IDL.Text,
+    'status' : IDL.Text,
+    'title' : IDL.Text,
+    'duration' : IDL.Nat,
+    'subject' : IDL.Text,
+    'class' : IDL.Text,
+    'createdAt' : IDL.Text,
+    'questionsJson' : IDL.Text,
+    'teacherId' : IDL.Text,
+  });
+  const ExamAttempt = IDL.Record({
+    'id' : IDL.Text,
+    'studentId' : IDL.Text,
+    'answersJson' : IDL.Text,
+    'submittedAt' : IDL.Text,
+    'score' : IDL.Float64,
+    'examId' : IDL.Text,
+    'timeTaken' : IDL.Nat,
+  });
+  const SubjectMarks = IDL.Record({
+    'marks' : IDL.Float64,
+    'subject' : IDL.Text,
+    'maxMarks' : IDL.Float64,
+  });
+  const ExamResult = IDL.Record({
+    'id' : IDL.Text,
+    'status' : IDL.Text,
+    'studentId' : IDL.Text,
+    'subjects' : IDL.Vec(SubjectMarks),
+    'approvedAt' : IDL.Text,
+    'class' : IDL.Text,
+    'submittedAt' : IDL.Text,
+    'teacherId' : IDL.Text,
+    'examName' : IDL.Text,
+  });
+  const FeeStatus = IDL.Text;
+  const FeeRecord = IDL.Record({
+    'id' : IDL.Text,
+    'status' : FeeStatus,
+    'method' : IDL.Text,
+    'studentId' : IDL.Text,
+    'date' : IDL.Text,
+    'description' : IDL.Text,
+    'amount' : IDL.Float64,
+    'receiptNumber' : IDL.Text,
+  });
+  const Homework = IDL.Record({
+    'id' : IDL.Text,
+    'title' : IDL.Text,
+    'postedAt' : IDL.Text,
+    'subject' : IDL.Text,
+    'class' : IDL.Text,
+    'dueDate' : IDL.Text,
+    'description' : IDL.Text,
+    'teacherId' : IDL.Text,
+  });
+  const LeaveApplication = IDL.Record({
+    'id' : IDL.Text,
+    'status' : IDL.Text,
+    'applicantName' : IDL.Text,
+    'applicantRole' : IDL.Text,
+    'applicantId' : IDL.Text,
+    'type' : IDL.Text,
+    'submittedAt' : IDL.Text,
+    'reviewedAt' : IDL.Text,
+    'reviewedBy' : IDL.Text,
+    'toDate' : IDL.Text,
+    'fromDate' : IDL.Text,
+    'reason' : IDL.Text,
+  });
+  const Notification = IDL.Record({
+    'id' : IDL.Text,
+    'title' : IDL.Text,
+    'postedBy' : IDL.Text,
+    'date' : IDL.Text,
+    'type' : IDL.Text,
+    'message' : IDL.Text,
+    'attachmentName' : IDL.Text,
+    'targetClass' : IDL.Text,
+    'attachment' : IDL.Text,
+  });
+  const PortfolioEntry = IDL.Record({
+    'id' : IDL.Text,
+    'title' : IDL.Text,
+    'studentId' : IDL.Text,
+    'date' : IDL.Text,
+    'type' : IDL.Text,
+    'description' : IDL.Text,
+    'addedBy' : IDL.Text,
+  });
   const Student = IDL.Record({
     'id' : IDL.Text,
     'class' : IDL.Text,
@@ -116,6 +427,22 @@ export const idlFactory = ({ IDL }) => {
     'rollNo' : IDL.Text,
     'parentName' : IDL.Text,
   });
+  const StudentAttendance = IDL.Record({
+    'id' : IDL.Text,
+    'status' : IDL.Text,
+    'studentId' : IDL.Text,
+    'date' : IDL.Text,
+    'markedBy' : IDL.Text,
+  });
+  const Suggestion = IDL.Record({
+    'id' : IDL.Text,
+    'studentId' : IDL.Text,
+    'studentName' : IDL.Text,
+    'submittedAt' : IDL.Text,
+    'message' : IDL.Text,
+    'response' : IDL.Text,
+    'respondedAt' : IDL.Text,
+  });
   const Teacher = IDL.Record({
     'id' : IDL.Text,
     'subject' : IDL.Text,
@@ -126,6 +453,40 @@ export const idlFactory = ({ IDL }) => {
     'email' : IDL.Text,
     'phone' : IDL.Text,
     'photo' : IDL.Text,
+  });
+  const TeacherAttendance = IDL.Record({
+    'id' : IDL.Text,
+    'status' : IDL.Text,
+    'date' : IDL.Text,
+    'approvedBy' : IDL.Text,
+    'checkInTime' : IDL.Text,
+    'approvalStatus' : IDL.Text,
+    'approvalNote' : IDL.Text,
+    'teacherId' : IDL.Text,
+    'checkOutTime' : IDL.Text,
+  });
+  const Timetable = IDL.Record({
+    'id' : IDL.Text,
+    'approvedAt' : IDL.Text,
+    'approvedBy' : IDL.Text,
+    'class' : IDL.Text,
+    'approvalStatus' : IDL.Text,
+    'approvalNote' : IDL.Text,
+    'updatedAt' : IDL.Text,
+    'updatedBy' : IDL.Text,
+    'scheduleJson' : IDL.Text,
+  });
+  const HallTicketDesign = IDL.Record({
+    'borderStyle' : IDL.Text,
+    'institutionName' : IDL.Text,
+    'tagline' : IDL.Text,
+    'headerBg' : IDL.Text,
+    'showLogo' : IDL.Bool,
+    'examName' : IDL.Text,
+    'showPrincipalSign' : IDL.Bool,
+    'subjectsJson' : IDL.Text,
+    'examYear' : IDL.Text,
+    'showClassTeacherSign' : IDL.Bool,
   });
   const PrincipalProfile = IDL.Record({
     'id' : IDL.Text,
@@ -139,70 +500,137 @@ export const idlFactory = ({ IDL }) => {
     'phone' : IDL.Text,
     'photo' : IDL.Text,
   });
+  const AuthResult = IDL.Record({
+    'id' : IDL.Text,
+    'name' : IDL.Text,
+    'role' : IDL.Text,
+  });
+  const AuthWithClassResult = IDL.Record({
+    'id' : IDL.Text,
+    'class' : IDL.Text,
+    'name' : IDL.Text,
+    'role' : IDL.Text,
+  });
   
   return IDL.Service({
+    'addCalendarEvent' : IDL.Func([CalendarEvent], [], []),
+    'addExam' : IDL.Func([Exam], [], []),
+    'addExamAttempt' : IDL.Func([ExamAttempt], [], []),
+    'addExamResult' : IDL.Func([ExamResult], [], []),
+    'addFeeRecord' : IDL.Func([FeeRecord], [], []),
+    'addHomework' : IDL.Func([Homework], [], []),
+    'addLeaveApplication' : IDL.Func([LeaveApplication], [], []),
+    'addNotification' : IDL.Func([Notification], [], []),
+    'addPortfolioEntry' : IDL.Func([PortfolioEntry], [], []),
     'addStudent' : IDL.Func([Student], [], []),
+    'addStudentAttendance' : IDL.Func([StudentAttendance], [], []),
+    'addSuggestion' : IDL.Func([Suggestion], [], []),
     'addTeacher' : IDL.Func([Teacher], [], []),
+    'addTeacherAttendance' : IDL.Func([TeacherAttendance], [], []),
+    'addTimetable' : IDL.Func([Timetable], [], []),
+    'deleteCalendarEvent' : IDL.Func([IDL.Text], [], []),
+    'deleteExam' : IDL.Func([IDL.Text], [], []),
+    'deleteExamAttempt' : IDL.Func([IDL.Text], [], []),
+    'deleteExamResult' : IDL.Func([IDL.Text], [], []),
+    'deleteFeeRecord' : IDL.Func([IDL.Text], [], []),
+    'deleteHomework' : IDL.Func([IDL.Text], [], []),
+    'deleteLeaveApplication' : IDL.Func([IDL.Text], [], []),
+    'deleteNotification' : IDL.Func([IDL.Text], [], []),
+    'deletePortfolioEntry' : IDL.Func([IDL.Text], [], []),
     'deleteStudent' : IDL.Func([IDL.Text], [], []),
+    'deleteStudentAttendance' : IDL.Func([IDL.Text], [], []),
+    'deleteSuggestion' : IDL.Func([IDL.Text], [], []),
     'deleteTeacher' : IDL.Func([IDL.Text], [], []),
-    'getPrincipalProfile' : IDL.Func([], [PrincipalProfile], ['query']),
-    'getStudentById' : IDL.Func([IDL.Text], [IDL.Opt(Student)], ['query']),
-    'getStudents' : IDL.Func([], [IDL.Vec(Student)], ['query']),
-    'getStudentsByClass' : IDL.Func([IDL.Text], [IDL.Vec(Student)], ['query']),
-    'getStudentsByTeacher' : IDL.Func(
-        [IDL.Text],
-        [IDL.Vec(Student)],
+    'deleteTeacherAttendance' : IDL.Func([IDL.Text], [], []),
+    'deleteTimetable' : IDL.Func([IDL.Text], [], []),
+    'getAllCalendarEvents' : IDL.Func([], [IDL.Vec(CalendarEvent)], ['query']),
+    'getAllExamAttempts' : IDL.Func([], [IDL.Vec(ExamAttempt)], ['query']),
+    'getAllExamResults' : IDL.Func([], [IDL.Vec(ExamResult)], ['query']),
+    'getAllExams' : IDL.Func([], [IDL.Vec(Exam)], ['query']),
+    'getAllFeeRecords' : IDL.Func([], [IDL.Vec(FeeRecord)], ['query']),
+    'getAllHomework' : IDL.Func([], [IDL.Vec(Homework)], ['query']),
+    'getAllLeaveApplications' : IDL.Func(
+        [],
+        [IDL.Vec(LeaveApplication)],
         ['query'],
       ),
-    'getTeacherById' : IDL.Func([IDL.Text], [IDL.Opt(Teacher)], ['query']),
-    'getTeachers' : IDL.Func([], [IDL.Vec(Teacher)], ['query']),
+    'getAllNotifications' : IDL.Func([], [IDL.Vec(Notification)], ['query']),
+    'getAllPortfolioEntries' : IDL.Func(
+        [],
+        [IDL.Vec(PortfolioEntry)],
+        ['query'],
+      ),
+    'getAllStudentAttendance' : IDL.Func(
+        [],
+        [IDL.Vec(StudentAttendance)],
+        ['query'],
+      ),
+    'getAllStudents' : IDL.Func([], [IDL.Vec(Student)], ['query']),
+    'getAllSuggestions' : IDL.Func([], [IDL.Vec(Suggestion)], ['query']),
+    'getAllTeacherAttendance' : IDL.Func(
+        [],
+        [IDL.Vec(TeacherAttendance)],
+        ['query'],
+      ),
+    'getAllTeachers' : IDL.Func([], [IDL.Vec(Teacher)], ['query']),
+    'getAllTimetables' : IDL.Func([], [IDL.Vec(Timetable)], ['query']),
+    'getHallTicketDesign' : IDL.Func(
+        [],
+        [IDL.Opt(HallTicketDesign)],
+        ['query'],
+      ),
+    'getPrincipalProfile' : IDL.Func([], [PrincipalProfile], ['query']),
     'initializeIfNeeded' : IDL.Func([], [], []),
     'initializeStudents' : IDL.Func([], [], ['oneway']),
     'initializeTeachers' : IDL.Func([], [], ['oneway']),
     'loginPrincipal' : IDL.Func(
         [IDL.Text, IDL.Text],
-        [
-          IDL.Opt(
-            IDL.Record({
-              'id' : IDL.Text,
-              'name' : IDL.Text,
-              'role' : IDL.Text,
-            })
-          ),
-        ],
+        [IDL.Opt(AuthResult)],
         ['query'],
       ),
     'loginStudent' : IDL.Func(
         [IDL.Text, IDL.Text],
-        [
-          IDL.Opt(
-            IDL.Record({
-              'id' : IDL.Text,
-              'class' : IDL.Text,
-              'name' : IDL.Text,
-              'role' : IDL.Text,
-            })
-          ),
-        ],
+        [IDL.Opt(AuthWithClassResult)],
         ['query'],
       ),
     'loginTeacher' : IDL.Func(
         [IDL.Text, IDL.Text],
-        [
-          IDL.Opt(
-            IDL.Record({
-              'id' : IDL.Text,
-              'class' : IDL.Text,
-              'name' : IDL.Text,
-              'role' : IDL.Text,
-            })
-          ),
-        ],
+        [IDL.Opt(AuthWithClassResult)],
         ['query'],
       ),
+    'saveHallTicketDesign' : IDL.Func([HallTicketDesign], [], []),
     'savePrincipalProfile' : IDL.Func([PrincipalProfile], [], []),
+    'updateCalendarEvent' : IDL.Func([IDL.Text, CalendarEvent], [IDL.Bool], []),
+    'updateExam' : IDL.Func([IDL.Text, Exam], [IDL.Bool], []),
+    'updateExamAttempt' : IDL.Func([IDL.Text, ExamAttempt], [IDL.Bool], []),
+    'updateExamResult' : IDL.Func([IDL.Text, ExamResult], [IDL.Bool], []),
+    'updateFeeRecord' : IDL.Func([IDL.Text, FeeRecord], [IDL.Bool], []),
+    'updateHomework' : IDL.Func([IDL.Text, Homework], [IDL.Bool], []),
+    'updateLeaveApplication' : IDL.Func(
+        [IDL.Text, LeaveApplication],
+        [IDL.Bool],
+        [],
+      ),
+    'updateNotification' : IDL.Func([IDL.Text, Notification], [IDL.Bool], []),
+    'updatePortfolioEntry' : IDL.Func(
+        [IDL.Text, PortfolioEntry],
+        [IDL.Bool],
+        [],
+      ),
     'updateStudent' : IDL.Func([IDL.Text, Student], [IDL.Bool], []),
+    'updateStudentAttendance' : IDL.Func(
+        [IDL.Text, StudentAttendance],
+        [IDL.Bool],
+        [],
+      ),
+    'updateSuggestion' : IDL.Func([IDL.Text, Suggestion], [IDL.Bool], []),
     'updateTeacher' : IDL.Func([IDL.Text, Teacher], [IDL.Bool], []),
+    'updateTeacherAttendance' : IDL.Func(
+        [IDL.Text, TeacherAttendance],
+        [IDL.Bool],
+        [],
+      ),
+    'updateTimetable' : IDL.Func([IDL.Text, Timetable], [IDL.Bool], []),
   });
 };
 
