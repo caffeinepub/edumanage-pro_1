@@ -77,6 +77,8 @@ import {
   getTimetables,
   saveCalendarEventToBackend,
   saveCalendarEvents,
+  saveFeeToBackend,
+  saveFees,
   saveHallTicketDesign,
   saveHallTicketDesignToBackend,
   saveLeaveToBackend,
@@ -4483,15 +4485,31 @@ function SendMessageToParents() {
 }
 
 // ============================================================
-// Fee Overview
+// Fee Report
 // ============================================================
-function FeeOverview() {
-  const [fees] = useState<FeeRecord[]>(() => getFees());
+function FeeReport() {
+  const [fees, setFees] = useState<FeeRecord[]>(() => getFees());
   // Read students once with lazy initializer
   const students = useMemo(() => getStudents(), []);
 
   const [classFilter, setClassFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [studentSearch, setStudentSearch] = useState("");
+
+  // Add Fee Record dialog state
+  const [addOpen, setAddOpen] = useState(false);
+  const [addForm, setAddForm] = useState({
+    studentId: "",
+    amount: "",
+    date: new Date().toISOString().split("T")[0],
+    status: "pending",
+    method: "",
+    description: "",
+    receiptNumber: "",
+  });
+
+  // Delete confirm state
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Unique classes from students (memoized)
   const classes = useMemo(
@@ -4527,9 +4545,12 @@ function FeeOverview() {
       const classMatch =
         classFilter === "all" || f.studentClass === classFilter;
       const statusMatch = statusFilter === "all" || f.status === statusFilter;
-      return classMatch && statusMatch;
+      const searchMatch =
+        studentSearch === "" ||
+        f.studentName.toLowerCase().includes(studentSearch.toLowerCase());
+      return classMatch && statusMatch && searchMatch;
     });
-  }, [enriched, classFilter, statusFilter]);
+  }, [enriched, classFilter, statusFilter, studentSearch]);
 
   // Summary totals (memoized)
   const { paged: pagedFees, pagination: feePagination } = usePagination(
@@ -4606,6 +4627,48 @@ function FeeOverview() {
     };
   }, [enriched]);
 
+  // ── Add Fee Record ─────────────────────────────────────────
+  const handleAddFee = () => {
+    if (!addForm.studentId || !addForm.amount || !addForm.date) {
+      toast.error("Please fill in Student, Amount, and Date");
+      return;
+    }
+    const newFee: FeeRecord = {
+      id: generateId("fee"),
+      studentId: addForm.studentId,
+      amount: Number(addForm.amount),
+      date: addForm.date,
+      status: addForm.status as FeeRecord["status"],
+      method: addForm.method,
+      description: addForm.description,
+      receiptNumber: addForm.receiptNumber || undefined,
+    };
+    const updated = [...fees, newFee];
+    setFees(updated);
+    saveFees(updated);
+    saveFeeToBackend(newFee);
+    toast.success("Fee record added");
+    setAddOpen(false);
+    setAddForm({
+      studentId: "",
+      amount: "",
+      date: new Date().toISOString().split("T")[0],
+      status: "pending",
+      method: "",
+      description: "",
+      receiptNumber: "",
+    });
+  };
+
+  // ── Delete Fee Record ───────────────────────────────────────
+  const handleDeleteFee = (id: string) => {
+    const updated = fees.filter((f) => f.id !== id);
+    setFees(updated);
+    saveFees(updated);
+    setDeleteConfirmId(null);
+    toast.success("Fee record deleted");
+  };
+
   const handleDownloadCSV = () => {
     const headers = [
       "Student Name",
@@ -4636,10 +4699,109 @@ function FeeOverview() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `fee-overview-${new Date().toISOString().split("T")[0]}.csv`;
+    a.download = `fee-report-${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success("Fee data exported as CSV");
+  };
+
+  // ── PDF Download ────────────────────────────────────────────
+  const handleDownloadPDF = () => {
+    const schoolName =
+      getPrincipalProfile().institutionName ?? "Rahmaniyya Public School";
+    const dateStr = new Date().toLocaleDateString("en-IN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    const filterInfo = [
+      classFilter !== "all" ? `Class: ${classFilter}` : "All Classes",
+      statusFilter !== "all"
+        ? `Status: ${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}`
+        : "All Statuses",
+      studentSearch ? `Student: ${studentSearch}` : null,
+    ]
+      .filter(Boolean)
+      .join(" | ");
+
+    const tableRows = filtered
+      .map(
+        (f, i) => `
+      <tr style="background:${i % 2 === 0 ? "#f9fafb" : "#fff"}">
+        <td>${i + 1}</td>
+        <td>${f.studentName}</td>
+        <td>${f.studentClass}</td>
+        <td style="text-align:right">₹${f.amount.toLocaleString("en-IN")}</td>
+        <td>${f.date ? new Date(f.date).toLocaleDateString("en-IN") : "—"}</td>
+        <td><span style="padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:${f.status === "paid" ? "#dcfce7" : f.status === "pending" ? "#fee2e2" : "#fef9c3"};color:${f.status === "paid" ? "#166534" : f.status === "pending" ? "#991b1b" : "#854d0e"}">${f.status.toUpperCase()}</span></td>
+        <td>${f.method || "—"}</td>
+        <td>${f.description || "—"}</td>
+        <td>${f.receiptNumber ?? "—"}</td>
+      </tr>`,
+      )
+      .join("");
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Fee Report — ${schoolName}</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 32px; color: #111; }
+    h1 { font-size: 22px; margin: 0; color: #1a3c6e; }
+    h2 { font-size: 15px; margin: 4px 0 2px; color: #374151; font-weight: 500; }
+    .meta { font-size: 12px; color: #6b7280; margin-bottom: 16px; }
+    .summary { display: flex; gap: 16px; margin-bottom: 20px; }
+    .summary-card { padding: 10px 16px; border-radius: 8px; min-width: 120px; }
+    .summary-card .label { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; margin-bottom: 4px; }
+    .summary-card .value { font-size: 18px; font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { background: #1a3c6e; color: #fff; padding: 8px 10px; text-align: left; }
+    td { padding: 7px 10px; border-bottom: 1px solid #e5e7eb; }
+    @media print { body { margin: 16px; } }
+  </style>
+</head>
+<body>
+  <h1>${schoolName}</h1>
+  <h2>Fee Report</h2>
+  <p class="meta">Generated on ${dateStr} &nbsp;|&nbsp; Filters: ${filterInfo} &nbsp;|&nbsp; ${filtered.length} record(s)</p>
+  <div class="summary">
+    <div class="summary-card" style="background:#dcfce7">
+      <div class="label" style="color:#166534">Collected (Paid)</div>
+      <div class="value" style="color:#166534">₹${totalCollected.toLocaleString("en-IN")}</div>
+    </div>
+    <div class="summary-card" style="background:#fef9c3">
+      <div class="label" style="color:#854d0e">Partial</div>
+      <div class="value" style="color:#854d0e">₹${totalPartial.toLocaleString("en-IN")}</div>
+    </div>
+    <div class="summary-card" style="background:#fee2e2">
+      <div class="label" style="color:#991b1b">Pending</div>
+      <div class="value" style="color:#991b1b">₹${totalPending.toLocaleString("en-IN")}</div>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Student Name</th><th>Class</th><th>Amount (₹)</th>
+        <th>Date</th><th>Status</th><th>Method</th><th>Description</th><th>Receipt No.</th>
+      </tr>
+    </thead>
+    <tbody>${tableRows}</tbody>
+  </table>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      setTimeout(() => {
+        win.print();
+      }, 400);
+    } else {
+      toast.error("Pop-up blocked. Please allow pop-ups and try again.");
+    }
   };
 
   const statusColors: Record<string, string> = {
@@ -4650,9 +4812,9 @@ function FeeOverview() {
 
   return (
     <div>
-      <h2 className="section-title">Fee Overview</h2>
+      <h2 className="section-title">Fee Report</h2>
       <p className="section-subtitle">
-        View and download all students' fee records
+        View, manage, and download all students' fee records
       </p>
 
       {/* ── Fee Status Summary by Time Period ── */}
@@ -4797,10 +4959,18 @@ function FeeOverview() {
         </div>
       </div>
 
-      {/* Filters + Download */}
+      {/* Filters row + Add button */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
+        <Input
+          placeholder="Search student..."
+          value={studentSearch}
+          onChange={(e) => setStudentSearch(e.target.value)}
+          className="w-44"
+          data-ocid="fee_report.student_search_input"
+        />
+
         <Select value={classFilter} onValueChange={setClassFilter}>
-          <SelectTrigger className="w-40" data-ocid="fee_overview.class_select">
+          <SelectTrigger className="w-40" data-ocid="fee_report.class_select">
             <SelectValue placeholder="All Classes" />
           </SelectTrigger>
           <SelectContent>
@@ -4814,10 +4984,7 @@ function FeeOverview() {
         </Select>
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger
-            className="w-40"
-            data-ocid="fee_overview.status_select"
-          >
+          <SelectTrigger className="w-40" data-ocid="fee_report.status_select">
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
           <SelectContent>
@@ -4828,22 +4995,189 @@ function FeeOverview() {
           </SelectContent>
         </Select>
 
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5 ml-auto"
-          onClick={handleDownloadCSV}
-          data-ocid="fee_overview.download_button"
-        >
-          <Download className="w-4 h-4" />
-          Download CSV
-        </Button>
+        {/* Action buttons */}
+        <div className="flex items-center gap-2 ml-auto flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={handleDownloadCSV}
+            data-ocid="fee_report.csv_download_button"
+          >
+            <Download className="w-4 h-4" />
+            CSV
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={handleDownloadPDF}
+            data-ocid="fee_report.pdf_download_button"
+          >
+            <FileDown className="w-4 h-4" />
+            Download PDF
+          </Button>
+
+          {/* Add Fee Record dialog */}
+          <Dialog open={addOpen} onOpenChange={setAddOpen}>
+            <DialogTrigger asChild>
+              <Button
+                size="sm"
+                className="gap-1.5"
+                data-ocid="fee_report.add_open_modal_button"
+              >
+                <Plus className="w-4 h-4" />
+                Add Fee Record
+              </Button>
+            </DialogTrigger>
+            <DialogContent
+              className="max-w-md"
+              data-ocid="fee_report.add_dialog"
+            >
+              <DialogHeader>
+                <DialogTitle>Add Fee Record</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                {/* Student */}
+                <div className="space-y-1">
+                  <Label>Student *</Label>
+                  <Select
+                    value={addForm.studentId}
+                    onValueChange={(v) =>
+                      setAddForm((f) => ({ ...f, studentId: v }))
+                    }
+                  >
+                    <SelectTrigger data-ocid="fee_report.add_student_select">
+                      <SelectValue placeholder="Select student" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {students.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name} — Class {s.class}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Amount */}
+                <div className="space-y-1">
+                  <Label>Amount (₹) *</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="e.g. 5000"
+                    value={addForm.amount}
+                    onChange={(e) =>
+                      setAddForm((f) => ({ ...f, amount: e.target.value }))
+                    }
+                    data-ocid="fee_report.add_amount_input"
+                  />
+                </div>
+
+                {/* Date */}
+                <div className="space-y-1">
+                  <Label>Date *</Label>
+                  <Input
+                    type="date"
+                    value={addForm.date}
+                    onChange={(e) =>
+                      setAddForm((f) => ({ ...f, date: e.target.value }))
+                    }
+                    data-ocid="fee_report.add_date_input"
+                  />
+                </div>
+
+                {/* Status */}
+                <div className="space-y-1">
+                  <Label>Status</Label>
+                  <Select
+                    value={addForm.status}
+                    onValueChange={(v) =>
+                      setAddForm((f) => ({ ...f, status: v }))
+                    }
+                  >
+                    <SelectTrigger data-ocid="fee_report.add_status_select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="paid">Paid</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="partial">Partial</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Payment Method */}
+                <div className="space-y-1">
+                  <Label>Payment Method</Label>
+                  <Input
+                    placeholder="e.g. Cash, Online, Cheque"
+                    value={addForm.method}
+                    onChange={(e) =>
+                      setAddForm((f) => ({ ...f, method: e.target.value }))
+                    }
+                    data-ocid="fee_report.add_method_input"
+                  />
+                </div>
+
+                {/* Description */}
+                <div className="space-y-1">
+                  <Label>Description</Label>
+                  <Input
+                    placeholder="e.g. Term 1 Fees"
+                    value={addForm.description}
+                    onChange={(e) =>
+                      setAddForm((f) => ({
+                        ...f,
+                        description: e.target.value,
+                      }))
+                    }
+                    data-ocid="fee_report.add_description_input"
+                  />
+                </div>
+
+                {/* Receipt Number */}
+                <div className="space-y-1">
+                  <Label>Receipt Number (optional)</Label>
+                  <Input
+                    placeholder="e.g. RPS-2026-001"
+                    value={addForm.receiptNumber}
+                    onChange={(e) =>
+                      setAddForm((f) => ({
+                        ...f,
+                        receiptNumber: e.target.value,
+                      }))
+                    }
+                    data-ocid="fee_report.add_receipt_input"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setAddOpen(false)}
+                  data-ocid="fee_report.add_cancel_button"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleAddFee}
+                  data-ocid="fee_report.add_submit_button"
+                >
+                  Save Record
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Table with pagination */}
       <div
         className="bg-card border border-border rounded-lg overflow-hidden"
-        data-ocid="fee_overview.table"
+        data-ocid="fee_report.table"
       >
         <Table>
           <TableHeader>
@@ -4856,22 +5190,23 @@ function FeeOverview() {
               <TableHead>Method</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Receipt No.</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {pagedFees.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={9}
                   className="text-center text-muted-foreground py-10"
-                  data-ocid="fee_overview.empty_state"
+                  data-ocid="fee_report.empty_state"
                 >
                   No fee records found for the selected filters
                 </TableCell>
               </TableRow>
             ) : (
               pagedFees.map((f, idx) => (
-                <TableRow key={f.id} data-ocid={`fee_overview.item.${idx + 1}`}>
+                <TableRow key={f.id} data-ocid={`fee_report.item.${idx + 1}`}>
                   <TableCell className="font-medium">{f.studentName}</TableCell>
                   <TableCell>
                     <Badge variant="outline">{f.studentClass}</Badge>
@@ -4897,6 +5232,40 @@ function FeeOverview() {
                   </TableCell>
                   <TableCell className="text-muted-foreground font-mono text-xs">
                     {f.receiptNumber ?? "—"}
+                  </TableCell>
+                  <TableCell>
+                    {deleteConfirmId === f.id ? (
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-7 text-xs px-2"
+                          onClick={() => handleDeleteFee(f.id)}
+                          data-ocid={`fee_report.delete_button.${idx + 1}`}
+                        >
+                          Confirm
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs px-2"
+                          onClick={() => setDeleteConfirmId(null)}
+                          data-ocid={`fee_report.cancel_button.${idx + 1}`}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => setDeleteConfirmId(f.id)}
+                        data-ocid={`fee_report.delete_button.${idx + 1}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))
@@ -5010,8 +5379,8 @@ export default function PrincipalDashboard({ user, onLogout }: Props) {
       icon: <Send className="w-4 h-4" />,
     },
     {
-      id: "fee-overview",
-      label: "Fee Overview",
+      id: "fee-report",
+      label: "Fee Report",
       icon: <DollarSign className="w-4 h-4" />,
     },
     {
@@ -5047,8 +5416,8 @@ export default function PrincipalDashboard({ user, onLogout }: Props) {
         return <TimetableApproval user={currentUser} />;
       case "send-message":
         return <SendMessageToParents />;
-      case "fee-overview":
-        return <FeeOverview />;
+      case "fee-report":
+        return <FeeReport />;
       case "profile":
         return (
           <MyProfile
