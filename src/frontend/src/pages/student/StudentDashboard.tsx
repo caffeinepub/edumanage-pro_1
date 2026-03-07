@@ -36,6 +36,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import LearningGames from "@/pages/student/LearningGames";
 import {
   type CurrentUser,
   type ExamAttempt,
@@ -111,7 +112,17 @@ function getStudentClassRank(
 
   return rank;
 }
-import { Calendar, FileText, Printer, User, UserCheck } from "lucide-react";
+import {
+  Bot,
+  Calendar,
+  FileText,
+  Gamepad2,
+  Printer,
+  Send,
+  Trash2,
+  User,
+  UserCheck,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -1493,12 +1504,397 @@ function StudentProfile({ studentId }: { studentId: string }) {
 }
 
 // ============================================================
+// AI Assistant
+// ============================================================
+interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+  timestamp: Date;
+}
+
+interface AIAssistantProps {
+  user: CurrentUser;
+  studentClass: string;
+}
+
+const QUICK_QUESTIONS = [
+  "What is my attendance?",
+  "Show my latest results",
+  "When is my next exam?",
+  "What homework is due?",
+  "Check my fees",
+  "Show my timetable",
+] as const;
+
+function generateAIResponse(
+  question: string,
+  userId: string,
+  studentClass: string,
+): string {
+  const q = question.toLowerCase();
+
+  // Attendance
+  if (q.includes("attendance")) {
+    const records = getStudentAttendance(userId);
+    const pct = calcAttendancePercent(records);
+    const present = records.filter((r) => r.status === "present").length;
+    const absent = records.filter((r) => r.status === "absent").length;
+    const late = records.filter((r) => r.status === "late").length;
+    const total = records.length;
+    if (total === 0)
+      return "📋 No attendance records found for you yet. Please check back once your teacher starts marking attendance.";
+    const status = pct >= 75 ? "✅ Good standing" : "⚠️ Below 75% requirement";
+    return `📊 Your attendance summary:\n\n• Overall: **${pct}%** (${status})\n• Present: ${present} day${present !== 1 ? "s" : ""}\n• Absent: ${absent} day${absent !== 1 ? "s" : ""}\n• Late: ${late} day${late !== 1 ? "s" : ""}\n• Total recorded: ${total} day${total !== 1 ? "s" : ""}${pct < 75 ? "\n\n⚠️ Your attendance is below the minimum 75% requirement. Please speak with your class teacher." : "\n\nKeep up the great attendance!"}`;
+  }
+
+  // Results / marks / scores
+  if (
+    q.includes("result") ||
+    q.includes("mark") ||
+    q.includes("score") ||
+    q.includes("grade")
+  ) {
+    const results = getStudentResults(userId);
+    if (results.length === 0)
+      return "📝 No exam results have been published for you yet. Results will appear here once your teacher approves them.";
+    const latest = results[results.length - 1];
+    const total = latest.subjects.reduce((a, s) => a + s.marks, 0);
+    const max = latest.subjects.reduce((a, s) => a + s.maxMarks, 0);
+    const pct = Math.round((total / max) * 100);
+    const grade = getGrade(pct);
+    const subjectList = latest.subjects
+      .map((s) => `  • ${s.subject}: ${s.marks}/${s.maxMarks}`)
+      .join("\n");
+    return `🎓 Latest exam: **${latest.examName}**\n\n• Total Marks: ${total}/${max}\n• Percentage: ${pct}%\n• Overall Grade: ${grade}\n\nSubject breakdown:\n${subjectList}\n\nYou have ${results.length} published result${results.length !== 1 ? "s" : ""} in total.`;
+  }
+
+  // Fees / payment
+  if (q.includes("fee") || q.includes("payment") || q.includes("due")) {
+    const fees = getStudentFees(userId);
+    if (fees.length === 0) return "💰 No fee records found for you yet.";
+    const paid = fees.filter((f) => f.status === "paid");
+    const pending = fees.filter((f) => f.status === "pending");
+    const partial = fees.filter((f) => f.status === "partial");
+    const totalPaid = paid.reduce((a, f) => a + f.amount, 0);
+    const totalDue = pending.reduce((a, f) => a + f.amount, 0);
+    return `💳 Fee summary:\n\n• Total Paid: ₹${totalPaid.toLocaleString()} (${paid.length} record${paid.length !== 1 ? "s" : ""})\n• Pending: ₹${totalDue.toLocaleString()} (${pending.length} record${pending.length !== 1 ? "s" : ""})\n• Partial: ${partial.length} record${partial.length !== 1 ? "s" : ""}${totalDue > 0 ? "\n\n⚠️ Please clear your pending dues at the earliest." : "\n\n✅ All fees are paid — great job!"}`;
+  }
+
+  // Homework / assignment
+  if (q.includes("homework") || q.includes("assignment")) {
+    const hw = getHomework().filter((h) => h.class === studentClass);
+    if (hw.length === 0)
+      return "📚 No homework assignments are pending for your class right now. Check back later!";
+    const list = hw
+      .slice(0, 5)
+      .map(
+        (h) =>
+          `  • **${h.subject}**: ${h.title} — due ${formatDate(h.dueDate)}`,
+      )
+      .join("\n");
+    return `📚 Pending homework for Class ${studentClass}:\n\n${list}${hw.length > 5 ? `\n\n...and ${hw.length - 5} more assignment${hw.length - 5 !== 1 ? "s" : ""}.` : "\n\nComplete your assignments on time!"}`;
+  }
+
+  // Timetable / schedule
+  if (
+    q.includes("timetable") ||
+    q.includes("schedule") ||
+    q.includes("class schedule")
+  ) {
+    const tt = getTimetableByClass(studentClass);
+    if (!tt)
+      return `🗓️ No timetable has been uploaded for Class ${studentClass} yet. Please ask your class teacher.`;
+    if (tt.approvalStatus !== "approved")
+      return `🗓️ A timetable has been submitted for Class ${studentClass}, but it is awaiting final approval from the principal. It will be visible once approved.`;
+    const today = new Date().toLocaleDateString("en-US", { weekday: "long" });
+    const todaySchedule = tt.schedule[today];
+    if (todaySchedule) {
+      const periods = Object.entries(todaySchedule)
+        .filter(([, cell]) => cell?.subject)
+        .map(([period, cell]) => `  • ${period}: ${cell.subject}`)
+        .join("\n");
+      return `🗓️ Your timetable for Class ${studentClass} is approved!\n\nToday (${today}):\n${periods || "  No classes scheduled"}`;
+    }
+    return `🗓️ Your timetable for Class ${studentClass} is approved! Navigate to "My Timetable" to see the full weekly schedule.`;
+  }
+
+  // Exams / online tests
+  if (q.includes("exam") || q.includes("test") || q.includes("online exam")) {
+    const exams = getExams().filter(
+      (e) => e.class === studentClass && e.status === "active",
+    );
+    if (exams.length === 0)
+      return "📝 No active exams are assigned to your class right now. Check back later!";
+    const list = exams
+      .slice(0, 5)
+      .map(
+        (e) =>
+          `  • **${e.title}** (${e.subject}) — ${e.duration} min, ${e.questions.length} questions`,
+      )
+      .join("\n");
+    return `📝 Active exams for Class ${studentClass}:\n\n${list}\n\nGo to "Online Exams" to attempt them.`;
+  }
+
+  // Notifications / announcements
+  if (q.includes("notification") || q.includes("announcement")) {
+    const notifs = getNotifications().slice(0, 3);
+    if (notifs.length === 0)
+      return "🔔 No announcements from school right now.";
+    const list = notifs
+      .map((n) => `  • **${n.title}** — ${formatDate(n.date)}`)
+      .join("\n");
+    return `🔔 Latest school announcements:\n\n${list}\n\nVisit "Notifications" for the full list and homework details.`;
+  }
+
+  // Leave applications
+  if (q.includes("leave") || q.includes("application")) {
+    const leaves = getLeaves().filter((l) => l.applicantId === userId);
+    if (leaves.length === 0)
+      return '📋 You haven\'t submitted any leave applications yet. Go to "Leave Application" to apply.';
+    const pending = leaves.filter((l) => l.status === "pending").length;
+    const approved = leaves.filter((l) => l.status === "approved").length;
+    const rejected = leaves.filter((l) => l.status === "rejected").length;
+    return `📋 Your leave applications:\n\n• Pending: ${pending}\n• Approved: ${approved}\n• Rejected: ${rejected}\n• Total: ${leaves.length}\n\nGo to "Leave Application" to submit a new one.`;
+  }
+
+  // Greetings
+  if (q.includes("hello") || q.includes("hi") || q.includes("hey")) {
+    return `👋 Hello! Great to see you! I'm your school AI assistant.\n\nI can help you check:\n• 📊 Attendance percentage\n• 🎓 Exam results & grades\n• 💳 Fee status\n• 📚 Homework due\n• 📝 Active exams\n• 🗓️ Timetable\n• 🔔 Announcements\n\nWhat would you like to know today?`;
+  }
+
+  // Fallback
+  return '🤖 I can help you with attendance, results, fees, homework, exams, timetable, notifications, and leave applications.\n\nTry asking something like:\n• "What is my attendance?"\n• "Show my latest results"\n• "When is my next exam?"\n• "What homework is due?"\n• "Check my fees"';
+}
+
+function AIAssistant({ user, studentClass }: AIAssistantProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: "welcome",
+      role: "assistant",
+      text: "Hello! I'm your school AI assistant. Ask me anything about your attendance, results, fees, homework, or exams.",
+      timestamp: new Date(),
+    },
+  ]);
+  const [inputValue, setInputValue] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on message/typing change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isTyping]);
+
+  const sendMessage = async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || isTyping) return;
+
+    const userMsg: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: "user",
+      text: trimmed,
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    setInputValue("");
+    setIsTyping(true);
+
+    // Simulate processing delay
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    const responseText = generateAIResponse(trimmed, user.id, studentClass);
+    const assistantMsg: ChatMessage = {
+      id: `assistant-${Date.now()}`,
+      role: "assistant",
+      text: responseText,
+      timestamp: new Date(),
+    };
+
+    setIsTyping(false);
+    setMessages((prev) => [...prev, assistantMsg]);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(inputValue);
+    }
+  };
+
+  const clearChat = () => {
+    setMessages([
+      {
+        id: "welcome-reset",
+        role: "assistant",
+        text: "Hello! I'm your school AI assistant. Ask me anything about your attendance, results, fees, homework, or exams.",
+        timestamp: new Date(),
+      },
+    ]);
+    setInputValue("");
+    inputRef.current?.focus();
+  };
+
+  // Render text with basic markdown bold (**text**)
+  const renderText = (text: string) => {
+    const lines = text.split("\n");
+    return lines.map((line, li) => {
+      const parts = line.split(/\*\*(.*?)\*\*/g);
+      return (
+        // biome-ignore lint/suspicious/noArrayIndexKey: static line split
+        <span key={li}>
+          {parts.map((part, pi) =>
+            pi % 2 === 1 ? (
+              // biome-ignore lint/suspicious/noArrayIndexKey: static part split
+              <strong key={pi} className="font-semibold">
+                {part}
+              </strong>
+            ) : (
+              part
+            ),
+          )}
+          {li < lines.length - 1 && <br />}
+        </span>
+      );
+    });
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <h2 className="section-title">AI Assistant</h2>
+          <p className="section-subtitle">
+            Your personal school assistant — ask anything
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={clearChat}
+          className="gap-1.5 text-muted-foreground"
+          data-ocid="ai_assistant.clear_button"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          Clear Chat
+        </Button>
+      </div>
+
+      {/* Quick question chips */}
+      <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide">
+        {QUICK_QUESTIONS.map((q, idx) => (
+          <button
+            key={q}
+            type="button"
+            onClick={() => sendMessage(q)}
+            disabled={isTyping}
+            data-ocid={`ai_assistant.quick_question.${idx + 1}` as string}
+            className="shrink-0 px-3 py-1.5 rounded-full border border-border bg-background text-sm text-foreground hover:bg-accent hover:border-primary/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+          >
+            {q}
+          </button>
+        ))}
+      </div>
+
+      {/* Chat window */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden flex flex-col h-[520px]">
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
+            >
+              {/* Avatar */}
+              {msg.role === "assistant" && (
+                <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
+                  <Bot className="w-4 h-4 text-primary" />
+                </div>
+              )}
+
+              {/* Bubble */}
+              <div
+                className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                  msg.role === "user"
+                    ? "bg-primary text-primary-foreground rounded-tr-sm"
+                    : "bg-muted text-foreground rounded-tl-sm"
+                }`}
+              >
+                {renderText(msg.text)}
+                <p
+                  className={`text-[10px] mt-1.5 ${
+                    msg.role === "user"
+                      ? "text-primary-foreground/60 text-right"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {msg.timestamp.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+              </div>
+            </div>
+          ))}
+
+          {/* Typing indicator */}
+          {isTyping && (
+            <div className="flex gap-3">
+              <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <Bot className="w-4 h-4 text-primary" />
+              </div>
+              <div className="bg-muted rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1">
+                <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:0ms]" />
+                <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:150ms]" />
+                <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce [animation-delay:300ms]" />
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input bar */}
+        <div className="border-t border-border p-3 bg-background flex gap-2 items-center">
+          <input
+            ref={inputRef}
+            type="text"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask about your attendance, results, fees..."
+            disabled={isTyping}
+            data-ocid="ai_assistant.chat_input"
+            className="flex-1 bg-muted rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground border border-transparent focus:border-primary/30 focus:outline-none disabled:opacity-50 transition-colors"
+          />
+          <Button
+            size="sm"
+            onClick={() => sendMessage(inputValue)}
+            disabled={!inputValue.trim() || isTyping}
+            data-ocid="ai_assistant.send_button"
+            className="rounded-xl h-10 w-10 p-0 shrink-0"
+          >
+            <Send className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // Student Dashboard Root
 // ============================================================
 export default function StudentDashboard({ user, onLogout }: Props) {
   const [section, setSection] = useState("overview");
+  const [hasVisitedAssistant, setHasVisitedAssistant] = useState(false);
   const student = getStudentById(user.id);
   const studentClass = student?.class ?? user.class ?? "10A";
+
+  const openAssistant = () => {
+    setSection("assistant");
+    setHasVisitedAssistant(true);
+  };
 
   const navItems = [
     {
@@ -1556,6 +1952,16 @@ export default function StudentDashboard({ user, onLogout }: Props) {
       label: "My Profile",
       icon: <User className="w-4 h-4" />,
     },
+    {
+      id: "assistant",
+      label: "AI Assistant",
+      icon: <Bot className="w-4 h-4" />,
+    },
+    {
+      id: "games",
+      label: "Learning Games",
+      icon: <Gamepad2 className="w-4 h-4" />,
+    },
   ];
 
   const renderSection = () => {
@@ -1582,6 +1988,12 @@ export default function StudentDashboard({ user, onLogout }: Props) {
         return <SuggestionsAndQueries user={user} />;
       case "profile":
         return <StudentProfile studentId={user.id} />;
+      case "assistant":
+        return <AIAssistant user={user} studentClass={studentClass} />;
+      case "games":
+        return (
+          <LearningGames studentId={user.id} studentClass={studentClass} />
+        );
       default:
         return <Overview user={user} />;
     }
@@ -1592,10 +2004,29 @@ export default function StudentDashboard({ user, onLogout }: Props) {
       user={user}
       navItems={navItems}
       activeSection={section}
-      onSectionChange={setSection}
+      onSectionChange={(s) => {
+        if (s === "assistant") setHasVisitedAssistant(true);
+        setSection(s);
+      }}
       onLogout={onLogout}
     >
       {renderSection()}
+
+      {/* Floating AI Assistant button */}
+      {section !== "assistant" && (
+        <button
+          type="button"
+          onClick={openAssistant}
+          data-ocid="ai_assistant.floating_button"
+          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center"
+          title="Open AI Assistant"
+        >
+          <Bot className="w-6 h-6" />
+          {!hasVisitedAssistant && (
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive rounded-full animate-pulse" />
+          )}
+        </button>
+      )}
     </DashboardLayout>
   );
 }

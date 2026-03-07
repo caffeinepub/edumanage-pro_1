@@ -117,8 +117,7 @@ function LoginForm({
 export default function LoginPage({ onLogin }: LoginPageProps) {
   const principalProfile = getPrincipalProfile();
   const logoSrc =
-    principalProfile.institutionLogo ||
-    "/assets/generated/rahmaniyya-logo-transparent.dim_300x300.png";
+    principalProfile.institutionLogo || "/assets/uploads/logo-rah-1-1.png";
 
   return (
     <div className="min-h-screen bg-background flex">

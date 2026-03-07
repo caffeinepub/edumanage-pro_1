@@ -1,48 +1,45 @@
 # EduManage Pro
 
 ## Current State
-The principal dashboard has a "Fee Overview" section (`FeeOverview` component) that:
-- Shows daily/weekly/monthly/yearly fee status summaries
-- Has class and status filters
-- Displays a paginated table of fee records
-- Has a CSV download button
-
-It does NOT have:
-- A student name filter
-- PDF download
-- Add fee record option
-- Delete fee record option
-
-The `FeeRecord` interface: `{ id, studentId, amount, date, status, method, description, receiptNumber? }`
-
-Backend functions available: `getFees`, `saveFees`, `saveFeeToBackend`, `getStudents`, `generateId`, `formatDate`
-
-There is no `deleteFeeFromBackend` function yet — deletion must be handled locally by filtering and saving the updated array.
+Full-featured school management system with Principal, Teacher, and Student portals. The Student dashboard has sections for Overview, My Results, My Progress, Timetable, Online Exams, Fee Status, Notifications, Attendance, Leave Application, Suggestions & Queries, My Profile, and an AI Assistant.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Student name filter (search input) in the Fee Overview filters row
-- "Add Fee Record" button that opens a dialog: select student, amount, date, status, method, description, receipt number
-- Delete button per row in the fee table (with confirmation)
-- PDF download button that prints a styled fee report (school name, filters applied, table of records, summary totals)
-- Rename the section in the sidebar from "Fee Overview" to "Fee Report"
+- A new "Learning Games" section in the Student dashboard sidebar
+- 6 educational mini-games tailored to LKG–4th standard students, each auto-selected by the student's class level:
+  1. **Alphabet Match** (LKG/UKG) — tap matching uppercase/lowercase letter pairs from a grid
+  2. **Word Builder** (UKG/1st) — drag or tap letters to spell a picture-word shown on screen
+  3. **Spell the Word** (1st/2nd) — listen to a word (text shown), choose the correct spelling from 4 options
+  4. **Number Counting** (LKG/UKG) — count the shown objects and tap the correct number
+  5. **Maths Challenge** (1st–4th) — timed addition/subtraction/multiplication quiz, difficulty scales by class (1st=add, 2nd=sub, 3rd=mul, 4th=mix)
+  6. **Sentence Scramble** (3rd/4th) — arrange shuffled words into a correct English sentence
+
+- Each game has:
+  - A start screen with instructions and a "Play" button
+  - Score tracking (correct answers, stars 0–3)
+  - A congratulations / try-again screen at the end
+  - Bright, child-friendly colors and large touch targets
+  - A "Back to Games" button
+
+- The Games hub shows a grid of game cards filtered to the student's class level, with subject label (English / Maths), suitable class range, and a star rating showing best score
 
 ### Modify
-- `FeeOverview` function renamed to `FeeReport` and the sidebar nav item updated accordingly
-- Filter row extended with student name search input and PDF download button alongside CSV button
-- Table rows now include a delete action column
+- StudentDashboard: add "games" to navItems and renderSection switch
+- No backend changes needed (scores stored locally per session)
 
 ### Remove
 - Nothing removed
 
 ## Implementation Plan
-1. Add a `deleteFeeRecord` helper in the local data store (filter + save locally + remove from backend cache)
-2. In `FeeReport`:
-   - Add `studentSearch` state and filter logic (case-insensitive name match)
-   - Add "Add Fee Record" dialog with full form fields (student select, amount, date, status, method, description, receipt number)
-   - Add delete handler per row with a confirm step
-   - Add `handleDownloadPDF` using `window.print()` on a dynamically built printable div
-   - Add PDF button next to CSV button
-3. Rename component, nav item id and label, and switch case from `fee-overview` to `fee-report`
-4. Apply deterministic `data-ocid` markers to all new interactive elements
+1. Create `/src/frontend/src/pages/student/LearningGames.tsx` with:
+   - `GamesHub` component — grid of unlocked game cards based on student class
+   - `AlphabetMatch` game component (LKG/UKG)
+   - `NumberCounting` game component (LKG/UKG)
+   - `WordBuilder` game component (UKG/1st)
+   - `SpellTheWord` game component (1st/2nd)
+   - `MathsChallenge` game component (1st–4th, difficulty by class)
+   - `SentenceScramble` game component (3rd/4th)
+2. Add `games` section to StudentDashboard navItems (Gamepad icon) and renderSection
+3. Each game uses React state only (no canvas needed for these quiz/card games)
+4. Scores tracked in component state; best score shown in hub via localStorage

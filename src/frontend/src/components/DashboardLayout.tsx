@@ -106,7 +106,7 @@ export function DashboardLayout({
             <img
               src={
                 getPrincipalProfile().institutionLogo ||
-                "/assets/generated/rahmaniyya-logo-transparent.dim_300x300.png"
+                "/assets/uploads/logo-rah-1-1.png"
               }
               alt="Rahmaniyya Public School"
               className="w-10 h-10 object-contain shrink-0"
@@ -272,7 +272,7 @@ export function DashboardLayout({
             <img
               src={
                 getPrincipalProfile().institutionLogo ||
-                "/assets/generated/rahmaniyya-logo-transparent.dim_300x300.png"
+                "/assets/uploads/logo-rah-1-1.png"
               }
               alt=""
               className="w-80 h-80 object-contain select-none"
