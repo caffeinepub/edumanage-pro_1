@@ -200,6 +200,17 @@ export interface Notification {
     targetClass: string;
     attachment: string;
 }
+export interface GameScore {
+    id: string;
+    total: bigint;
+    studentId: string;
+    studentName: string;
+    playedAt: string;
+    class: string;
+    gameId: string;
+    score: bigint;
+    stars: bigint;
+}
 export interface Exam {
     id: string;
     status: string;
@@ -330,7 +341,10 @@ export interface backendInterface {
     getAllTeacherAttendance(): Promise<Array<TeacherAttendance>>;
     getAllTeachers(): Promise<Array<Teacher>>;
     getAllTimetables(): Promise<Array<Timetable>>;
+    getGameLeaderboard(gameId: string, studentClass: string): Promise<Array<GameScore>>;
+    getGameScoresForStudent(studentId: string): Promise<Array<GameScore>>;
     getHallTicketDesign(): Promise<HallTicketDesign | null>;
+    getMyGameScores(studentId: string): Promise<Array<GameScore>>;
     getPrincipalProfile(): Promise<PrincipalProfile>;
     initializeIfNeeded(): Promise<void>;
     initializeStudents(): Promise<void>;
@@ -338,6 +352,7 @@ export interface backendInterface {
     loginPrincipal(id: string, password: string): Promise<AuthResult | null>;
     loginStudent(id: string, password: string): Promise<AuthWithClassResult | null>;
     loginTeacher(id: string, password: string): Promise<AuthWithClassResult | null>;
+    saveGameScore(gameScore: GameScore): Promise<void>;
     saveHallTicketDesign(newDesign: HallTicketDesign): Promise<void>;
     savePrincipalProfile(profile: PrincipalProfile): Promise<void>;
     updateCalendarEvent(id: string, event: CalendarEvent): Promise<boolean>;
@@ -989,6 +1004,34 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async getGameLeaderboard(arg0: string, arg1: string): Promise<Array<GameScore>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getGameLeaderboard(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getGameLeaderboard(arg0, arg1);
+            return result;
+        }
+    }
+    async getGameScoresForStudent(arg0: string): Promise<Array<GameScore>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getGameScoresForStudent(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getGameScoresForStudent(arg0);
+            return result;
+        }
+    }
     async getHallTicketDesign(): Promise<HallTicketDesign | null> {
         if (this.processError) {
             try {
@@ -1001,6 +1044,20 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.getHallTicketDesign();
             return from_candid_opt_n1(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getMyGameScores(arg0: string): Promise<Array<GameScore>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getMyGameScores(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getMyGameScores(arg0);
+            return result;
         }
     }
     async getPrincipalProfile(): Promise<PrincipalProfile> {
@@ -1099,6 +1156,20 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.loginTeacher(arg0, arg1);
             return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async saveGameScore(arg0: GameScore): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.saveGameScore(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.saveGameScore(arg0);
+            return result;
         }
     }
     async saveHallTicketDesign(arg0: HallTicketDesign): Promise<void> {

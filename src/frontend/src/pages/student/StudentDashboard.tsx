@@ -1992,7 +1992,11 @@ export default function StudentDashboard({ user, onLogout }: Props) {
         return <AIAssistant user={user} studentClass={studentClass} />;
       case "games":
         return (
-          <LearningGames studentId={user.id} studentClass={studentClass} />
+          <LearningGames
+            studentId={user.id}
+            studentName={user.name}
+            studentClass={studentClass}
+          />
         );
       default:
         return <Overview user={user} />;

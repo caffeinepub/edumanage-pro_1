@@ -118,6 +118,17 @@ export interface Notification {
     targetClass: string;
     attachment: string;
 }
+export interface GameScore {
+    id: string;
+    total: bigint;
+    studentId: string;
+    studentName: string;
+    playedAt: string;
+    class: string;
+    gameId: string;
+    score: bigint;
+    stars: bigint;
+}
 export interface Exam {
     id: string;
     status: string;
@@ -248,7 +259,10 @@ export interface backendInterface {
     getAllTeacherAttendance(): Promise<Array<TeacherAttendance>>;
     getAllTeachers(): Promise<Array<Teacher>>;
     getAllTimetables(): Promise<Array<Timetable>>;
+    getGameLeaderboard(gameId: string, class: string): Promise<Array<GameScore>>;
+    getGameScoresForStudent(studentId: string): Promise<Array<GameScore>>;
     getHallTicketDesign(): Promise<HallTicketDesign | null>;
+    getMyGameScores(studentId: string): Promise<Array<GameScore>>;
     getPrincipalProfile(): Promise<PrincipalProfile>;
     initializeIfNeeded(): Promise<void>;
     initializeStudents(): Promise<void>;
@@ -256,6 +270,7 @@ export interface backendInterface {
     loginPrincipal(id: string, password: string): Promise<AuthResult | null>;
     loginStudent(id: string, password: string): Promise<AuthWithClassResult | null>;
     loginTeacher(id: string, password: string): Promise<AuthWithClassResult | null>;
+    saveGameScore(gameScore: GameScore): Promise<void>;
     saveHallTicketDesign(newDesign: HallTicketDesign): Promise<void>;
     savePrincipalProfile(profile: PrincipalProfile): Promise<void>;
     updateCalendarEvent(id: string, event: CalendarEvent): Promise<boolean>;

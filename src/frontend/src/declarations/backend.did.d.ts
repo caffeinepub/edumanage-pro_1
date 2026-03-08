@@ -67,6 +67,17 @@ export interface FeeRecord {
   'receiptNumber' : string,
 }
 export type FeeStatus = string;
+export interface GameScore {
+  'id' : string,
+  'total' : bigint,
+  'studentId' : string,
+  'studentName' : string,
+  'playedAt' : string,
+  'class' : string,
+  'gameId' : string,
+  'score' : bigint,
+  'stars' : bigint,
+}
 export interface HallTicketDesign {
   'borderStyle' : string,
   'institutionName' : string,
@@ -247,7 +258,10 @@ export interface _SERVICE {
   'getAllTeacherAttendance' : ActorMethod<[], Array<TeacherAttendance>>,
   'getAllTeachers' : ActorMethod<[], Array<Teacher>>,
   'getAllTimetables' : ActorMethod<[], Array<Timetable>>,
+  'getGameLeaderboard' : ActorMethod<[string, string], Array<GameScore>>,
+  'getGameScoresForStudent' : ActorMethod<[string], Array<GameScore>>,
   'getHallTicketDesign' : ActorMethod<[], [] | [HallTicketDesign]>,
+  'getMyGameScores' : ActorMethod<[string], Array<GameScore>>,
   'getPrincipalProfile' : ActorMethod<[], PrincipalProfile>,
   'initializeIfNeeded' : ActorMethod<[], undefined>,
   'initializeStudents' : ActorMethod<[], undefined>,
@@ -255,6 +269,7 @@ export interface _SERVICE {
   'loginPrincipal' : ActorMethod<[string, string], [] | [AuthResult]>,
   'loginStudent' : ActorMethod<[string, string], [] | [AuthWithClassResult]>,
   'loginTeacher' : ActorMethod<[string, string], [] | [AuthWithClassResult]>,
+  'saveGameScore' : ActorMethod<[GameScore], undefined>,
   'saveHallTicketDesign' : ActorMethod<[HallTicketDesign], undefined>,
   'savePrincipalProfile' : ActorMethod<[PrincipalProfile], undefined>,
   'updateCalendarEvent' : ActorMethod<[string, CalendarEvent], boolean>,

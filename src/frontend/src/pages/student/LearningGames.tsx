@@ -1,6 +1,29 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Star } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  type GameScoreRecord,
+  getGameLeaderboardFromBackend,
+  getMyGameScoresFromBackend,
+  saveGameScoreToBackend,
+} from "@/store/data";
+import { ArrowLeft, Star, Trophy } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // ─────────────────────────────────────────────────────────────
@@ -13,7 +36,10 @@ type GameId =
   | "word-builder"
   | "spell-the-word"
   | "maths-challenge"
-  | "sentence-scramble";
+  | "sentence-scramble"
+  | "color-match"
+  | "rhyming-words"
+  | "times-table";
 type Subject = "English" | "Maths";
 type GameScreen = "start" | "play" | "end";
 
@@ -143,6 +169,39 @@ const GAMES: GameMeta[] = [
     instructions:
       "The words of a sentence are all mixed up! Tap the words in the correct order to build the proper sentence. 🧩",
     ageRange: "Class 3 – 4",
+  },
+  {
+    id: "color-match",
+    name: "Color Match",
+    subject: "English",
+    levels: ["LKG", "UKG"],
+    emoji: "🎨",
+    description: "Tap the box that matches the color name!",
+    instructions:
+      "A color name is shown. Tap the colored box that matches it! Learn your colors! 🌈",
+    ageRange: "LKG – UKG",
+  },
+  {
+    id: "rhyming-words",
+    name: "Rhyming Words",
+    subject: "English",
+    levels: ["1", "2", "3"],
+    emoji: "🎵",
+    description: "Pick the word that rhymes!",
+    instructions:
+      "Look at the word shown and find the word that rhymes with it! Words that sound alike rhyme! 🎶",
+    ageRange: "Class 1 – 3",
+  },
+  {
+    id: "times-table",
+    name: "Times Table Quiz",
+    subject: "Maths",
+    levels: ["2", "3", "4"],
+    emoji: "✖️",
+    description: "Answer the times tables as fast as you can!",
+    instructions:
+      "Solve the multiplication questions before time runs out! Pick the right answer. ⏱️",
+    ageRange: "Class 2 – 4",
   },
 ];
 
@@ -387,7 +446,7 @@ function AlphabetMatchGame({
 }: {
   studentId: string;
   onBack: () => void;
-  onDone: (stars: number) => void;
+  onDone: (stars: number, score: number, total: number) => void;
 }) {
   const meta = GAMES[0];
   const [screen, setScreen] = useState<GameScreen>("start");
@@ -431,7 +490,6 @@ function AlphabetMatchGame({
     if (selected.length !== 2) return;
     lockRef.current = true;
     const [a, b] = selected;
-    // Read card data at time of effect
     setCards((prev) => {
       const ca = prev.find((c) => c.id === a);
       const cb = prev.find((c) => c.id === b);
@@ -463,16 +521,16 @@ function AlphabetMatchGame({
     });
   }, [selected]);
 
-  // Check win
   useEffect(() => {
     if (screen !== "play") return;
     if (cards.length > 0 && cards.every((c) => c.matched)) {
       const finalStars = mistakes === 0 ? 3 : mistakes <= 3 ? 2 : 1;
+      const matched = cards.filter((c) => c.matched).length / 2;
       setStars(finalStars);
       saveScore(meta.id, studentId, finalStars);
       setTimeout(() => {
         setScreen("end");
-        onDone(finalStars);
+        onDone(finalStars, matched, LETTER_PAIRS.length);
       }, 400);
     }
   }, [cards, screen, mistakes, meta.id, studentId, onDone]);
@@ -598,7 +656,7 @@ function NumberCountingGame({
 }: {
   studentId: string;
   onBack: () => void;
-  onDone: (stars: number) => void;
+  onDone: (stars: number, score: number, total: number) => void;
 }) {
   const meta = GAMES[1];
   const ROUNDS = 10;
@@ -642,7 +700,7 @@ function NumberCountingGame({
         setStars(s);
         saveScore(meta.id, studentId, s);
         setScreen("end");
-        onDone(s);
+        onDone(s, newScore, ROUNDS);
       } else {
         setRound(nextRound);
         setQuestion(buildCountingQuestion(nextRound));
@@ -781,7 +839,7 @@ function WordBuilderGame({
 }: {
   studentId: string;
   onBack: () => void;
-  onDone: (stars: number) => void;
+  onDone: (stars: number, score: number, total: number) => void;
 }) {
   const meta = GAMES[2];
   const TOTAL = WORD_BUILDER_LIST.length;
@@ -832,7 +890,7 @@ function WordBuilderGame({
           setStars(s);
           saveScore(meta.id, studentId, s);
           setScreen("end");
-          onDone(s);
+          onDone(s, newScore, TOTAL);
         } else {
           setRound(nextRound);
           setQuestion(buildWordBuilderQuestion(nextRound));
@@ -1038,7 +1096,7 @@ function SpellWordGame({
 }: {
   studentId: string;
   onBack: () => void;
-  onDone: (stars: number) => void;
+  onDone: (stars: number, score: number, total: number) => void;
 }) {
   const meta = GAMES[3];
   const TOTAL = SPELL_QUESTIONS.length;
@@ -1082,7 +1140,7 @@ function SpellWordGame({
         setStars(s);
         saveScore(meta.id, studentId, s);
         setScreen("end");
-        onDone(s);
+        onDone(s, newScore, TOTAL);
       } else {
         setRound(nextRound);
         setChosen(null);
@@ -1260,7 +1318,7 @@ function MathsChallengeGame({
   studentId: string;
   level: Level;
   onBack: () => void;
-  onDone: (stars: number) => void;
+  onDone: (stars: number, score: number, total: number) => void;
 }) {
   const meta = GAMES[4];
   const TIME = 60;
@@ -1288,7 +1346,7 @@ function MathsChallengeGame({
       setStars(s);
       saveScore(meta.id, studentId, s);
       setScreen("end");
-      onDone(s);
+      onDone(s, finalScore, finalTotal);
     },
     [meta.id, studentId, onDone, stopTimer],
   );
@@ -1489,7 +1547,7 @@ function SentenceScrambleGame({
 }: {
   studentId: string;
   onBack: () => void;
-  onDone: (stars: number) => void;
+  onDone: (stars: number, score: number, total: number) => void;
 }) {
   const meta = GAMES[5];
   const TOTAL = SENTENCES.length;
@@ -1544,7 +1602,7 @@ function SentenceScrambleGame({
           setStars(s);
           saveScore(meta.id, studentId, s);
           setScreen("end");
-          onDone(s);
+          onDone(s, newScore, TOTAL);
         } else {
           setRound(nextRound);
           setQuestion(buildScrambleQuestion(nextRound));
@@ -1682,132 +1740,972 @@ function SentenceScrambleGame({
 }
 
 // ─────────────────────────────────────────────────────────────
+// GAME 7: Color Match
+// ─────────────────────────────────────────────────────────────
+interface ColorEntry {
+  name: string;
+  bg: string;
+  text: string;
+}
+
+const COLORS: ColorEntry[] = [
+  { name: "Red", bg: "#ef4444", text: "#fff" },
+  { name: "Blue", bg: "#3b82f6", text: "#fff" },
+  { name: "Green", bg: "#22c55e", text: "#fff" },
+  { name: "Yellow", bg: "#eab308", text: "#000" },
+  { name: "Orange", bg: "#f97316", text: "#fff" },
+  { name: "Purple", bg: "#a855f7", text: "#fff" },
+];
+
+function buildColorQuestion(round: number) {
+  const correct = COLORS[round % COLORS.length];
+  const others = shuffleArray(
+    COLORS.filter((c) => c.name !== correct.name),
+  ).slice(0, 3);
+  const options = shuffleArray([correct, ...others]);
+  return { colorName: correct.name, correctBg: correct.bg, options };
+}
+
+function ColorMatchGame({
+  studentId,
+  onBack,
+  onDone,
+}: {
+  studentId: string;
+  onBack: () => void;
+  onDone: (stars: number, score: number, total: number) => void;
+}) {
+  const meta = GAMES[6];
+  const ROUNDS = 10;
+  const [screen, setScreen] = useState<GameScreen>("start");
+  const [round, setRound] = useState(0);
+  const [score, setScore] = useState(0);
+  const [stars, setStars] = useState(0);
+  const [question, setQuestion] = useState(() => buildColorQuestion(0));
+  const [chosen, setChosen] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
+
+  const init = useCallback(() => {
+    setRound(0);
+    setScore(0);
+    setStars(0);
+    setQuestion(buildColorQuestion(0));
+    setChosen(null);
+    setFeedback(null);
+  }, []);
+
+  const start = () => {
+    init();
+    setScreen("play");
+  };
+  const replay = () => {
+    init();
+    setScreen("play");
+  };
+
+  const pick = (colorName: string) => {
+    if (chosen !== null) return;
+    setChosen(colorName);
+    const correct = colorName === question.colorName;
+    setFeedback(correct ? "correct" : "wrong");
+    if (correct) setScore((s) => s + 1);
+    setTimeout(() => {
+      const nextRound = round + 1;
+      if (nextRound >= ROUNDS) {
+        const newScore = correct ? score + 1 : score;
+        const s = calcStars(newScore, ROUNDS);
+        setStars(s);
+        saveScore(meta.id, studentId, s);
+        setScreen("end");
+        onDone(s, newScore, ROUNDS);
+      } else {
+        setRound(nextRound);
+        setQuestion(buildColorQuestion(nextRound));
+        setChosen(null);
+        setFeedback(null);
+      }
+    }, 900);
+  };
+
+  return (
+    <GameShell
+      meta={meta}
+      screen={screen}
+      stars={stars}
+      score={score}
+      total={ROUNDS}
+      onStart={start}
+      onPlayAgain={replay}
+      onBack={onBack}
+    >
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            data-ocid="games.back_button"
+          >
+            <ArrowLeft className="w-4 h-4" /> Games
+          </button>
+          <span className="text-sm font-semibold">
+            Round {round + 1}/{ROUNDS} · ✅ {score}
+          </span>
+        </div>
+        <h2 className="text-xl font-extrabold text-center mb-2">
+          {meta.emoji} {meta.name}
+        </h2>
+
+        <div className="bg-card border-2 border-border rounded-3xl p-8 max-w-sm mx-auto mb-6 text-center">
+          <p className="text-sm text-muted-foreground mb-2">Find the color:</p>
+          <p className="text-5xl font-extrabold text-foreground">
+            {question.colorName}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto">
+          {question.options.map((opt, idx) => {
+            let outline = "transparent";
+            if (chosen !== null) {
+              if (opt.name === question.colorName) outline = "#22c55e";
+              else if (opt.name === chosen) outline = "#ef4444";
+            }
+            return (
+              <button
+                key={opt.name}
+                type="button"
+                onClick={() => pick(opt.name)}
+                disabled={chosen !== null}
+                data-ocid={`games.color.option.${idx + 1}`}
+                className="h-24 rounded-3xl font-extrabold text-lg transition-all border-4"
+                style={{
+                  background: opt.bg,
+                  color: opt.text,
+                  borderColor: outline,
+                  boxShadow:
+                    chosen !== null && opt.name === question.colorName
+                      ? "0 0 16px #22c55e88"
+                      : undefined,
+                  transform:
+                    chosen !== null &&
+                    opt.name === chosen &&
+                    opt.name !== question.colorName
+                      ? "scale(0.95)"
+                      : "scale(1)",
+                }}
+              >
+                {opt.name}
+              </button>
+            );
+          })}
+        </div>
+
+        {feedback && (
+          <p
+            className="text-center mt-5 text-2xl font-bold"
+            style={{
+              color:
+                feedback === "correct"
+                  ? "oklch(0.45 0.18 150)"
+                  : "oklch(0.45 0.2 25)",
+            }}
+          >
+            {feedback === "correct"
+              ? "✅ Correct!"
+              : `❌ It was ${question.colorName}`}
+          </p>
+        )}
+      </div>
+    </GameShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// GAME 8: Rhyming Words
+// ─────────────────────────────────────────────────────────────
+const RHYME_PAIRS = [
+  { word: "CAT", rhyme: "BAT", others: ["SUN", "DOG"] },
+  { word: "BALL", rhyme: "TALL", others: ["FISH", "BIRD"] },
+  { word: "CAKE", rhyme: "LAKE", others: ["TREE", "MOON"] },
+  { word: "RUN", rhyme: "SUN", others: ["CAR", "HAT"] },
+  { word: "BOOK", rhyme: "COOK", others: ["BIRD", "BLUE"] },
+  { word: "RING", rhyme: "SING", others: ["JUMP", "RAIN"] },
+  { word: "TREE", rhyme: "BEE", others: ["DUCK", "ROSE"] },
+  { word: "FROG", rhyme: "LOG", others: ["KITE", "BELL"] },
+  { word: "STAR", rhyme: "CAR", others: ["FISH", "LEAF"] },
+  { word: "WING", rhyme: "KING", others: ["BOAT", "SAND"] },
+];
+
+function buildRhymeQuestion(round: number) {
+  const pair = RHYME_PAIRS[round % RHYME_PAIRS.length];
+  const options = shuffleArray([pair.rhyme, ...pair.others]);
+  return { word: pair.word, correctRhyme: pair.rhyme, options };
+}
+
+function RhymingWordsGame({
+  studentId,
+  onBack,
+  onDone,
+}: {
+  studentId: string;
+  onBack: () => void;
+  onDone: (stars: number, score: number, total: number) => void;
+}) {
+  const meta = GAMES[7];
+  const TOTAL = RHYME_PAIRS.length;
+  const [screen, setScreen] = useState<GameScreen>("start");
+  const [round, setRound] = useState(0);
+  const [score, setScore] = useState(0);
+  const [stars, setStars] = useState(0);
+  const [question, setQuestion] = useState(() => buildRhymeQuestion(0));
+  const [chosen, setChosen] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
+
+  const init = useCallback(() => {
+    setRound(0);
+    setScore(0);
+    setStars(0);
+    setQuestion(buildRhymeQuestion(0));
+    setChosen(null);
+    setFeedback(null);
+  }, []);
+
+  const start = () => {
+    init();
+    setScreen("play");
+  };
+  const replay = () => {
+    init();
+    setScreen("play");
+  };
+
+  const pick = (opt: string) => {
+    if (chosen !== null) return;
+    setChosen(opt);
+    const correct = opt === question.correctRhyme;
+    setFeedback(correct ? "correct" : "wrong");
+    if (correct) setScore((s) => s + 1);
+    setTimeout(() => {
+      const nextRound = round + 1;
+      if (nextRound >= TOTAL) {
+        const newScore = correct ? score + 1 : score;
+        const s = calcStars(newScore, TOTAL);
+        setStars(s);
+        saveScore(meta.id, studentId, s);
+        setScreen("end");
+        onDone(s, newScore, TOTAL);
+      } else {
+        setRound(nextRound);
+        setQuestion(buildRhymeQuestion(nextRound));
+        setChosen(null);
+        setFeedback(null);
+      }
+    }, 900);
+  };
+
+  return (
+    <GameShell
+      meta={meta}
+      screen={screen}
+      stars={stars}
+      score={score}
+      total={TOTAL}
+      onStart={start}
+      onPlayAgain={replay}
+      onBack={onBack}
+    >
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            data-ocid="games.back_button"
+          >
+            <ArrowLeft className="w-4 h-4" /> Games
+          </button>
+          <span className="text-sm font-semibold">
+            Q {round + 1}/{TOTAL} · ✅ {score}
+          </span>
+        </div>
+        <h2 className="text-xl font-extrabold text-center mb-2">
+          {meta.emoji} {meta.name}
+        </h2>
+
+        <div className="bg-card border-2 border-border rounded-3xl p-8 max-w-sm mx-auto mb-6 text-center">
+          <p className="text-sm text-muted-foreground mb-2">
+            Find a word that rhymes with:
+          </p>
+          <p className="text-5xl font-extrabold text-foreground tracking-widest">
+            {question.word}
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            🎵 Words that sound alike!
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 max-w-sm mx-auto">
+          {question.options.map((opt, idx) => {
+            let bg = "oklch(0.95 0.02 264)";
+            let col = "oklch(0.18 0.04 264)";
+            let border = "oklch(0.88 0.02 264)";
+            if (chosen !== null) {
+              if (opt === question.correctRhyme) {
+                bg = "oklch(0.88 0.15 150)";
+                col = "oklch(0.22 0.12 150)";
+                border = "oklch(0.65 0.18 150)";
+              } else if (opt === chosen) {
+                bg = "oklch(0.93 0.1 25)";
+                col = "oklch(0.45 0.2 25)";
+                border = "oklch(0.55 0.2 25)";
+              }
+            }
+            return (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => pick(opt)}
+                disabled={chosen !== null}
+                data-ocid={`games.rhyme.option.${idx + 1}`}
+                className="py-4 px-6 text-xl font-bold rounded-2xl border-2 transition-all text-center tracking-widest"
+                style={{
+                  background: bg,
+                  color: col,
+                  borderColor: border,
+                  minHeight: 56,
+                }}
+              >
+                {opt}
+              </button>
+            );
+          })}
+        </div>
+
+        {feedback && (
+          <p
+            className="text-center mt-5 text-2xl font-bold"
+            style={{
+              color:
+                feedback === "correct"
+                  ? "oklch(0.45 0.18 150)"
+                  : "oklch(0.45 0.2 25)",
+            }}
+          >
+            {feedback === "correct"
+              ? "✅ Correct!"
+              : `❌ It's "${question.correctRhyme}"`}
+          </p>
+        )}
+      </div>
+    </GameShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// GAME 9: Times Table Quiz
+// ─────────────────────────────────────────────────────────────
+function buildTimesTableQuestion(level: Level): {
+  q: string;
+  answer: number;
+  options: number[];
+} {
+  let maxTable: number;
+  if (level === "2") maxTable = 5;
+  else if (level === "3") maxTable = 10;
+  else maxTable = 12;
+
+  const table = Math.floor(Math.random() * (maxTable - 1)) + 2;
+  const multiplier = Math.floor(Math.random() * 10) + 1;
+  const ans = table * multiplier;
+
+  const wrong = new Set<number>([ans]);
+  while (wrong.size < 4) {
+    const offset = Math.floor(Math.random() * 8) - 4;
+    const w = Math.max(1, ans + offset * table);
+    if (w !== ans) wrong.add(w);
+  }
+  return {
+    q: `${table} × ${multiplier} = ?`,
+    answer: ans,
+    options: shuffleArray([...wrong]),
+  };
+}
+
+function TimesTableGame({
+  studentId,
+  level,
+  onBack,
+  onDone,
+}: {
+  studentId: string;
+  level: Level;
+  onBack: () => void;
+  onDone: (stars: number, score: number, total: number) => void;
+}) {
+  const meta = GAMES[8];
+  const TIME = 60;
+  const [screen, setScreen] = useState<GameScreen>("start");
+  const [score, setScore] = useState(0);
+  const [stars, setStars] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(TIME);
+  const [question, setQuestion] = useState(() =>
+    buildTimesTableQuestion(level),
+  );
+  const [chosen, setChosen] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
+  const [total, setTotal] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const scoreRef = useRef(0);
+  const totalRef = useRef(0);
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+  }, []);
+
+  const endGame = useCallback(
+    (finalScore: number, finalTotal: number) => {
+      stopTimer();
+      const s =
+        finalTotal === 0 ? 1 : calcStars(finalScore, Math.max(finalTotal, 1));
+      setStars(s);
+      saveScore(meta.id, studentId, s);
+      setScreen("end");
+      onDone(s, finalScore, finalTotal);
+    },
+    [meta.id, studentId, onDone, stopTimer],
+  );
+
+  useEffect(() => {
+    if (screen !== "play") return;
+    timerRef.current = setInterval(() => {
+      setTimeLeft((t) => {
+        if (t <= 1) {
+          clearInterval(timerRef.current!);
+          endGame(scoreRef.current, totalRef.current);
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+    return stopTimer;
+  }, [screen, endGame, stopTimer]);
+
+  const init = useCallback(() => {
+    stopTimer();
+    setScore(0);
+    setStars(0);
+    setTotal(0);
+    setTimeLeft(TIME);
+    setQuestion(buildTimesTableQuestion(level));
+    setChosen(null);
+    setFeedback(null);
+    scoreRef.current = 0;
+    totalRef.current = 0;
+  }, [level, stopTimer]);
+
+  const start = () => {
+    init();
+    setScreen("play");
+  };
+  const replay = () => {
+    init();
+    setScreen("play");
+  };
+
+  const pick = (opt: number) => {
+    if (chosen !== null) return;
+    setChosen(opt);
+    const correct = opt === question.answer;
+    setFeedback(correct ? "correct" : "wrong");
+    if (correct) {
+      setScore((s) => {
+        scoreRef.current = s + 1;
+        return s + 1;
+      });
+    }
+    setTotal((t) => {
+      totalRef.current = t + 1;
+      return t + 1;
+    });
+    setTimeout(() => {
+      setQuestion(buildTimesTableQuestion(level));
+      setChosen(null);
+      setFeedback(null);
+    }, 500);
+  };
+
+  const timerColor =
+    timeLeft <= 10
+      ? "oklch(0.55 0.22 25)"
+      : timeLeft <= 20
+        ? "oklch(0.65 0.18 70)"
+        : "oklch(0.45 0.15 150)";
+
+  return (
+    <GameShell
+      meta={meta}
+      screen={screen}
+      stars={stars}
+      score={score}
+      total={total}
+      extraSummary={
+        <p className="text-sm text-muted-foreground mt-1">
+          Questions attempted: {total}
+        </p>
+      }
+      onStart={start}
+      onPlayAgain={replay}
+      onBack={onBack}
+    >
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            data-ocid="games.back_button"
+          >
+            <ArrowLeft className="w-4 h-4" /> Games
+          </button>
+          <div className="flex items-center gap-4 text-sm font-semibold">
+            <span>✅ {score}</span>
+            <span
+              className="font-mono text-lg font-extrabold px-3 py-1 rounded-xl"
+              style={{ background: `${timerColor}20`, color: timerColor }}
+            >
+              ⏱ {timeLeft}s
+            </span>
+          </div>
+        </div>
+        <h2 className="text-xl font-extrabold text-center mb-6">
+          {meta.emoji} {meta.name}
+        </h2>
+
+        <div className="bg-card border-2 border-border rounded-3xl p-8 max-w-sm mx-auto mb-6 text-center">
+          <p className="text-5xl font-extrabold text-foreground">
+            {question.q}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto">
+          {question.options.map((opt, optPos) => {
+            let bg = "oklch(0.95 0.02 264)";
+            let col = "oklch(0.18 0.04 264)";
+            if (chosen !== null) {
+              if (opt === question.answer) {
+                bg = "oklch(0.88 0.15 150)";
+                col = "oklch(0.22 0.12 150)";
+              } else if (opt === chosen) {
+                bg = "oklch(0.93 0.1 25)";
+                col = "oklch(0.45 0.2 25)";
+              }
+            }
+            return (
+              <button
+                key={`topt-${opt}`}
+                type="button"
+                onClick={() => pick(opt)}
+                disabled={chosen !== null}
+                data-ocid={`games.times.option.${optPos + 1}`}
+                className="py-5 text-3xl font-extrabold rounded-2xl border-2 transition-all"
+                style={{
+                  background: bg,
+                  color: col,
+                  borderColor: "transparent",
+                  minHeight: 72,
+                }}
+              >
+                {opt}
+              </button>
+            );
+          })}
+        </div>
+
+        {feedback && (
+          <p
+            className="text-center mt-4 text-xl font-bold"
+            style={{
+              color:
+                feedback === "correct"
+                  ? "oklch(0.45 0.18 150)"
+                  : "oklch(0.45 0.2 25)",
+            }}
+          >
+            {feedback === "correct"
+              ? "✅ Correct!"
+              : `❌ Answer: ${question.answer}`}
+          </p>
+        )}
+      </div>
+    </GameShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Leaderboard
+// ─────────────────────────────────────────────────────────────
+interface LeaderboardEntry {
+  id: string;
+  studentId: string;
+  studentName: string;
+  stars: number;
+  score: number;
+  total: number;
+  playedAt: string;
+}
+
+function Leaderboard({
+  studentId,
+  studentClass,
+}: {
+  studentId: string;
+  studentClass: string;
+}) {
+  const [selectedGame, setSelectedGame] = useState<GameId>("alphabet-match");
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(false);
+    getGameLeaderboardFromBackend(selectedGame, studentClass)
+      .then((scores) => {
+        const sorted = [...scores]
+          .sort((a, b) => {
+            const starsDiff = Number(b.stars) - Number(a.stars);
+            if (starsDiff !== 0) return starsDiff;
+            return Number(b.score) - Number(a.score);
+          })
+          .slice(0, 10)
+          .map((s) => ({
+            id: s.id,
+            studentId: s.studentId,
+            studentName: s.studentName,
+            stars: Number(s.stars),
+            score: Number(s.score),
+            total: Number(s.total),
+            playedAt: s.playedAt,
+          }));
+        setEntries(sorted);
+      })
+      .catch(() => {
+        setError(true);
+      })
+      .finally(() => setLoading(false));
+  }, [selectedGame, studentClass]);
+
+  const rankMedal = (rank: number) => {
+    if (rank === 1) return "🥇";
+    if (rank === 2) return "🥈";
+    if (rank === 3) return "🥉";
+    return `#${rank}`;
+  };
+
+  const formatDate = (iso: string) => {
+    try {
+      return new Date(iso).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+    } catch {
+      return iso;
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-3">
+        <Trophy className="w-5 h-5 text-yellow-500" />
+        <h3 className="font-bold text-foreground text-lg">Class Leaderboard</h3>
+        <Badge variant="outline" className="text-xs">
+          Class {studentClass}
+        </Badge>
+      </div>
+
+      <div className="max-w-xs">
+        <Select
+          value={selectedGame}
+          onValueChange={(v) => setSelectedGame(v as GameId)}
+        >
+          <SelectTrigger data-ocid="games.leaderboard.game_select">
+            <SelectValue placeholder="Select game" />
+          </SelectTrigger>
+          <SelectContent>
+            {GAMES.map((g) => (
+              <SelectItem key={g.id} value={g.id}>
+                {g.emoji} {g.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {loading && (
+        <div className="space-y-3" data-ocid="games.leaderboard.loading_state">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <Skeleton key={n} className="h-12 w-full rounded-xl" />
+          ))}
+        </div>
+      )}
+
+      {!loading && error && (
+        <div
+          className="bg-destructive/10 border border-destructive/20 rounded-xl p-6 text-center text-destructive"
+          data-ocid="games.leaderboard.error_state"
+        >
+          <p className="font-semibold">Could not load leaderboard</p>
+          <p className="text-sm mt-1 text-muted-foreground">
+            Please try again later
+          </p>
+        </div>
+      )}
+
+      {!loading && !error && entries.length === 0 && (
+        <div
+          className="bg-card border-2 border-dashed border-border rounded-xl p-10 text-center"
+          data-ocid="games.leaderboard.empty_state"
+        >
+          <div className="text-4xl mb-3">🏆</div>
+          <p className="font-semibold text-foreground">No scores yet!</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Be the first to play and claim the top spot!
+          </p>
+        </div>
+      )}
+
+      {!loading && !error && entries.length > 0 && (
+        <div
+          className="bg-card border border-border rounded-xl overflow-hidden"
+          data-ocid="games.leaderboard.table"
+        >
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-16">Rank</TableHead>
+                <TableHead>Student</TableHead>
+                <TableHead className="text-center">Stars</TableHead>
+                <TableHead className="text-center">Score</TableHead>
+                <TableHead className="text-right hidden sm:table-cell">
+                  Date
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {entries.map((entry, idx) => {
+                const isMe = entry.studentId === studentId;
+                const rank = idx + 1;
+                const rowOcid = `games.leaderboard.row.${rank}` as const;
+                return (
+                  <TableRow
+                    key={entry.id}
+                    data-ocid={rowOcid}
+                    style={
+                      isMe
+                        ? {
+                            background: "oklch(0.92 0.10 264 / 0.35)",
+                            fontWeight: 700,
+                          }
+                        : undefined
+                    }
+                  >
+                    <TableCell className="text-center text-xl font-bold">
+                      {rankMedal(rank)}
+                    </TableCell>
+                    <TableCell>
+                      <span className="font-medium text-foreground">
+                        {entry.studentName}
+                        {isMe && (
+                          <span
+                            className="ml-2 text-xs px-1.5 py-0.5 rounded-full font-bold"
+                            style={{
+                              background: "oklch(0.88 0.15 264)",
+                              color: "oklch(0.25 0.15 264)",
+                            }}
+                          >
+                            You
+                          </span>
+                        )}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Stars count={entry.stars} size="sm" />
+                    </TableCell>
+                    <TableCell className="text-center font-semibold">
+                      {entry.score}/{entry.total}
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground text-xs hidden sm:table-cell">
+                      {formatDate(entry.playedAt)}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // Games Hub
 // ─────────────────────────────────────────────────────────────
 function GamesHub({
   level,
-  scores,
+  myScores,
+  studentId,
+  studentClass,
   onPlay,
 }: {
   level: Level;
-  scores: Record<GameId, number>;
+  myScores: Record<string, { stars: number; score: number; total: number }>;
+  studentId: string;
+  studentClass: string;
   onPlay: (gameId: GameId) => void;
 }) {
   const available = GAMES.filter((g) => g.levels.includes(level));
   const locked = GAMES.filter((g) => !g.levels.includes(level));
 
   return (
-    <div>
+    <div data-ocid="games.section">
       <h2 className="section-title">🎮 Learning Games</h2>
       <p className="section-subtitle">
         Fun games for Class {level} students — learn English &amp; Maths while
         playing!
       </p>
 
-      {available.length === 0 && (
-        <div
-          className="bg-card border border-border rounded-xl p-10 text-center text-muted-foreground"
-          data-ocid="games.empty_state"
-        >
-          <p className="text-4xl mb-3">🎮</p>
-          <p className="font-semibold text-lg">
-            No games available for your class level yet.
-          </p>
-          <p className="text-sm mt-1">Check back soon!</p>
-        </div>
-      )}
+      <Tabs defaultValue="games">
+        <TabsList className="mb-6">
+          <TabsTrigger value="games" data-ocid="games.games.tab">
+            🎮 Games
+          </TabsTrigger>
+          <TabsTrigger value="leaderboard" data-ocid="games.leaderboard.tab">
+            🏆 Leaderboard
+          </TabsTrigger>
+        </TabsList>
 
-      {available.length > 0 && (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
-          {available.map((game, idx) => {
-            const bestStars = scores[game.id];
-            const isEnglish = game.subject === "English";
-            return (
-              <div
-                key={game.id}
-                data-ocid={`games.item.${idx + 1}`}
-                className="bg-card border-2 rounded-3xl p-5 flex flex-col gap-3 shadow-sm hover:shadow-md transition-all hover:-translate-y-1"
-                style={{
-                  borderColor: isEnglish
-                    ? "oklch(0.80 0.12 264)"
-                    : "oklch(0.78 0.12 150)",
-                }}
-              >
-                <div className="text-5xl text-center">{game.emoji}</div>
-                <div className="text-center">
-                  <h3 className="text-lg font-extrabold text-foreground mb-1">
-                    {game.name}
-                  </h3>
-                  <span
-                    className="inline-block text-xs font-bold px-3 py-1 rounded-full mb-1"
+        <TabsContent value="games">
+          {available.length === 0 && (
+            <div
+              className="bg-card border border-border rounded-xl p-10 text-center text-muted-foreground"
+              data-ocid="games.empty_state"
+            >
+              <p className="text-4xl mb-3">🎮</p>
+              <p className="font-semibold text-lg">
+                No games available for your class level yet.
+              </p>
+              <p className="text-sm mt-1">Check back soon!</p>
+            </div>
+          )}
+
+          {available.length > 0 && (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
+              {available.map((game, idx) => {
+                const backendScore = myScores[game.id];
+                const bestStars = backendScore?.stars ?? 0;
+                const isEnglish = game.subject === "English";
+                return (
+                  <div
+                    key={game.id}
+                    data-ocid={`games.item.${idx + 1}`}
+                    className="bg-card border-2 rounded-3xl p-5 flex flex-col gap-3 shadow-sm hover:shadow-md transition-all hover:-translate-y-1"
                     style={{
-                      background: isEnglish
-                        ? "oklch(0.88 0.12 264)"
-                        : "oklch(0.88 0.15 150)",
-                      color: isEnglish
-                        ? "oklch(0.25 0.15 264)"
-                        : "oklch(0.22 0.12 150)",
+                      borderColor: isEnglish
+                        ? "oklch(0.80 0.12 264)"
+                        : "oklch(0.78 0.12 150)",
                     }}
                   >
-                    {game.subject}
-                  </span>
-                  <p className="text-xs text-muted-foreground">
-                    {game.ageRange}
-                  </p>
-                </div>
-                <p className="text-sm text-muted-foreground text-center leading-relaxed">
-                  {game.description}
-                </p>
-
-                {bestStars > 0 && (
-                  <div className="flex flex-col items-center gap-1">
-                    <p className="text-xs text-muted-foreground font-medium">
-                      Best Score
+                    <div className="text-5xl text-center">{game.emoji}</div>
+                    <div className="text-center">
+                      <h3 className="text-lg font-extrabold text-foreground mb-1">
+                        {game.name}
+                      </h3>
+                      <span
+                        className="inline-block text-xs font-bold px-3 py-1 rounded-full mb-1"
+                        style={{
+                          background: isEnglish
+                            ? "oklch(0.88 0.12 264)"
+                            : "oklch(0.88 0.15 150)",
+                          color: isEnglish
+                            ? "oklch(0.25 0.15 264)"
+                            : "oklch(0.22 0.12 150)",
+                        }}
+                      >
+                        {game.subject}
+                      </span>
+                      <p className="text-xs text-muted-foreground">
+                        {game.ageRange}
+                      </p>
+                    </div>
+                    <p className="text-sm text-muted-foreground text-center leading-relaxed">
+                      {game.description}
                     </p>
-                    <Stars count={bestStars} size="sm" />
+
+                    <div className="flex flex-col items-center gap-1">
+                      {bestStars > 0 ? (
+                        <>
+                          <p className="text-xs text-muted-foreground font-medium">
+                            Best Score
+                          </p>
+                          <Stars count={bestStars} size="sm" />
+                        </>
+                      ) : (
+                        <p className="text-xs text-muted-foreground italic">
+                          No score yet
+                        </p>
+                      )}
+                    </div>
+
+                    <Button
+                      data-ocid={`games.play_button.${idx + 1}`}
+                      className="w-full rounded-2xl font-extrabold text-base py-5"
+                      style={{
+                        background: isEnglish
+                          ? "oklch(0.48 0.15 264)"
+                          : "oklch(0.45 0.18 150)",
+                        color: "#fff",
+                      }}
+                      onClick={() => onPlay(game.id)}
+                    >
+                      {bestStars > 0 ? "▶ Play Again" : "🎮 Play"}
+                    </Button>
                   </div>
-                )}
+                );
+              })}
+            </div>
+          )}
 
-                <Button
-                  data-ocid={`games.play_button.${idx + 1}`}
-                  className="w-full rounded-2xl font-extrabold text-base py-5"
-                  style={{
-                    background: isEnglish
-                      ? "oklch(0.48 0.15 264)"
-                      : "oklch(0.45 0.18 150)",
-                    color: "#fff",
-                  }}
-                  onClick={() => onPlay(game.id)}
-                >
-                  {bestStars > 0 ? "▶ Play Again" : "🎮 Play"}
-                </Button>
+          {locked.length > 0 && (
+            <div>
+              <h3 className="text-base font-bold text-muted-foreground mb-3">
+                🔒 More games unlock as you advance
+              </h3>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {locked.map((game) => (
+                  <div
+                    key={game.id}
+                    className="bg-muted/40 border border-dashed border-border rounded-3xl p-5 text-center opacity-60"
+                  >
+                    <div className="text-4xl mb-2">🔒</div>
+                    <p className="font-bold text-muted-foreground">
+                      {game.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {game.ageRange}
+                    </p>
+                  </div>
+                ))}
               </div>
-            );
-          })}
-        </div>
-      )}
+            </div>
+          )}
+        </TabsContent>
 
-      {locked.length > 0 && (
-        <div>
-          <h3 className="text-base font-bold text-muted-foreground mb-3">
-            🔒 More games unlock as you advance
-          </h3>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {locked.map((game) => (
-              <div
-                key={game.id}
-                className="bg-muted/40 border border-dashed border-border rounded-3xl p-5 text-center opacity-60"
-              >
-                <div className="text-4xl mb-2">🔒</div>
-                <p className="font-bold text-muted-foreground">{game.name}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {game.ageRange}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+        <TabsContent value="leaderboard">
+          <Leaderboard studentId={studentId} studentClass={studentClass} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -1817,25 +2715,82 @@ function GamesHub({
 // ─────────────────────────────────────────────────────────────
 export default function LearningGames({
   studentId,
+  studentName,
   studentClass,
 }: {
   studentId: string;
+  studentName: string;
   studentClass: string;
 }) {
   const level = parseLevel(studentClass);
   const [activeGame, setActiveGame] = useState<GameId | null>(null);
-  const [scores, setScores] = useState<Record<GameId, number>>(() => {
-    const s: Partial<Record<GameId, number>> = {};
-    for (const g of GAMES) s[g.id] = loadScore(g.id, studentId);
-    return s as Record<GameId, number>;
+
+  // Backend scores (personal best per game)
+  const [myScores, setMyScores] = useState<
+    Record<string, { stars: number; score: number; total: number }>
+  >(() => {
+    // Initialize from localStorage as fallback
+    const s: Record<string, { stars: number; score: number; total: number }> =
+      {};
+    for (const g of GAMES) {
+      const stars = loadScore(g.id, studentId);
+      s[g.id] = { stars, score: 0, total: 0 };
+    }
+    return s;
   });
 
-  const handleDone = useCallback((gameId: GameId, stars: number) => {
-    setScores((prev) => ({
-      ...prev,
-      [gameId]: Math.max(prev[gameId] ?? 0, stars),
-    }));
-  }, []);
+  // Load personal bests from backend
+  useEffect(() => {
+    getMyGameScoresFromBackend(studentId)
+      .then((scores) => {
+        const map: Record<
+          string,
+          { stars: number; score: number; total: number }
+        > = {};
+        for (const s of scores) {
+          const gameId = s.gameId;
+          const existing = map[gameId];
+          const newStars = Number(s.stars);
+          if (!existing || newStars > existing.stars) {
+            map[gameId] = {
+              stars: newStars,
+              score: Number(s.score),
+              total: Number(s.total),
+            };
+          }
+        }
+        setMyScores((prev) => ({ ...prev, ...map }));
+      })
+      .catch(() => {});
+  }, [studentId]);
+
+  const handleDone = useCallback(
+    (gameId: GameId, stars: number, score: number, total: number) => {
+      // Update local state
+      setMyScores((prev) => {
+        const existing = prev[gameId];
+        if (!existing || stars > existing.stars) {
+          return { ...prev, [gameId]: { stars, score, total } };
+        }
+        return prev;
+      });
+
+      // Save to backend
+      const scoreRecord: GameScoreRecord = {
+        id: `${studentId}-${gameId}-${Date.now()}`,
+        studentId,
+        studentName,
+        class: studentClass,
+        gameId,
+        stars: BigInt(stars),
+        score: BigInt(score),
+        total: BigInt(total),
+        playedAt: new Date().toISOString(),
+      };
+      saveGameScoreToBackend(scoreRecord).catch(() => {});
+    },
+    [studentId, studentName, studentClass],
+  );
 
   const handleBack = useCallback(() => setActiveGame(null), []);
 
@@ -1862,7 +2817,7 @@ export default function LearningGames({
       <AlphabetMatchGame
         studentId={studentId}
         onBack={handleBack}
-        onDone={(s) => handleDone("alphabet-match", s)}
+        onDone={(s, sc, t) => handleDone("alphabet-match", s, sc, t)}
       />
     );
   }
@@ -1871,7 +2826,7 @@ export default function LearningGames({
       <NumberCountingGame
         studentId={studentId}
         onBack={handleBack}
-        onDone={(s) => handleDone("number-counting", s)}
+        onDone={(s, sc, t) => handleDone("number-counting", s, sc, t)}
       />
     );
   }
@@ -1880,7 +2835,7 @@ export default function LearningGames({
       <WordBuilderGame
         studentId={studentId}
         onBack={handleBack}
-        onDone={(s) => handleDone("word-builder", s)}
+        onDone={(s, sc, t) => handleDone("word-builder", s, sc, t)}
       />
     );
   }
@@ -1889,7 +2844,7 @@ export default function LearningGames({
       <SpellWordGame
         studentId={studentId}
         onBack={handleBack}
-        onDone={(s) => handleDone("spell-the-word", s)}
+        onDone={(s, sc, t) => handleDone("spell-the-word", s, sc, t)}
       />
     );
   }
@@ -1899,7 +2854,7 @@ export default function LearningGames({
         studentId={studentId}
         level={level}
         onBack={handleBack}
-        onDone={(s) => handleDone("maths-challenge", s)}
+        onDone={(s, sc, t) => handleDone("maths-challenge", s, sc, t)}
       />
     );
   }
@@ -1908,18 +2863,46 @@ export default function LearningGames({
       <SentenceScrambleGame
         studentId={studentId}
         onBack={handleBack}
-        onDone={(s) => handleDone("sentence-scramble", s)}
+        onDone={(s, sc, t) => handleDone("sentence-scramble", s, sc, t)}
+      />
+    );
+  }
+  if (activeGame === "color-match") {
+    return (
+      <ColorMatchGame
+        studentId={studentId}
+        onBack={handleBack}
+        onDone={(s, sc, t) => handleDone("color-match", s, sc, t)}
+      />
+    );
+  }
+  if (activeGame === "rhyming-words") {
+    return (
+      <RhymingWordsGame
+        studentId={studentId}
+        onBack={handleBack}
+        onDone={(s, sc, t) => handleDone("rhyming-words", s, sc, t)}
+      />
+    );
+  }
+  if (activeGame === "times-table") {
+    return (
+      <TimesTableGame
+        studentId={studentId}
+        level={level}
+        onBack={handleBack}
+        onDone={(s, sc, t) => handleDone("times-table", s, sc, t)}
       />
     );
   }
 
   return (
-    <div data-ocid="games.section">
-      <GamesHub
-        level={level}
-        scores={scores}
-        onPlay={(gameId) => setActiveGame(gameId)}
-      />
-    </div>
+    <GamesHub
+      level={level}
+      myScores={myScores}
+      studentId={studentId}
+      studentClass={studentClass}
+      onPlay={(gameId) => setActiveGame(gameId)}
+    />
   );
 }

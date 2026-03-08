@@ -168,6 +168,17 @@ export const Timetable = IDL.Record({
   'updatedBy' : IDL.Text,
   'scheduleJson' : IDL.Text,
 });
+export const GameScore = IDL.Record({
+  'id' : IDL.Text,
+  'total' : IDL.Nat,
+  'studentId' : IDL.Text,
+  'studentName' : IDL.Text,
+  'playedAt' : IDL.Text,
+  'class' : IDL.Text,
+  'gameId' : IDL.Text,
+  'score' : IDL.Nat,
+  'stars' : IDL.Nat,
+});
 export const HallTicketDesign = IDL.Record({
   'borderStyle' : IDL.Text,
   'institutionName' : IDL.Text,
@@ -262,7 +273,18 @@ export const idlService = IDL.Service({
     ),
   'getAllTeachers' : IDL.Func([], [IDL.Vec(Teacher)], ['query']),
   'getAllTimetables' : IDL.Func([], [IDL.Vec(Timetable)], ['query']),
+  'getGameLeaderboard' : IDL.Func(
+      [IDL.Text, IDL.Text],
+      [IDL.Vec(GameScore)],
+      ['query'],
+    ),
+  'getGameScoresForStudent' : IDL.Func(
+      [IDL.Text],
+      [IDL.Vec(GameScore)],
+      ['query'],
+    ),
   'getHallTicketDesign' : IDL.Func([], [IDL.Opt(HallTicketDesign)], ['query']),
+  'getMyGameScores' : IDL.Func([IDL.Text], [IDL.Vec(GameScore)], ['query']),
   'getPrincipalProfile' : IDL.Func([], [PrincipalProfile], ['query']),
   'initializeIfNeeded' : IDL.Func([], [], []),
   'initializeStudents' : IDL.Func([], [], ['oneway']),
@@ -282,6 +304,7 @@ export const idlService = IDL.Service({
       [IDL.Opt(AuthWithClassResult)],
       ['query'],
     ),
+  'saveGameScore' : IDL.Func([GameScore], [], []),
   'saveHallTicketDesign' : IDL.Func([HallTicketDesign], [], []),
   'savePrincipalProfile' : IDL.Func([PrincipalProfile], [], []),
   'updateCalendarEvent' : IDL.Func([IDL.Text, CalendarEvent], [IDL.Bool], []),
@@ -476,6 +499,17 @@ export const idlFactory = ({ IDL }) => {
     'updatedBy' : IDL.Text,
     'scheduleJson' : IDL.Text,
   });
+  const GameScore = IDL.Record({
+    'id' : IDL.Text,
+    'total' : IDL.Nat,
+    'studentId' : IDL.Text,
+    'studentName' : IDL.Text,
+    'playedAt' : IDL.Text,
+    'class' : IDL.Text,
+    'gameId' : IDL.Text,
+    'score' : IDL.Nat,
+    'stars' : IDL.Nat,
+  });
   const HallTicketDesign = IDL.Record({
     'borderStyle' : IDL.Text,
     'institutionName' : IDL.Text,
@@ -574,11 +608,22 @@ export const idlFactory = ({ IDL }) => {
       ),
     'getAllTeachers' : IDL.Func([], [IDL.Vec(Teacher)], ['query']),
     'getAllTimetables' : IDL.Func([], [IDL.Vec(Timetable)], ['query']),
+    'getGameLeaderboard' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [IDL.Vec(GameScore)],
+        ['query'],
+      ),
+    'getGameScoresForStudent' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(GameScore)],
+        ['query'],
+      ),
     'getHallTicketDesign' : IDL.Func(
         [],
         [IDL.Opt(HallTicketDesign)],
         ['query'],
       ),
+    'getMyGameScores' : IDL.Func([IDL.Text], [IDL.Vec(GameScore)], ['query']),
     'getPrincipalProfile' : IDL.Func([], [PrincipalProfile], ['query']),
     'initializeIfNeeded' : IDL.Func([], [], []),
     'initializeStudents' : IDL.Func([], [], ['oneway']),
@@ -598,6 +643,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Opt(AuthWithClassResult)],
         ['query'],
       ),
+    'saveGameScore' : IDL.Func([GameScore], [], []),
     'saveHallTicketDesign' : IDL.Func([HallTicketDesign], [], []),
     'savePrincipalProfile' : IDL.Func([PrincipalProfile], [], []),
     'updateCalendarEvent' : IDL.Func([IDL.Text, CalendarEvent], [IDL.Bool], []),

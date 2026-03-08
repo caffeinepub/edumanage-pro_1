@@ -1,9 +1,11 @@
 import List "mo:core/List";
 import Text "mo:core/Text";
 import Float "mo:core/Float";
+import Nat "mo:core/Nat";
+import Array "mo:core/Array";
+import Order "mo:core/Order";
 
 
-// EduManage Pro - Complete backend implementation
 
 actor {
   ///////////////////// DATA MODELS //////////////////////
@@ -211,6 +213,18 @@ actor {
     borderStyle : Text;
   };
 
+  public type GameScore = {
+    id : Text;
+    studentId : Text;
+    studentName : Text;
+    class_ : Text;
+    gameId : Text;
+    stars : Nat;
+    score : Nat;
+    total : Nat;
+    playedAt : Text;
+  };
+
   ///////////////// INITIAL DATA ////////////////////
 
   public type AuthResult = {
@@ -243,7 +257,6 @@ actor {
   var hallTicketDesign : ?HallTicketDesign = null;
   var teachers = List.empty<Teacher>();
   var students = List.empty<Student>();
-  // New persistent lists for all data types (empty)
   var studentAttendance = List.empty<StudentAttendance>();
   var teacherAttendance = List.empty<TeacherAttendance>();
   var feeRecords = List.empty<FeeRecord>();
@@ -257,6 +270,7 @@ actor {
   var examAttempts = List.empty<ExamAttempt>();
   var portfolioEntries = List.empty<PortfolioEntry>();
   var suggestions = List.empty<Suggestion>();
+  var gameScores = List.empty<GameScore>();
 
   // Principal and Hall Ticket (single record)
   public query ({ caller }) func getPrincipalProfile() : async PrincipalProfile {
@@ -865,5 +879,69 @@ actor {
 
   public func deleteSuggestion(id : Text) : async () {
     suggestions := suggestions.filter(func(s) { s.id != id });
+  };
+
+  ///////////////////// GAME SCORES ///////////////////////
+
+  public func saveGameScore(gameScore : GameScore) : async () {
+    // If entry exists for student+game, only update if new score is better.
+    gameScores := gameScores.filter(
+      func(s) {
+        if (s.studentId == gameScore.studentId and s.gameId == gameScore.gameId) {
+          return isBetterScore(gameScore, s);
+        } else {
+          true;
+        };
+      }
+    );
+    gameScores.add(gameScore);
+  };
+
+  public query ({ caller }) func getGameScoresForStudent(studentId : Text) : async [GameScore] {
+    gameScores.filter(func(s) { s.studentId == studentId }).toArray();
+  };
+
+  public query ({ caller }) func getMyGameScores(studentId : Text) : async [GameScore] {
+    gameScores.filter(func(s) { s.studentId == studentId }).toArray();
+  };
+
+  public query ({ caller }) func getGameLeaderboard(gameId : Text, class_ : Text) : async [GameScore] {
+    let filtered = gameScores.filter(
+      func(s) { s.gameId == gameId and s.class_ == class_ }
+    );
+
+    let sorted = filtered.toArray().sort(
+      compareScores
+    );
+
+    sorted.sliceToArray(0, Nat.min(sorted.size(), 10));
+  };
+
+  //////////// HELPER FUNCTIONS ///////////////
+
+  func isBetterScore(newScore : GameScore, oldScore : GameScore) : Bool {
+    if (newScore.stars > oldScore.stars) { return true };
+    if (newScore.stars < oldScore.stars) { return false };
+
+    if (newScore.score > oldScore.score) { return true };
+    if (newScore.score < oldScore.score) { return false };
+
+    newScore.total > oldScore.total;
+  };
+
+  func compareScores(a : GameScore, b : GameScore) : Order.Order {
+    switch (Nat.compare(b.stars, a.stars)) {
+      case (#less) { #greater };
+      case (#greater) { #less };
+      case (#equal) {
+        switch (Nat.compare(b.score, a.score)) {
+          case (#less) { #greater };
+          case (#greater) { #less };
+          case (#equal) {
+            Nat.compare(b.total, a.total);
+          };
+        };
+      };
+    };
   };
 };

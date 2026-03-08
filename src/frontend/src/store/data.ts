@@ -2167,3 +2167,44 @@ export function formatDate(dateStr: string): string {
 export function initializeData(): void {
   // No-op: data is now seeded in the backend canister via initializeIfNeeded()
 }
+
+// ============================================================
+// Game Score helpers
+// ============================================================
+export interface GameScoreRecord {
+  id: string;
+  studentId: string;
+  studentName: string;
+  class: string;
+  gameId: string;
+  stars: bigint;
+  score: bigint;
+  total: bigint;
+  playedAt: string;
+}
+
+export async function saveGameScoreToBackend(
+  record: GameScoreRecord,
+): Promise<void> {
+  const b = await getBackend();
+  await b.saveGameScore(record);
+}
+
+export async function getGameLeaderboardFromBackend(
+  gameId: string,
+  studentClass: string,
+): Promise<GameScoreRecord[]> {
+  const b = await getBackend();
+  // The backend method uses 'class' as parameter name (reserved keyword workaround)
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+  const scores = await b.getGameLeaderboard(gameId, studentClass);
+  return scores as GameScoreRecord[];
+}
+
+export async function getMyGameScoresFromBackend(
+  studentId: string,
+): Promise<GameScoreRecord[]> {
+  const b = await getBackend();
+  const scores = await b.getMyGameScores(studentId);
+  return scores as GameScoreRecord[];
+}
