@@ -117,7 +117,7 @@ function LoginForm({
 export default function LoginPage({ onLogin }: LoginPageProps) {
   const principalProfile = getPrincipalProfile();
   const logoSrc =
-    principalProfile.institutionLogo || "/assets/uploads/logo-rah-1-1.png";
+    principalProfile.institutionLogo || "/assets/uploads/logo-rah-2-1.png";
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -139,6 +139,15 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             <p className="text-xs" style={{ color: "oklch(0.75 0.06 264)" }}>
               Akampadam
             </p>
+            <span
+              className="inline-block mt-1 text-xs font-bold px-2 py-0.5 rounded-full"
+              style={{
+                backgroundColor: "oklch(0.55 0.18 145)",
+                color: "white",
+              }}
+            >
+              EduR
+            </span>
           </div>
         </div>
 
@@ -201,6 +210,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             <p className="text-sm text-muted-foreground mt-0.5 tracking-wide uppercase">
               Akampadam
             </p>
+            <span className="inline-flex items-center mt-2 px-3 py-1 rounded-full text-xs font-bold bg-primary text-primary-foreground tracking-widest uppercase">
+              EduR
+            </span>
             <p className="text-sm text-muted-foreground mt-3">
               Sign in to your account to continue
             </p>

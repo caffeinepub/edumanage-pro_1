@@ -538,6 +538,40 @@ function setSyncStatus(s: "idle" | "syncing" | "synced" | "error") {
   for (const fn of _syncListeners) fn(s);
 }
 
+// Retry message (shown during reconnection attempts)
+type RetryMessageListener = (msg: string) => void;
+let _retryMessage = "";
+const _retryMessageListeners = new Set<RetryMessageListener>();
+
+export function getRetryMessage() {
+  return _retryMessage;
+}
+
+export function subscribeRetryMessage(fn: RetryMessageListener): () => void {
+  _retryMessageListeners.add(fn);
+  return () => _retryMessageListeners.delete(fn);
+}
+
+function setRetryMessage(msg: string) {
+  _retryMessage = msg;
+  for (const fn of _retryMessageListeners) fn(msg);
+}
+
+// Helper: race a promise against a timeout
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timed out after ${ms}ms`)), ms),
+    ),
+  ]);
+}
+
+// Helper: sleep
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // ============================================================
 // Type mapping helpers (frontend ↔ backend)
 // ============================================================
@@ -1229,13 +1263,15 @@ function hallTicketFromBackend(d: BackendHallTicketDesign): HallTicketDesign {
 // Backend async API - Initialize & Sync ALL data types
 // ============================================================
 
-/** Initialize backend and sync all data from canister to localStorage cache */
-export async function initializeBackend(): Promise<void> {
-  try {
-    setSyncStatus("syncing");
-    const be = await getBackend();
-    await be.initializeIfNeeded();
-    await Promise.all([
+const MAX_RETRIES = 3;
+const RETRY_DELAYS = [2000, 4000, 8000]; // ms between attempts
+const CONNECT_TIMEOUT = 15000; // 15 seconds per attempt
+
+async function attemptBackendInit(): Promise<void> {
+  const be = await withTimeout(getBackend(), CONNECT_TIMEOUT);
+  await withTimeout(be.initializeIfNeeded(), CONNECT_TIMEOUT);
+  await withTimeout(
+    Promise.all([
       syncTeachersFromBackend(),
       syncStudentsFromBackend(),
       syncPrincipalFromBackend(),
@@ -1253,12 +1289,49 @@ export async function initializeBackend(): Promise<void> {
       syncPortfolioFromBackend(),
       syncSuggestionsFromBackend(),
       syncHallTicketDesignFromBackend(),
-    ]);
-    setSyncStatus("synced");
-  } catch (err) {
-    console.error("Backend init failed, using localStorage:", err);
-    setSyncStatus("error");
+    ]),
+    30000,
+  );
+}
+
+/** Initialize backend and sync all data from canister to localStorage cache */
+export async function initializeBackend(): Promise<void> {
+  setSyncStatus("syncing");
+  setRetryMessage("Connecting to school server...");
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      if (attempt > 1) {
+        setRetryMessage(
+          `Retrying connection... attempt ${attempt}/${MAX_RETRIES}`,
+        );
+      }
+      await attemptBackendInit();
+      setSyncStatus("synced");
+      setRetryMessage("");
+      return;
+    } catch (err) {
+      console.error(`Backend init attempt ${attempt} failed:`, err);
+      if (attempt < MAX_RETRIES) {
+        const delay = RETRY_DELAYS[attempt - 1] ?? 8000;
+        setRetryMessage(
+          `Connection failed. Retrying in ${delay / 1000}s... (${attempt}/${MAX_RETRIES})`,
+        );
+        await sleep(delay);
+      }
+    }
   }
+
+  // All attempts failed
+  console.error("All backend init attempts failed, using localStorage cache.");
+  setSyncStatus("error");
+  setRetryMessage("");
+}
+
+/** Manually retry the backend connection (e.g. after user taps "Retry") */
+export async function retryBackendConnection(): Promise<void> {
+  _backendCache = null; // reset actor so a fresh connection is made
+  await initializeBackend();
 }
 
 /** Authenticate against backend canister */

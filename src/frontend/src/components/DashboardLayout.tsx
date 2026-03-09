@@ -106,7 +106,7 @@ export function DashboardLayout({
             <img
               src={
                 getPrincipalProfile().institutionLogo ||
-                "/assets/uploads/logo-rah-1-1.png"
+                "/assets/uploads/logo-rah-2-1.png"
               }
               alt="Rahmaniyya Public School"
               className="w-10 h-10 object-contain shrink-0"
@@ -124,6 +124,15 @@ export function DashboardLayout({
               >
                 {roleLabel} Portal
               </p>
+              <span
+                className="inline-block mt-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none"
+                style={{
+                  backgroundColor: "oklch(0.55 0.18 145)",
+                  color: "white",
+                }}
+              >
+                EduR
+              </span>
             </div>
           </div>
           <button
@@ -236,7 +245,7 @@ export function DashboardLayout({
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold text-foreground truncate">
+            <h1 className="text-base sm:text-lg font-bold text-foreground truncate">
               {activeItem?.label ?? "Dashboard"}
             </h1>
           </div>
@@ -262,7 +271,7 @@ export function DashboardLayout({
         </header>
 
         {/* Page content — watermark sits behind all content */}
-        <main className="flex-1 overflow-y-auto p-6 relative">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6 relative">
           {/* Watermark */}
           <div
             aria-hidden="true"
@@ -272,7 +281,7 @@ export function DashboardLayout({
             <img
               src={
                 getPrincipalProfile().institutionLogo ||
-                "/assets/uploads/logo-rah-1-1.png"
+                "/assets/uploads/logo-rah-2-1.png"
               }
               alt=""
               className="w-80 h-80 object-contain select-none"

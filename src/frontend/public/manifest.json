@@ -1,7 +1,7 @@
 {
-  "name": "Rahmaniyya Public School - EduManage",
-  "short_name": "EduManage",
-  "description": "School management portal for Rahmaniyya Public School, Akampadam",
+  "name": "EduR - Rahmaniyya Public School",
+  "short_name": "EduR",
+  "description": "EduR - School management portal for Rahmaniyya Public School, Akampadam",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
