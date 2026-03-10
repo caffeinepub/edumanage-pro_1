@@ -52,7 +52,7 @@ export default function App() {
         } catch {
           // silent — status listener will update
         }
-      }, 30000);
+      }, 15000);
     } else {
       if (heartbeatRef.current) {
         clearInterval(heartbeatRef.current);
@@ -64,6 +64,26 @@ export default function App() {
         clearInterval(heartbeatRef.current);
         heartbeatRef.current = null;
       }
+    };
+  }, [syncStatus]);
+
+  // Reconnect instantly when tab becomes visible again or network comes back
+  useEffect(() => {
+    const handleReconnect = async () => {
+      if (syncStatus === "error") {
+        try {
+          await retryBackendConnection();
+        } catch {
+          // silent
+        }
+      }
+    };
+    window.addEventListener("online", handleReconnect);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") handleReconnect();
+    });
+    return () => {
+      window.removeEventListener("online", handleReconnect);
     };
   }, [syncStatus]);
 
@@ -142,8 +162,8 @@ export default function App() {
           <div className="flex items-center gap-2">
             <WifiOff className="w-3.5 h-3.5 shrink-0" />
             <span>
-              Server connection lost. Data may be outdated. Auto-retrying every
-              30s.
+              Reconnecting to server... Your data is safe. Auto-retrying every
+              15s.
             </span>
           </div>
           <Button

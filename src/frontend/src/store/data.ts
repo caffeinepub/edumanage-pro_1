@@ -1263,9 +1263,9 @@ function hallTicketFromBackend(d: BackendHallTicketDesign): HallTicketDesign {
 // Backend async API - Initialize & Sync ALL data types
 // ============================================================
 
-const MAX_RETRIES = 3;
-const RETRY_DELAYS = [2000, 4000, 8000]; // ms between attempts
-const CONNECT_TIMEOUT = 15000; // 15 seconds per attempt
+const MAX_RETRIES = 5;
+const RETRY_DELAYS = [1000, 2000, 4000, 8000, 15000]; // ms between attempts
+const CONNECT_TIMEOUT = 25000; // 15 seconds per attempt
 
 async function attemptBackendInit(): Promise<void> {
   const be = await withTimeout(getBackend(), CONNECT_TIMEOUT);
