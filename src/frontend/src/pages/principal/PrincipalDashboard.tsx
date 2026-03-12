@@ -45,6 +45,7 @@ import {
   type CurrentUser,
   type ExamResult,
   type FeeRecord,
+  type FinancialRecord,
   type HallTicketDesign,
   type HallTicketSubject,
   type LeaveApplication,
@@ -56,6 +57,7 @@ import {
   type Timetable,
   calcAttendancePercent,
   deleteCalendarEventFromBackend,
+  deleteFinancialRecord,
   deleteNotificationFromBackend,
   deleteResultFromBackend,
   deleteStudentFromBackend,
@@ -65,6 +67,7 @@ import {
   getAttendance,
   getCalendarEvents,
   getFees,
+  getFinancialRecords,
   getHallTicketDesign,
   getLeaves,
   getNotifications,
@@ -79,6 +82,7 @@ import {
   saveCalendarEvents,
   saveFeeToBackend,
   saveFees,
+  saveFinancialRecord,
   saveHallTicketDesign,
   saveHallTicketDesignToBackend,
   saveLeaveToBackend,
@@ -116,6 +120,7 @@ import {
   Printer,
   Send,
   Trash2,
+  TrendingUp,
   User,
   X,
 } from "lucide-react";
@@ -4647,6 +4652,27 @@ function FeeReport() {
     setFees(updated);
     saveFees(updated);
     saveFeeToBackend(newFee);
+    // Auto-add to income if fee is paid
+    if (newFee.status === "paid") {
+      const existing = getFinancialRecords().find(
+        (r) => r.sourceFeeId === newFee.id,
+      );
+      if (!existing) {
+        const student = getStudents().find((s) => s.id === newFee.studentId);
+        saveFinancialRecord({
+          id: generateId("fin"),
+          type: "income",
+          category: "Fee Collection",
+          description: `Fee from ${student ? student.name : newFee.studentId}`,
+          amount: newFee.amount,
+          date: newFee.date,
+          createdAt: new Date().toISOString(),
+          receiptNo: newFee.receiptNumber || undefined,
+          sourceType: "fee",
+          sourceFeeId: newFee.id,
+        });
+      }
+    }
     toast.success("Fee record added");
     setAddOpen(false);
     setAddForm({
@@ -5279,6 +5305,634 @@ function FeeReport() {
 }
 
 // ============================================================
+// Expenses & Income
+// ============================================================
+function ExpensesIncome() {
+  const [records, setRecords] = useState<FinancialRecord[]>(() =>
+    getFinancialRecords(),
+  );
+  const [addOpen, setAddOpen] = useState(false);
+  const [filterMonth, setFilterMonth] = useState<string>(() =>
+    new Date().toISOString().slice(0, 7),
+  );
+  const [filterType, setFilterType] = useState<"all" | "income" | "expense">(
+    "all",
+  );
+  const [filterCategory, setFilterCategory] = useState("");
+  const [reportYear, setReportYear] = useState<string>(() =>
+    String(new Date().getFullYear()),
+  );
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    type: "income" as "income" | "expense",
+    category: "",
+    description: "",
+    amount: "",
+    date: new Date().toISOString().split("T")[0],
+    receiptNo: "",
+    voucherNumber: "",
+  });
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  // Summary cards
+  const summary = useMemo(() => {
+    const thisMonthRecords = records.filter((r) => {
+      const d = new Date(r.date);
+      return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+    });
+    const thisYearRecords = records.filter(
+      (r) => new Date(r.date).getFullYear() === currentYear,
+    );
+
+    const monthIncome = thisMonthRecords
+      .filter((r) => r.type === "income")
+      .reduce((s, r) => s + r.amount, 0);
+    const monthExpense = thisMonthRecords
+      .filter((r) => r.type === "expense")
+      .reduce((s, r) => s + r.amount, 0);
+    const yearIncome = thisYearRecords
+      .filter((r) => r.type === "income")
+      .reduce((s, r) => s + r.amount, 0);
+    const yearExpense = thisYearRecords
+      .filter((r) => r.type === "expense")
+      .reduce((s, r) => s + r.amount, 0);
+
+    return {
+      monthIncome,
+      monthExpense,
+      monthNet: monthIncome - monthExpense,
+      yearNet: yearIncome - yearExpense,
+    };
+  }, [records, currentYear, currentMonth]);
+
+  // Filtered records
+  const filtered = useMemo(() => {
+    return records.filter((r) => {
+      const rMonth = r.date.slice(0, 7);
+      if (filterMonth && rMonth !== filterMonth) return false;
+      if (filterType !== "all" && r.type !== filterType) return false;
+      if (
+        filterCategory &&
+        !r.category.toLowerCase().includes(filterCategory.toLowerCase())
+      )
+        return false;
+      return true;
+    });
+  }, [records, filterMonth, filterType, filterCategory]);
+
+  const handleAdd = () => {
+    if (!form.category || !form.amount || !form.date) {
+      toast.error("Please fill in Category, Amount, and Date");
+      return;
+    }
+    const rec: FinancialRecord = {
+      id: generateId("fin"),
+      type: form.type,
+      category: form.category,
+      description: form.description,
+      amount: Number(form.amount),
+      date: form.date,
+      createdAt: new Date().toISOString(),
+      receiptNo: form.receiptNo || undefined,
+      voucherNumber: form.voucherNumber || undefined,
+      sourceType: "manual",
+    };
+    saveFinancialRecord(rec);
+    setRecords(getFinancialRecords());
+    toast.success(
+      `${form.type === "income" ? "Income" : "Expense"} record added`,
+    );
+    setAddOpen(false);
+    setForm({
+      type: "income",
+      category: "",
+      description: "",
+      amount: "",
+      date: new Date().toISOString().split("T")[0],
+      receiptNo: "",
+      voucherNumber: "",
+    });
+  };
+
+  const handleDelete = (id: string) => {
+    deleteFinancialRecord(id);
+    setRecords(getFinancialRecords());
+    setDeleteConfirmId(null);
+    toast.success("Record deleted");
+  };
+
+  const handleDownloadMonthly = () => {
+    const [year, month] = filterMonth.split("-").map(Number);
+    const monthRecords = records.filter((r) => {
+      const d = new Date(r.date);
+      return d.getFullYear() === year && d.getMonth() + 1 === month;
+    });
+    const schoolName =
+      getPrincipalProfile().institutionName ?? "Rahmaniyya Public School";
+    const monthLabel = new Date(year, month - 1, 1).toLocaleDateString(
+      "en-IN",
+      { year: "numeric", month: "long" },
+    );
+    const totalIncome = monthRecords
+      .filter((r) => r.type === "income")
+      .reduce((s, r) => s + r.amount, 0);
+    const totalExpense = monthRecords
+      .filter((r) => r.type === "expense")
+      .reduce((s, r) => s + r.amount, 0);
+
+    const rows = monthRecords
+      .map(
+        (r, i) => `<tr style="background:${i % 2 === 0 ? "#f9fafb" : "#fff"}">
+        <td style="padding:8px 12px;border:1px solid #e5e7eb">${r.date}</td>
+        <td style="padding:8px 12px;border:1px solid #e5e7eb;color:${r.type === "income" ? "#16a34a" : "#dc2626"};font-weight:600">${r.type.charAt(0).toUpperCase() + r.type.slice(1)}</td>
+        <td style="padding:8px 12px;border:1px solid #e5e7eb">${r.category}</td>
+        <td style="padding:8px 12px;border:1px solid #e5e7eb">${r.description || "—"}</td>
+        <td style="padding:8px 12px;border:1px solid #e5e7eb">${r.receiptNo || "—"}</td>
+        <td style="padding:8px 12px;border:1px solid #e5e7eb">${r.voucherNumber || "—"}</td>
+        <td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:right">₹${r.amount.toLocaleString("en-IN")}</td>
+      </tr>`,
+      )
+      .join("");
+
+    const html = `<!DOCTYPE html><html><head><title>Monthly Audit Report - ${monthLabel}</title>
+    <style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:22px}h2{font-size:16px;color:#555}table{width:100%;border-collapse:collapse;margin-top:16px}th{background:#1e3a5f;color:#fff;padding:10px 12px;text-align:left;border:1px solid #e5e7eb}.summary{display:flex;gap:32px;margin:16px 0;padding:16px;background:#f0f9ff;border-radius:8px}.sum-item{text-align:center}.sum-label{font-size:12px;color:#666}.sum-value{font-size:20px;font-weight:700}</style>
+    </head><body>
+    <h1>${schoolName}</h1>
+    <h2>Monthly Audit Report — ${monthLabel}</h2>
+    <div class="summary">
+      <div class="sum-item"><div class="sum-label">Total Income</div><div class="sum-value" style="color:#16a34a">₹${totalIncome.toLocaleString("en-IN")}</div></div>
+      <div class="sum-item"><div class="sum-label">Total Expenses</div><div class="sum-value" style="color:#dc2626">₹${totalExpense.toLocaleString("en-IN")}</div></div>
+      <div class="sum-item"><div class="sum-label">Net Balance</div><div class="sum-value" style="color:${totalIncome - totalExpense >= 0 ? "#16a34a" : "#dc2626"}">₹${(totalIncome - totalExpense).toLocaleString("en-IN")}</div></div>
+    </div>
+    <table><thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Description</th><th>Receipt No</th><th>Voucher No</th><th style="text-align:right">Amount</th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="7" style="text-align:center;padding:16px;color:#999">No records for this month</td></tr>'}</tbody></table>
+    <p style="margin-top:24px;font-size:12px;color:#999">Generated on ${new Date().toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })}</p>
+    <script>window.onload=()=>window.print()</script></body></html>`;
+
+    const w = window.open("", "_blank");
+    if (w) {
+      w.document.write(html);
+      w.document.close();
+    }
+  };
+
+  const handleDownloadYearly = () => {
+    const year = Number(reportYear);
+    const yearRecords = records.filter(
+      (r) => new Date(r.date).getFullYear() === year,
+    );
+    const schoolName =
+      getPrincipalProfile().institutionName ?? "Rahmaniyya Public School";
+    const totalIncome = yearRecords
+      .filter((r) => r.type === "income")
+      .reduce((s, r) => s + r.amount, 0);
+    const totalExpense = yearRecords
+      .filter((r) => r.type === "expense")
+      .reduce((s, r) => s + r.amount, 0);
+
+    // Group by month for summary
+    const monthSummary: Record<number, { income: number; expense: number }> =
+      {};
+    for (let m = 0; m < 12; m++) {
+      monthSummary[m] = { income: 0, expense: 0 };
+    }
+    for (const r of yearRecords) {
+      const m = new Date(r.date).getMonth();
+      if (r.type === "income") monthSummary[m].income += r.amount;
+      else monthSummary[m].expense += r.amount;
+    }
+
+    const monthNames = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+
+    const monthRows = monthNames
+      .map(
+        (
+          name,
+          i,
+        ) => `<tr style="background:${i % 2 === 0 ? "#f9fafb" : "#fff"}">
+        <td style="padding:8px 12px;border:1px solid #e5e7eb">${name}</td>
+        <td style="padding:8px 12px;border:1px solid #e5e7eb;color:#16a34a;text-align:right">₹${monthSummary[i].income.toLocaleString("en-IN")}</td>
+        <td style="padding:8px 12px;border:1px solid #e5e7eb;color:#dc2626;text-align:right">₹${monthSummary[i].expense.toLocaleString("en-IN")}</td>
+        <td style="padding:8px 12px;border:1px solid #e5e7eb;color:${monthSummary[i].income - monthSummary[i].expense >= 0 ? "#16a34a" : "#dc2626"};font-weight:600;text-align:right">₹${(monthSummary[i].income - monthSummary[i].expense).toLocaleString("en-IN")}</td>
+      </tr>`,
+      )
+      .join("");
+
+    const detailRows = yearRecords
+      .map(
+        (r, i) => `<tr style="background:${i % 2 === 0 ? "#f9fafb" : "#fff"}">
+        <td style="padding:8px 12px;border:1px solid #e5e7eb">${r.date}</td>
+        <td style="padding:8px 12px;border:1px solid #e5e7eb;color:${r.type === "income" ? "#16a34a" : "#dc2626"};font-weight:600">${r.type.charAt(0).toUpperCase() + r.type.slice(1)}</td>
+        <td style="padding:8px 12px;border:1px solid #e5e7eb">${r.category}</td>
+        <td style="padding:8px 12px;border:1px solid #e5e7eb">${r.description || "—"}</td>
+        <td style="padding:8px 12px;border:1px solid #e5e7eb;text-align:right">₹${r.amount.toLocaleString("en-IN")}</td>
+      </tr>`,
+      )
+      .join("");
+
+    const html = `<!DOCTYPE html><html><head><title>Yearly Audit Report ${year}</title>
+    <style>body{font-family:Arial,sans-serif;padding:24px;color:#111}h1{font-size:22px}h2{font-size:16px;color:#555}h3{font-size:14px;margin-top:24px}table{width:100%;border-collapse:collapse;margin-top:12px}th{background:#1e3a5f;color:#fff;padding:10px 12px;text-align:left;border:1px solid #e5e7eb}.summary{display:flex;gap:32px;margin:16px 0;padding:16px;background:#f0f9ff;border-radius:8px}.sum-item{text-align:center}.sum-label{font-size:12px;color:#666}.sum-value{font-size:20px;font-weight:700}</style>
+    </head><body>
+    <h1>${schoolName}</h1>
+    <h2>Yearly Audit Report — ${year}</h2>
+    <div class="summary">
+      <div class="sum-item"><div class="sum-label">Total Income</div><div class="sum-value" style="color:#16a34a">₹${totalIncome.toLocaleString("en-IN")}</div></div>
+      <div class="sum-item"><div class="sum-label">Total Expenses</div><div class="sum-value" style="color:#dc2626">₹${totalExpense.toLocaleString("en-IN")}</div></div>
+      <div class="sum-item"><div class="sum-label">Net Balance</div><div class="sum-value" style="color:${totalIncome - totalExpense >= 0 ? "#16a34a" : "#dc2626"}">₹${(totalIncome - totalExpense).toLocaleString("en-IN")}</div></div>
+    </div>
+    <h3>Monthly Summary</h3>
+    <table><thead><tr><th>Month</th><th style="text-align:right">Income</th><th style="text-align:right">Expense</th><th style="text-align:right">Net</th></tr></thead>
+    <tbody>${monthRows}</tbody></table>
+    <h3>Detailed Records</h3>
+    <table><thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Description</th><th style="text-align:right">Amount</th></tr></thead>
+    <tbody>${detailRows || '<tr><td colspan="5" style="text-align:center;padding:16px;color:#999">No records for this year</td></tr>'}</tbody></table>
+    <p style="margin-top:24px;font-size:12px;color:#999">Generated on ${new Date().toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })}</p>
+    <script>window.onload=()=>window.print()</script></body></html>`;
+
+    const w = window.open("", "_blank");
+    if (w) {
+      w.document.write(html);
+      w.document.close();
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">
+            Expenses &amp; Income
+          </h2>
+          <p className="text-muted-foreground text-sm mt-1">
+            Track all school finances and download audit reports
+          </p>
+        </div>
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          <DialogTrigger asChild>
+            <Button data-ocid="expenses.open_modal_button">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Record
+            </Button>
+          </DialogTrigger>
+          <DialogContent data-ocid="expenses.dialog">
+            <DialogHeader>
+              <DialogTitle>Add Financial Record</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-2">
+              <div className="space-y-1">
+                <Label>Type</Label>
+                <Select
+                  value={form.type}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      type: v as "income" | "expense",
+                    }))
+                  }
+                >
+                  <SelectTrigger data-ocid="expenses.add.select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="income">Income</SelectItem>
+                    <SelectItem value="expense">Expense</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Category</Label>
+                <Input
+                  data-ocid="expenses.add.input"
+                  placeholder="e.g. Salaries, Fees Collected, Utilities"
+                  value={form.category}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, category: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Description</Label>
+                <Input
+                  placeholder="Optional details"
+                  value={form.description}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, description: e.target.value }))
+                  }
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label>Amount (₹)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={form.amount}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, amount: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Date</Label>
+                  <Input
+                    type="date"
+                    value={form.date}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, date: e.target.value }))
+                    }
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label>Receipt No</Label>
+                  <Input
+                    data-ocid="expenses.add.receipt_input"
+                    placeholder="e.g. RCP-001"
+                    value={form.receiptNo}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, receiptNo: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Voucher Number</Label>
+                  <Input
+                    data-ocid="expenses.add.voucher_input"
+                    placeholder="e.g. VCH-001"
+                    value={form.voucherNumber}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, voucherNumber: e.target.value }))
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button
+                variant="outline"
+                data-ocid="expenses.add.cancel_button"
+                onClick={() => setAddOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                data-ocid="expenses.add.submit_button"
+                onClick={handleAdd}
+              >
+                Add Record
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="rounded-lg border bg-card p-4 space-y-1">
+          <p className="text-xs text-muted-foreground">This Month Income</p>
+          <p className="text-xl font-bold text-green-600">
+            ₹{summary.monthIncome.toLocaleString("en-IN")}
+          </p>
+        </div>
+        <div className="rounded-lg border bg-card p-4 space-y-1">
+          <p className="text-xs text-muted-foreground">This Month Expenses</p>
+          <p className="text-xl font-bold text-red-600">
+            ₹{summary.monthExpense.toLocaleString("en-IN")}
+          </p>
+        </div>
+        <div className="rounded-lg border bg-card p-4 space-y-1">
+          <p className="text-xs text-muted-foreground">This Month Net</p>
+          <p
+            className={`text-xl font-bold ${summary.monthNet >= 0 ? "text-green-600" : "text-red-600"}`}
+          >
+            ₹{summary.monthNet.toLocaleString("en-IN")}
+          </p>
+        </div>
+        <div className="rounded-lg border bg-card p-4 space-y-1">
+          <p className="text-xs text-muted-foreground">Year-to-Date Net</p>
+          <p
+            className={`text-xl font-bold ${summary.yearNet >= 0 ? "text-green-600" : "text-red-600"}`}
+          >
+            ₹{summary.yearNet.toLocaleString("en-IN")}
+          </p>
+        </div>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="flex flex-wrap gap-3 items-end">
+        <div className="space-y-1">
+          <Label className="text-xs">Month</Label>
+          <Input
+            data-ocid="expenses.filter.input"
+            type="month"
+            value={filterMonth}
+            onChange={(e) => setFilterMonth(e.target.value)}
+            className="w-40"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Type</Label>
+          <Select
+            value={filterType}
+            onValueChange={(v) =>
+              setFilterType(v as "all" | "income" | "expense")
+            }
+          >
+            <SelectTrigger data-ocid="expenses.filter.select" className="w-36">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="income">Income</SelectItem>
+              <SelectItem value="expense">Expense</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Category</Label>
+          <Input
+            placeholder="Search category..."
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            className="w-44"
+          />
+        </div>
+      </div>
+
+      {/* Records Table */}
+      <div className="rounded-lg border overflow-hidden">
+        <Table data-ocid="expenses.table">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead>Receipt No</TableHead>
+              <TableHead>Voucher No</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
+              <TableHead className="text-right">Delete</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={8}
+                  data-ocid="expenses.empty_state"
+                  className="text-center py-10 text-muted-foreground"
+                >
+                  No records found. Add your first income or expense.
+                </TableCell>
+              </TableRow>
+            ) : (
+              filtered.map((r, idx) => (
+                <TableRow key={r.id} data-ocid={`expenses.item.${idx + 1}`}>
+                  <TableCell className="text-sm">{r.date}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={r.type === "income" ? "default" : "destructive"}
+                      className={
+                        r.type === "income"
+                          ? "bg-green-100 text-green-800 hover:bg-green-100"
+                          : ""
+                      }
+                    >
+                      {r.type === "income" ? "Income" : "Expense"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-sm">{r.category}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      {r.description || "—"}
+                      {r.sourceType === "fee" && (
+                        <Badge className="text-xs px-1 py-0 bg-blue-100 text-blue-700 hover:bg-blue-100">
+                          Fee
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {r.receiptNo || "—"}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {r.voucherNumber || "—"}
+                  </TableCell>
+                  <TableCell
+                    className={`text-right font-semibold ${r.type === "income" ? "text-green-600" : "text-red-600"}`}
+                  >
+                    ₹{r.amount.toLocaleString("en-IN")}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {deleteConfirmId === r.id ? (
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          data-ocid={`expenses.delete_button.${idx + 1}`}
+                          onClick={() => handleDelete(r.id)}
+                        >
+                          Confirm
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          data-ocid={`expenses.cancel_button.${idx + 1}`}
+                          onClick={() => setDeleteConfirmId(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        data-ocid={`expenses.delete_button.${idx + 1}`}
+                        onClick={() => setDeleteConfirmId(r.id)}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Download Audit Reports */}
+      <div className="rounded-lg border bg-card p-5 space-y-4">
+        <div>
+          <h3 className="font-semibold text-base">Download Audit Reports</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Generate printable PDF reports for any month or year
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-4 items-end">
+          <div className="space-y-1">
+            <Label className="text-xs">Month (for Monthly Report)</Label>
+            <Input
+              type="month"
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
+              className="w-44"
+            />
+          </div>
+          <Button
+            variant="outline"
+            data-ocid="expenses.monthly.button"
+            onClick={handleDownloadMonthly}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Download Monthly Report
+          </Button>
+        </div>
+        <div className="flex flex-wrap gap-4 items-end">
+          <div className="space-y-1">
+            <Label className="text-xs">Year (for Yearly Report)</Label>
+            <Input
+              type="number"
+              min="2020"
+              max="2099"
+              value={reportYear}
+              onChange={(e) => setReportYear(e.target.value)}
+              className="w-32"
+            />
+          </div>
+          <Button
+            variant="outline"
+            data-ocid="expenses.yearly.button"
+            onClick={handleDownloadYearly}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Download Yearly Report
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // Principal Dashboard
 // ============================================================
 export default function PrincipalDashboard({ user, onLogout }: Props) {
@@ -5384,6 +6038,11 @@ export default function PrincipalDashboard({ user, onLogout }: Props) {
       icon: <DollarSign className="w-4 h-4" />,
     },
     {
+      id: "expenses-income",
+      label: "Expenses & Income",
+      icon: <TrendingUp className="w-4 h-4" />,
+    },
+    {
       id: "profile",
       label: "My Profile",
       icon: <User className="w-4 h-4" />,
@@ -5418,6 +6077,8 @@ export default function PrincipalDashboard({ user, onLogout }: Props) {
         return <SendMessageToParents />;
       case "fee-report":
         return <FeeReport />;
+      case "expenses-income":
+        return <ExpensesIncome />;
       case "profile":
         return (
           <MyProfile

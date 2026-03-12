@@ -50,6 +50,7 @@ import {
   type ExamQuestion,
   type ExamResult,
   type FeeRecord,
+  type FinancialRecord,
   type HomeworkPost,
   type LeaveApplication,
   type OnlineExam,
@@ -67,6 +68,7 @@ import {
   getAttendance,
   getExams,
   getFees,
+  getFinancialRecords,
   getGrade,
   getHomework,
   getLeaves,
@@ -85,6 +87,7 @@ import {
   saveExams,
   saveFeeToBackend,
   saveFees,
+  saveFinancialRecord,
   saveHomework,
   saveHomeworkToBackend,
   saveLeaveToBackend,
@@ -744,6 +747,27 @@ function FeeUpdates({ teacherId }: { teacherId: string }) {
       saveFees([...fees, newFee]);
     }
     setFees((prev) => [...prev, newFee]);
+    // Auto-add to income if fee is paid
+    if (newFee.status === "paid") {
+      const existingIncome = getFinancialRecords().find(
+        (r) => r.sourceFeeId === newFee.id,
+      );
+      if (!existingIncome) {
+        const student = editStudent;
+        saveFinancialRecord({
+          id: generateId("fin"),
+          type: "income",
+          category: "Fee Collection",
+          description: `Fee from ${student ? student.name : newFee.studentId}`,
+          amount: newFee.amount,
+          date: newFee.date,
+          createdAt: new Date().toISOString(),
+          receiptNo: newFee.receiptNumber || undefined,
+          sourceType: "fee",
+          sourceFeeId: newFee.id,
+        } as FinancialRecord);
+      }
+    }
     setEditStudent(null);
     toast.success("Fee record updated");
   };

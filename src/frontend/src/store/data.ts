@@ -2281,3 +2281,42 @@ export async function getMyGameScoresFromBackend(
   const scores = await b.getMyGameScores(studentId);
   return scores as GameScoreRecord[];
 }
+
+// ============================================================
+// Financial Records (Expenses & Income)
+// ============================================================
+export interface FinancialRecord {
+  id: string;
+  type: "expense" | "income";
+  category: string;
+  description: string;
+  amount: number;
+  date: string; // ISO date string
+  createdAt: string;
+  receiptNo?: string;
+  voucherNumber?: string;
+  sourceType?: "manual" | "fee"; // fee = auto-imported from fee payment
+  sourceFeeId?: string; // reference to original FeeRecord id
+}
+
+const FINANCIAL_KEY = "edu_financial_records";
+
+export function getFinancialRecords(): FinancialRecord[] {
+  return getLS<FinancialRecord[]>(FINANCIAL_KEY, []);
+}
+
+export function saveFinancialRecord(record: FinancialRecord): void {
+  const all = getFinancialRecords();
+  const idx = all.findIndex((r) => r.id === record.id);
+  if (idx >= 0) {
+    all[idx] = record;
+  } else {
+    all.push(record);
+  }
+  setLS(FINANCIAL_KEY, all);
+}
+
+export function deleteFinancialRecord(id: string): void {
+  const all = getFinancialRecords().filter((r) => r.id !== id);
+  setLS(FINANCIAL_KEY, all);
+}
