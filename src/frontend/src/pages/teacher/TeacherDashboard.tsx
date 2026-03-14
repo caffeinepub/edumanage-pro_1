@@ -2326,31 +2326,29 @@ function MyAttendance({ teacherId }: { teacherId: string }) {
   const [records, setRecords] = useState<TeacherAttendance[]>(
     getTeacherAttendance().filter((r) => r.teacherId === teacherId),
   );
-  const [form, setForm] = useState({
-    date: today,
-    status: "present" as TeacherAttendance["status"],
-    checkInTime: "",
-    checkOutTime: "",
-  });
+  const [loading, setLoading] = useState<"checkin" | "checkout" | null>(null);
 
-  const todayRecord = records.find((r) => r.date === form.date);
+  const todayRecord = records.find((r) => r.date === today);
 
-  const handleMark = async () => {
-    if (!form.checkInTime) {
-      toast.error("Please enter check-in time");
-      return;
-    }
+  const getCurrentTime = () => {
+    const now = new Date();
+    return now.toTimeString().slice(0, 5); // HH:MM
+  };
+
+  const handleCheckIn = async () => {
     if (todayRecord) {
-      toast.error("Attendance already marked for this date");
+      toast.error("You have already checked in today");
       return;
     }
+    setLoading("checkin");
+    const checkInTime = getCurrentTime();
     const newRecord: TeacherAttendance = {
       id: generateId("tatt"),
       teacherId,
-      date: form.date,
-      status: form.status,
-      checkInTime: form.checkInTime,
-      checkOutTime: form.checkOutTime || undefined,
+      date: today,
+      status: "present",
+      checkInTime,
+      checkOutTime: undefined,
       approvalStatus: "pending",
     };
     try {
@@ -2360,25 +2358,24 @@ function MyAttendance({ teacherId }: { teacherId: string }) {
       saveTeacherAttendance([...getTeacherAttendance(), newRecord]);
     }
     setRecords((prev) => [...prev, newRecord]);
-    setForm({
-      date: today,
-      status: "present",
-      checkInTime: "",
-      checkOutTime: "",
-    });
-    toast.success("Attendance submitted — awaiting principal approval");
+    setLoading(null);
+    toast.success(
+      `Check-in recorded at ${checkInTime} — awaiting principal approval`,
+    );
   };
 
   const handleCheckOut = async () => {
     if (!todayRecord) {
-      toast.error("Mark check-in first");
+      toast.error("Please check in first");
       return;
     }
-    if (!form.checkOutTime) {
-      toast.error("Please enter check-out time");
+    if (todayRecord.checkOutTime) {
+      toast.error("You have already checked out today");
       return;
     }
-    const updatedRecord = { ...todayRecord, checkOutTime: form.checkOutTime };
+    setLoading("checkout");
+    const checkOutTime = getCurrentTime();
+    const updatedRecord = { ...todayRecord, checkOutTime };
     try {
       await updateTeacherAttendanceInBackend(updatedRecord);
     } catch (err) {
@@ -2391,7 +2388,8 @@ function MyAttendance({ teacherId }: { teacherId: string }) {
     setRecords((prev) =>
       prev.map((r) => (r.id === todayRecord.id ? updatedRecord : r)),
     );
-    toast.success("Check-out time saved");
+    setLoading(null);
+    toast.success(`Check-out recorded at ${checkOutTime}`);
   };
 
   const present = records.filter((r) => r.status === "present").length;
@@ -2421,76 +2419,131 @@ function MyAttendance({ teacherId }: { teacherId: string }) {
   return (
     <div>
       <h2 className="section-title">My Attendance</h2>
-      <p className="section-subtitle">Mark your attendance and view records</p>
+      <p className="section-subtitle">Mark your attendance for today</p>
 
-      {/* Self-mark form */}
-      <div className="bg-card border border-border rounded-lg p-5 mb-6">
-        <h3 className="font-semibold text-foreground mb-4">Mark Attendance</h3>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <div>
-            <Label>Date</Label>
-            <Input
-              type="date"
-              value={form.date}
-              min={today}
-              max={today}
-              readOnly
-            />
-          </div>
-          <div>
-            <Label>Status</Label>
-            <Select
-              value={form.status}
-              onValueChange={(v) =>
-                setForm({ ...form, status: v as TeacherAttendance["status"] })
-              }
+      {/* Check In / Check Out card */}
+      <div className="bg-card border border-border rounded-lg p-6 mb-6">
+        <h3 className="font-semibold text-foreground mb-1">
+          Today's Attendance
+        </h3>
+        <p className="text-sm text-muted-foreground mb-5">
+          {new Date().toLocaleDateString("en-IN", {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+          {/* Check In */}
+          <div className="border border-border rounded-lg p-4 flex flex-col items-center gap-3">
+            <div
+              className={`w-12 h-12 rounded-full flex items-center justify-center ${todayRecord?.checkInTime ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}
             >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="present">Present</SelectItem>
-                <SelectItem value="absent">Absent</SelectItem>
-                <SelectItem value="late">Late</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Check-In Time</Label>
-            <Input
-              type="time"
-              value={form.checkInTime}
-              onChange={(e) =>
-                setForm({ ...form, checkInTime: e.target.value })
-              }
-            />
-          </div>
-          <div>
-            <Label>Check-Out Time</Label>
-            <Input
-              type="time"
-              value={form.checkOutTime}
-              onChange={(e) =>
-                setForm({ ...form, checkOutTime: e.target.value })
-              }
-            />
-          </div>
-        </div>
-        <div className="flex gap-3 mt-4">
-          <Button onClick={handleMark} disabled={!!todayRecord}>
-            {todayRecord ? "Already Marked" : "Submit Attendance"}
-          </Button>
-          {todayRecord && !todayRecord.checkOutTime && (
-            <Button variant="outline" onClick={handleCheckOut}>
-              Save Check-Out Time
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-6 h-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"
+                />
+              </svg>
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-medium text-foreground">Check In</p>
+              {todayRecord?.checkInTime ? (
+                <p className="text-lg font-bold text-green-700 mt-1">
+                  {todayRecord.checkInTime}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Not checked in yet
+                </p>
+              )}
+            </div>
+            <Button
+              className="w-full"
+              onClick={handleCheckIn}
+              disabled={!!todayRecord?.checkInTime || loading === "checkin"}
+              data-ocid="attendance.checkin_button"
+            >
+              {loading === "checkin"
+                ? "Saving..."
+                : todayRecord?.checkInTime
+                  ? "Checked In ✓"
+                  : "Check In Now"}
             </Button>
-          )}
+          </div>
+
+          {/* Check Out */}
+          <div className="border border-border rounded-lg p-4 flex flex-col items-center gap-3">
+            <div
+              className={`w-12 h-12 rounded-full flex items-center justify-center ${todayRecord?.checkOutTime ? "bg-blue-100 text-blue-700" : "bg-muted text-muted-foreground"}`}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-6 h-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
+              </svg>
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-medium text-foreground">Check Out</p>
+              {todayRecord?.checkOutTime ? (
+                <p className="text-lg font-bold text-blue-700 mt-1">
+                  {todayRecord.checkOutTime}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Not checked out yet
+                </p>
+              )}
+            </div>
+            <Button
+              className="w-full"
+              variant="outline"
+              onClick={handleCheckOut}
+              disabled={
+                !todayRecord?.checkInTime ||
+                !!todayRecord?.checkOutTime ||
+                loading === "checkout"
+              }
+              data-ocid="attendance.checkout_button"
+            >
+              {loading === "checkout"
+                ? "Saving..."
+                : todayRecord?.checkOutTime
+                  ? "Checked Out ✓"
+                  : "Check Out Now"}
+            </Button>
+          </div>
         </div>
+
         {todayRecord && (
-          <p className="text-xs text-muted-foreground mt-2">
-            Today already marked — you can only update check-out time if not yet
-            saved.
-          </p>
+          <div className="text-xs text-muted-foreground text-center">
+            Status:{" "}
+            <span className="font-medium capitalize">
+              {todayRecord.approvalStatus}
+            </span>{" "}
+            — pending principal review
+          </div>
         )}
       </div>
 
