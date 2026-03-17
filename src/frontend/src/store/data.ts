@@ -508,7 +508,16 @@ const DEFAULT_HALL_TICKET_DESIGN: HallTicketDesign = {
 };
 
 export function getHallTicketDesign(): HallTicketDesign {
-  return getLS<HallTicketDesign>(KEYS.HALL_TICKET, DEFAULT_HALL_TICKET_DESIGN);
+  const stored = getLS<HallTicketDesign>(
+    KEYS.HALL_TICKET,
+    DEFAULT_HALL_TICKET_DESIGN,
+  );
+  // Merge with defaults to handle old schema missing fields like subjects
+  return {
+    ...DEFAULT_HALL_TICKET_DESIGN,
+    ...stored,
+    subjects: stored.subjects ?? DEFAULT_HALL_TICKET_DESIGN.subjects,
+  };
 }
 
 export function saveHallTicketDesign(d: HallTicketDesign): void {

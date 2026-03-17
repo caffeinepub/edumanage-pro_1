@@ -51,6 +51,7 @@ import {
   type ExamResult,
   type FeeRecord,
   type FinancialRecord,
+  type HallTicketDesign,
   type HomeworkPost,
   type LeaveApplication,
   type OnlineExam,
@@ -70,6 +71,7 @@ import {
   getFees,
   getFinancialRecords,
   getGrade,
+  getHallTicketDesign,
   getHomework,
   getLeaves,
   getNotifications,
@@ -107,10 +109,12 @@ import {
 import {
   BookOpen,
   Calendar,
+  CheckSquare,
   Eye,
   FileText,
   Plus,
   Printer,
+  Square,
   Trash2,
   User,
   UserCheck,
@@ -2173,31 +2177,397 @@ function OnlineExamsTeacher({
 // ============================================================
 function HallTickets({
   teacherId,
-  teacherClass,
+  teacherClass: _teacherClass,
 }: { teacherId: string; teacherClass: string }) {
   const students = getStudentsByTeacher(teacherId);
-  const teacher = getTeacherById(teacherId);
-  const [selectedId, setSelectedId] = useState(students[0]?.id ?? "");
-  const student = students.find((s) => s.id === selectedId);
+  const design: HallTicketDesign = getHallTicketDesign();
+  const principalProfile = getPrincipalProfile();
+  const logoSrc =
+    principalProfile.institutionLogo ||
+    "/assets/generated/rahmaniyya-logo-transparent.dim_300x300.png";
 
-  const exams = getExams().filter(
-    (e) => e.class === teacherClass && e.status === "active",
+  // Mode: single | custom | bulk
+  const [mode, setMode] = useState<"single" | "custom" | "bulk">("single");
+  const [selectedId, setSelectedId] = useState(students[0]?.id ?? "");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const borderStyleMap: Record<HallTicketDesign["borderStyle"], string> = {
+    solid: "3px solid",
+    double: "6px double",
+    dotted: "3px dotted",
+  };
+  const ticketBorder = `${borderStyleMap[design.borderStyle]} ${design.headerBg}`;
+
+  // Students to print based on mode
+  const studentsToPrint =
+    mode === "bulk"
+      ? students
+      : mode === "custom"
+        ? students.filter((s) => selectedIds.includes(s.id))
+        : students.filter((s) => s.id === selectedId);
+
+  // Print style effect
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.id = "teacher-hall-ticket-print-style";
+    style.textContent = `
+      @media print {
+        body * { visibility: hidden !important; }
+        #teacher-hall-ticket-print-wrapper,
+        #teacher-hall-ticket-print-wrapper * { visibility: visible !important; }
+        #teacher-hall-ticket-print-wrapper {
+          position: fixed !important;
+          top: 0; left: 0;
+          width: 100vw;
+          background: white;
+          padding: 20px;
+        }
+        .hall-ticket-page-break { page-break-after: always; }
+        @page { margin: 1cm; size: A4; }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      const el = document.getElementById("teacher-hall-ticket-print-style");
+      if (el) document.head.removeChild(el);
+    };
+  }, []);
+
+  const toggleStudentId = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const renderTicket = (student: (typeof students)[0]) => (
+    <div
+      className="bg-white rounded-lg overflow-hidden"
+      style={{
+        border: ticketBorder,
+        maxWidth: "720px",
+        fontFamily: "'Times New Roman', Times, serif",
+        color: "#111",
+        margin: "0 auto",
+      }}
+    >
+      {/* Header */}
+      <div
+        className="px-6 py-5 flex items-center gap-4"
+        style={{ backgroundColor: design.headerBg }}
+      >
+        {design.showLogo && (
+          <img
+            src={logoSrc}
+            alt="Logo"
+            className="w-16 h-16 object-contain rounded"
+            style={{ background: "rgba(255,255,255,0.15)", padding: "4px" }}
+          />
+        )}
+        <div className="flex-1 text-center">
+          <h1
+            className="text-xl font-bold tracking-wide"
+            style={{ color: "white", textShadow: "0 1px 2px rgba(0,0,0,0.3)" }}
+          >
+            {design.institutionName}
+          </h1>
+          {design.tagline && (
+            <p
+              className="text-sm mt-0.5"
+              style={{ color: "rgba(255,255,255,0.85)" }}
+            >
+              {design.tagline}
+            </p>
+          )}
+        </div>
+        {design.showLogo && <div className="w-16 shrink-0" />}
+      </div>
+
+      {/* Title Banner */}
+      <div
+        className="text-center py-2.5"
+        style={{
+          backgroundColor: `${design.headerBg}22`,
+          borderBottom: `2px solid ${design.headerBg}44`,
+        }}
+      >
+        <p
+          className="text-base font-bold tracking-widest uppercase"
+          style={{ color: design.headerBg, letterSpacing: "0.2em" }}
+        >
+          Hall Ticket
+        </p>
+        <p className="text-sm font-medium" style={{ color: "#444" }}>
+          {design.examName} — {design.examYear}
+        </p>
+      </div>
+
+      {/* Body */}
+      <div className="px-6 pt-4 pb-5 relative">
+        {design.showLogo && (
+          <img
+            src={logoSrc}
+            alt=""
+            aria-hidden="true"
+            className="absolute pointer-events-none select-none"
+            style={{
+              width: "220px",
+              height: "220px",
+              objectFit: "contain",
+              opacity: 0.05,
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+            }}
+          />
+        )}
+
+        {/* Student Info */}
+        <div className="flex items-start gap-5 mb-5">
+          <div
+            className="shrink-0 w-20 h-24 rounded overflow-hidden flex items-center justify-center text-2xl font-bold"
+            style={{
+              border: `2px solid ${design.headerBg}`,
+              color: "white",
+              backgroundColor: design.headerBg,
+            }}
+          >
+            {student.photo ? (
+              <img
+                src={student.photo}
+                alt={student.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              (student.name?.charAt(0) ?? "?")
+            )}
+          </div>
+          <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            {(
+              [
+                ["Student Name", student.name],
+                ["Roll Number", student.rollNo],
+                ["Class / Section", student.class],
+                ["Student ID", student.id],
+              ] as [string, string][]
+            ).map(([label, value]) => (
+              <div key={label} className="border-b border-gray-200 pb-1">
+                <span
+                  className="block text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: design.headerBg }}
+                >
+                  {label}
+                </span>
+                <span className="font-medium text-gray-800">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Subject Schedule */}
+        <div className="mb-5">
+          <h3
+            className="text-sm font-bold uppercase tracking-wider mb-2"
+            style={{ color: design.headerBg }}
+          >
+            Examination Schedule
+          </h3>
+          <table
+            className="w-full text-sm"
+            style={{ borderCollapse: "collapse" }}
+          >
+            <thead>
+              <tr style={{ backgroundColor: design.headerBg, color: "white" }}>
+                <th className="px-3 py-2 text-left text-xs font-semibold">#</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold">
+                  Subject
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-semibold">
+                  Date
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-semibold">
+                  Time
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-semibold">
+                  Invigilator Sign
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {design.subjects.map((subj, idx) => (
+                <tr
+                  key={subj.id}
+                  style={{
+                    backgroundColor:
+                      idx % 2 === 0 ? "white" : `${design.headerBg}0d`,
+                  }}
+                >
+                  <td
+                    className="px-3 py-2 text-xs"
+                    style={{ border: "1px solid #e5e7eb", color: "#666" }}
+                  >
+                    {idx + 1}
+                  </td>
+                  <td
+                    className="px-3 py-2 text-sm font-medium"
+                    style={{ border: "1px solid #e5e7eb" }}
+                  >
+                    {subj.name || "—"}
+                  </td>
+                  <td
+                    className="px-3 py-2 text-xs"
+                    style={{ border: "1px solid #e5e7eb" }}
+                  >
+                    {subj.date
+                      ? new Date(subj.date).toLocaleDateString("en-IN", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })
+                      : "—"}
+                  </td>
+                  <td
+                    className="px-3 py-2 text-xs"
+                    style={{ border: "1px solid #e5e7eb" }}
+                  >
+                    {subj.time || "—"}
+                  </td>
+                  <td
+                    className="px-3 py-2"
+                    style={{ border: "1px solid #e5e7eb" }}
+                  >
+                    <div
+                      className="border-b border-gray-400 mt-4"
+                      style={{ minWidth: "80px" }}
+                    />
+                  </td>
+                </tr>
+              ))}
+              {design.subjects.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-3 py-3 text-center text-xs text-gray-500 italic"
+                    style={{ border: "1px solid #e5e7eb" }}
+                  >
+                    No subjects scheduled
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Instructions */}
+        <div
+          className="text-xs mb-5 p-3 rounded"
+          style={{
+            backgroundColor: `${design.headerBg}0d`,
+            border: `1px solid ${design.headerBg}33`,
+            color: "#555",
+          }}
+        >
+          <p className="font-semibold mb-1" style={{ color: design.headerBg }}>
+            Instructions:
+          </p>
+          <ol className="list-decimal list-inside space-y-0.5">
+            <li>This hall ticket must be presented at the examination hall.</li>
+            <li>Students must arrive 15 minutes before the examination.</li>
+            <li>
+              Mobile phones and electronic devices are strictly prohibited.
+            </li>
+            <li>Lost hall ticket will not be re-issued.</li>
+          </ol>
+        </div>
+
+        {/* Signatures */}
+        {(design.showPrincipalSign || design.showClassTeacherSign) && (
+          <div
+            className="flex items-end justify-between mt-6 pt-4"
+            style={{ borderTop: "1px solid #e5e7eb" }}
+          >
+            {design.showClassTeacherSign && (
+              <div className="text-center">
+                <div
+                  className="border-b-2 mb-1 mx-auto"
+                  style={{ width: "120px", borderColor: design.headerBg }}
+                />
+                <p className="text-xs font-semibold" style={{ color: "#555" }}>
+                  Class Teacher
+                </p>
+                <p className="text-xs" style={{ color: "#888" }}>
+                  Signature &amp; Date
+                </p>
+              </div>
+            )}
+            {design.showPrincipalSign && (
+              <div className="text-center">
+                <div
+                  className="border-b-2 mb-1 mx-auto"
+                  style={{ width: "120px", borderColor: design.headerBg }}
+                />
+                <p className="text-xs font-semibold" style={{ color: "#555" }}>
+                  Principal
+                </p>
+                <p className="text-xs" style={{ color: "#888" }}>
+                  Signature &amp; Seal
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div
+        className="px-6 py-2 text-center text-xs"
+        style={{
+          backgroundColor: `${design.headerBg}18`,
+          borderTop: `1px solid ${design.headerBg}33`,
+          color: "#666",
+        }}
+      >
+        {design.institutionName} · {design.examName} {design.examYear} ·
+        Official Hall Ticket
+      </div>
+    </div>
   );
-  const [selectedExam, setSelectedExam] = useState(exams[0]?.id ?? "");
-  const exam = exams.find((e) => e.id === selectedExam);
 
   return (
     <div>
       <h2 className="section-title">Hall Tickets</h2>
       <p className="section-subtitle">
-        Generate and print hall tickets for students
+        Generate and download hall tickets for your students
       </p>
 
-      <div className="flex gap-4 mb-6 flex-wrap">
-        <div className="space-y-1">
+      {/* Mode selector */}
+      <div className="flex gap-2 mb-6 flex-wrap">
+        {(["single", "custom", "bulk"] as const).map((m) => (
+          <Button
+            key={m}
+            variant={mode === m ? "default" : "outline"}
+            size="sm"
+            onClick={() => setMode(m)}
+            data-ocid={`hallticket.${m}.tab`}
+            className="capitalize"
+          >
+            {m === "single"
+              ? "Single Student"
+              : m === "custom"
+                ? "Custom (Select Students)"
+                : "Bulk (All Students)"}
+          </Button>
+        ))}
+      </div>
+
+      {/* Single mode: student selector */}
+      {mode === "single" && (
+        <div className="mb-4 space-y-1">
           <Label>Select Student</Label>
           <Select value={selectedId} onValueChange={setSelectedId}>
-            <SelectTrigger className="w-56">
+            <SelectTrigger
+              className="w-56"
+              data-ocid="hallticket.student.select"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -2209,110 +2579,83 @@ function HallTickets({
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-1">
-          <Label>Select Exam</Label>
-          <Select value={selectedExam} onValueChange={setSelectedExam}>
-            <SelectTrigger className="w-56">
-              <SelectValue placeholder="Select exam" />
-            </SelectTrigger>
-            <SelectContent>
-              {exams.map((e) => (
-                <SelectItem key={e.id} value={e.id}>
-                  {e.title}
-                </SelectItem>
-              ))}
-              {exams.length === 0 && (
-                <SelectItem value="none" disabled>
-                  No active exams
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
+      )}
+
+      {/* Custom mode: checkbox list */}
+      {mode === "custom" && (
+        <div className="mb-4">
+          <Label className="mb-2 block">Select Students</Label>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-muted/30">
+            {students.map((s) => (
+              <label
+                key={s.id}
+                className="flex items-center gap-2 cursor-pointer text-sm"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedIds.includes(s.id)}
+                  onChange={() => toggleStudentId(s.id)}
+                  data-ocid="hallticket.student.checkbox"
+                  className="rounded"
+                />
+                <span>{s.name}</span>
+              </label>
+            ))}
+          </div>
+          {selectedIds.length > 0 && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {selectedIds.length} student(s) selected
+            </p>
+          )}
         </div>
+      )}
+
+      {/* Bulk mode info */}
+      {mode === "bulk" && (
+        <div className="mb-4 p-3 bg-muted/40 rounded-lg text-sm text-muted-foreground">
+          All {students.length} students in your class will be printed — one
+          ticket per page.
+        </div>
+      )}
+
+      {/* Print/Download button */}
+      <div className="flex justify-end mb-4 no-print">
+        <Button
+          className="gap-2"
+          onClick={() => window.print()}
+          disabled={mode === "custom" && selectedIds.length === 0}
+          data-ocid="hallticket.print.button"
+        >
+          <Printer className="w-4 h-4" />
+          {mode === "bulk"
+            ? `Print All (${students.length})`
+            : mode === "custom"
+              ? `Print Selected (${selectedIds.length})`
+              : "Print Hall Ticket"}
+        </Button>
       </div>
 
-      {student && (
-        <>
-          {/* Hall ticket card */}
+      {/* Hidden print wrapper */}
+      <div id="teacher-hall-ticket-print-wrapper">
+        {studentsToPrint.map((student, idx) => (
           <div
-            id="hall-ticket"
-            className="max-w-lg mx-auto border-2 border-foreground rounded-lg overflow-hidden print-target"
+            key={student.id}
+            className={
+              idx < studentsToPrint.length - 1
+                ? "hall-ticket-page-break mb-8"
+                : "mb-8"
+            }
           >
-            <div
-              className="p-4 text-center"
-              style={{
-                backgroundColor: "oklch(var(--primary))",
-                color: "oklch(var(--primary-foreground))",
-              }}
-            >
-              <h2 className="text-xl font-bold">Delhi Public School</h2>
-              <p className="text-sm opacity-80">
-                Established 2001 · Excellence in Education
-              </p>
-            </div>
-            <div
-              className="p-4"
-              style={{
-                backgroundColor: "oklch(0.94 0.04 264)",
-                textAlign: "center",
-              }}
-            >
-              <h3 className="text-lg font-bold text-foreground">HALL TICKET</h3>
-              <p className="text-sm text-muted-foreground">
-                {exam?.title ?? "Annual Examination 2026"}
-              </p>
-            </div>
-            <div className="p-6">
-              <div className="flex gap-6">
-                <div className="w-24 h-28 bg-muted border-2 border-border rounded flex items-center justify-center text-3xl font-bold text-muted-foreground shrink-0">
-                  {student.name.charAt(0)}
-                </div>
-                <div className="flex-1 space-y-2 text-sm">
-                  {[
-                    ["Student Name", student.name],
-                    ["Roll Number", student.rollNo],
-                    ["Class / Section", student.class],
-                    ["Student ID", student.id],
-                    ["Exam", exam?.title ?? "Annual Examination 2026"],
-                    [
-                      "Date",
-                      exam ? formatDate(exam.createdAt) : "March 20, 2026",
-                    ],
-                    ["Duration", exam ? `${exam.duration} minutes` : "3 hours"],
-                    ["Exam Center", "School Main Hall"],
-                  ].map(([k, v]) => (
-                    <div key={k} className="flex gap-2">
-                      <span className="font-semibold text-foreground w-32 shrink-0">
-                        {k}:
-                      </span>
-                      <span className="text-muted-foreground">{v}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="mt-6 pt-4 border-t border-border flex justify-between items-end text-xs text-muted-foreground">
-                <div>
-                  <p className="font-semibold text-foreground mb-1">
-                    Invigilator&apos;s Signature
-                  </p>
-                  <div className="w-32 border-b border-foreground mt-4" />
-                </div>
-                <div className="text-right">
-                  <p className="font-semibold text-foreground mb-1">
-                    Class Teacher
-                  </p>
-                  <p>{teacher?.name ?? "Teacher"}</p>
-                </div>
-              </div>
-            </div>
+            {renderTicket(student)}
           </div>
+        ))}
+      </div>
 
-          <div className="flex justify-center mt-4 no-print">
-            <Button className="gap-2" onClick={() => window.print()}>
-              <Printer className="w-4 h-4" /> Print Hall Ticket
-            </Button>
-          </div>
-        </>
+      {/* On-screen preview (single mode only) */}
+      {mode === "single" && students.find((s) => s.id === selectedId) && (
+        <div className="no-print">
+          {renderTicket(students.find((s) => s.id === selectedId)!)}
+        </div>
       )}
     </div>
   );

@@ -124,12 +124,49 @@ import {
   User,
   X,
 } from "lucide-react";
+import React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 interface Props {
   user: CurrentUser;
   onLogout: () => void;
+}
+
+// ============================================================
+// Section Error Boundary
+// ============================================================
+class SectionErrorBoundary extends React.Component<
+  { children: React.ReactNode; name: string },
+  { hasError: boolean; error: string }
+> {
+  constructor(props: { children: React.ReactNode; name: string }) {
+    super(props);
+    this.state = { hasError: false, error: "" };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error.message };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center p-12 text-center gap-4">
+          <div className="text-4xl">⚠️</div>
+          <h3 className="text-lg font-semibold text-destructive">
+            Something went wrong loading {this.props.name}
+          </h3>
+          <p className="text-sm text-muted-foreground max-w-sm">
+            {this.state.error ||
+              "An unexpected error occurred. Please try refreshing the page."}
+          </p>
+          <Button onClick={() => this.setState({ hasError: false, error: "" })}>
+            Try Again
+          </Button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 // ============================================================
@@ -3100,7 +3137,10 @@ function StudentSuggestions() {
 // Hall Tickets
 // ============================================================
 function PrincipalHallTickets() {
-  const [design, setDesign] = useState<HallTicketDesign>(getHallTicketDesign);
+  const [design, setDesign] = useState<HallTicketDesign>(() => {
+    const d = getHallTicketDesign();
+    return { ...d, subjects: d.subjects ?? [] };
+  });
 
   const allStudents = getStudents();
   const classes = Array.from(new Set(allStudents.map((s) => s.class))).sort();
@@ -3126,6 +3166,8 @@ function PrincipalHallTickets() {
   const printStyleRef = useRef<HTMLStyleElement | null>(null);
 
   useEffect(() => {
+    // Remove stale instance if present (prevents duplicate on fast re-mount)
+    document.getElementById("hall-ticket-print-style")?.remove();
     const style = document.createElement("style");
     style.id = "hall-ticket-print-style";
     style.textContent = `
@@ -3149,9 +3191,14 @@ function PrincipalHallTickets() {
     document.head.appendChild(style);
     printStyleRef.current = style;
     return () => {
-      if (printStyleRef.current) {
-        document.head.removeChild(printStyleRef.current);
+      try {
+        if (printStyleRef.current?.parentNode) {
+          printStyleRef.current.parentNode.removeChild(printStyleRef.current);
+        }
+      } catch (_) {
+        // ignore cleanup errors
       }
+      printStyleRef.current = null;
     };
   }, []);
 
@@ -3209,7 +3256,7 @@ function PrincipalHallTickets() {
     double: "6px double",
     dotted: "3px dotted",
   };
-  const ticketBorder = `${borderStyleMap[design.borderStyle]} ${design.headerBg}`;
+  const ticketBorder = `${borderStyleMap[design.borderStyle] ?? "3px solid"} ${design.headerBg}`;
 
   return (
     <div>
@@ -3318,7 +3365,7 @@ function PrincipalHallTickets() {
               Subject Schedule
             </h3>
             <div className="space-y-2 mb-3">
-              {design.subjects.map((subj, idx) => (
+              {(design.subjects ?? []).map((subj, idx) => (
                 <div
                   key={subj.id}
                   className="flex items-start gap-1.5 bg-muted/40 rounded-lg p-2"
@@ -3364,7 +3411,7 @@ function PrincipalHallTickets() {
                   </button>
                 </div>
               ))}
-              {design.subjects.length === 0 && (
+              {(design.subjects ?? []).length === 0 && (
                 <p className="text-xs text-muted-foreground text-center py-2">
                   No subjects added yet
                 </p>
@@ -3675,7 +3722,7 @@ function PrincipalHallTickets() {
                       </tr>
                     </thead>
                     <tbody>
-                      {design.subjects.map((subj, idx) => (
+                      {(design.subjects ?? []).map((subj, idx) => (
                         <tr
                           key={subj.id}
                           style={{
@@ -3730,7 +3777,7 @@ function PrincipalHallTickets() {
                           </td>
                         </tr>
                       ))}
-                      {design.subjects.length === 0 && (
+                      {(design.subjects ?? []).length === 0 && (
                         <tr>
                           <td
                             colSpan={5}
@@ -4231,7 +4278,7 @@ const MESSAGE_TEMPLATES = [
 ];
 
 function SendMessageToParents() {
-  const allStudents = getStudents();
+  const allStudents = getStudents() ?? [];
   const [message, setMessage] = useState("");
   const [classFilter, setClassFilter] = useState("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -4658,7 +4705,9 @@ function FeeReport() {
         (r) => r.sourceFeeId === newFee.id,
       );
       if (!existing) {
-        const student = getStudents().find((s) => s.id === newFee.studentId);
+        const student = (getStudents() ?? []).find(
+          (s) => s.id === newFee.studentId,
+        );
         saveFinancialRecord({
           id: generateId("fin"),
           type: "income",
@@ -6064,7 +6113,11 @@ export default function PrincipalDashboard({ user, onLogout }: Props) {
       case "results":
         return <PublishResults />;
       case "hall-tickets":
-        return <PrincipalHallTickets />;
+        return (
+          <SectionErrorBoundary name="Hall Tickets">
+            <PrincipalHallTickets />
+          </SectionErrorBoundary>
+        );
       case "leaves":
         return <LeaveApprovals />;
       case "teacher-attendance":
@@ -6074,9 +6127,17 @@ export default function PrincipalDashboard({ user, onLogout }: Props) {
       case "timetable-approval":
         return <TimetableApproval user={currentUser} />;
       case "send-message":
-        return <SendMessageToParents />;
+        return (
+          <SectionErrorBoundary name="Send Message to Parents">
+            <SendMessageToParents />
+          </SectionErrorBoundary>
+        );
       case "fee-report":
-        return <FeeReport />;
+        return (
+          <SectionErrorBoundary name="Fee Report">
+            <FeeReport />
+          </SectionErrorBoundary>
+        );
       case "expenses-income":
         return <ExpensesIncome />;
       case "profile":
