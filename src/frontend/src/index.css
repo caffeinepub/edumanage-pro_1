@@ -1,0 +1,148 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/assets/fonts/PlusJakartaSans[wght].woff2") format("woff2");
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+
+    /* Navy institutional theme */
+    --background: 0.97 0.005 264;
+    --foreground: 0.18 0.04 264;
+    --card: 1 0 0;
+    --card-foreground: 0.18 0.04 264;
+    --popover: 1 0 0;
+    --popover-foreground: 0.18 0.04 264;
+
+    /* Deep navy blue - #1a237e equivalent */
+    --primary: 0.28 0.12 264;
+    --primary-foreground: 0.99 0 0;
+
+    --secondary: 0.93 0.02 264;
+    --secondary-foreground: 0.28 0.12 264;
+
+    --muted: 0.94 0.01 264;
+    --muted-foreground: 0.5 0.04 264;
+
+    --accent: 0.91 0.04 264;
+    --accent-foreground: 0.28 0.12 264;
+
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 0.985 0 0;
+
+    --success: 0.55 0.15 150;
+    --success-foreground: 0.99 0 0;
+
+    --warning: 0.75 0.16 70;
+    --warning-foreground: 0.18 0 0;
+
+    --border: 0.88 0.02 264;
+    --input: 0.88 0.02 264;
+    --ring: 0.28 0.12 264;
+
+    --chart-1: 0.48 0.15 264;
+    --chart-2: 0.58 0.15 210;
+    --chart-3: 0.55 0.15 150;
+    --chart-4: 0.65 0.16 70;
+    --chart-5: 0.577 0.245 27;
+
+    --sidebar: 0.25 0.12 264;
+    --sidebar-foreground: 0.92 0.03 264;
+    --sidebar-primary: 0.55 0.15 210;
+    --sidebar-primary-foreground: 0.99 0 0;
+    --sidebar-accent: 0.32 0.12 264;
+    --sidebar-accent-foreground: 0.99 0 0;
+    --sidebar-border: 0.32 0.1 264;
+    --sidebar-ring: 0.55 0.15 210;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  }
+
+  /* Print styles for hall tickets and progress cards */
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+    .print-only {
+      display: block !important;
+    }
+    body {
+      background: white;
+    }
+    /* Hide entire app chrome, show only the print target */
+    body > *:not(#root) {
+      display: none !important;
+    }
+    /* Progress card page breaks */
+    .print-target > * {
+      page-break-after: always;
+      break-after: page;
+    }
+    .print-target > *:last-child {
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+  }
+}
+
+@layer utilities {
+  .sidebar-link {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors cursor-pointer;
+    color: oklch(var(--sidebar-foreground));
+  }
+  .sidebar-link:hover {
+    background-color: oklch(var(--sidebar-accent));
+    color: oklch(var(--sidebar-accent-foreground));
+  }
+  .sidebar-link.active {
+    background-color: oklch(var(--sidebar-accent));
+    color: oklch(var(--sidebar-accent-foreground));
+    font-weight: 600;
+  }
+
+  .stat-card {
+    @apply bg-card rounded-lg border border-border p-5 shadow-xs;
+  }
+
+  .section-title {
+    @apply text-xl font-bold text-foreground mb-1;
+  }
+
+  .section-subtitle {
+    @apply text-sm text-muted-foreground mb-6;
+  }
+
+  .badge-success {
+    background-color: oklch(0.92 0.1 150);
+    color: oklch(0.3 0.1 150);
+  }
+
+  .badge-warning {
+    background-color: oklch(0.95 0.1 70);
+    color: oklch(0.35 0.1 50);
+  }
+
+  .badge-destructive {
+    background-color: oklch(0.95 0.1 25);
+    color: oklch(0.45 0.2 25);
+  }
+
+  .badge-info {
+    background-color: oklch(0.92 0.08 264);
+    color: oklch(0.28 0.12 264);
+  }
+}
