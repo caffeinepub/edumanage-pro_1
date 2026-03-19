@@ -4089,6 +4089,942 @@ function ExpensesIncome() {
 }
 
 // ============================================================
+// Hall Ticket Designer (Principal Only)
+// ============================================================
+function HallTicketDesigner() {
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const principalProfile = getPrincipalProfile();
+  const logoSrc =
+    principalProfile.institutionLogo ||
+    "/assets/generated/rahmaniyya-logo-transparent.dim_300x300.png";
+
+  const defaultDesign: HallTicketDesign = {
+    institutionName:
+      principalProfile.institutionName || "Rahmaniyya Public School",
+    tagline: "Knowledge • Discipline • Excellence",
+    headerBg: "#1a5276",
+    borderStyle: "solid",
+    examName: "First Term Examination",
+    examYear: new Date().getFullYear().toString(),
+    showLogo: true,
+    showPrincipalSign: true,
+    showClassTeacherSign: true,
+    subjects: [
+      { id: "s1", name: "Malayalam", date: "", time: "9:00 AM – 11:30 AM" },
+      { id: "s2", name: "English", date: "", time: "9:00 AM – 11:30 AM" },
+      { id: "s3", name: "Mathematics", date: "", time: "9:00 AM – 11:30 AM" },
+    ],
+  };
+
+  const [design, setDesign] = useState<HallTicketDesign>(() => {
+    try {
+      const saved = getHallTicketDesign();
+      return saved?.institutionName ? saved : defaultDesign;
+    } catch {
+      return defaultDesign;
+    }
+  });
+
+  const subjects = design.subjects;
+
+  const setSubjects = (arr: HallTicketSubject[]) => {
+    setDesign((d) => ({ ...d, subjects: arr }));
+  };
+  const addSubject = () => {
+    setSubjects([
+      ...subjects,
+      { id: `s${Date.now()}`, name: "", date: "", time: "" },
+    ]);
+  };
+
+  const removeSubject = (idx: number) => {
+    setSubjects(subjects.filter((_, i) => i !== idx));
+  };
+
+  const updateSubject = (
+    idx: number,
+    field: keyof HallTicketSubject,
+    val: string,
+  ) => {
+    setSubjects(
+      subjects.map((s, i) => (i === idx ? { ...s, [field]: val } : s)),
+    );
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      saveHallTicketDesign(design);
+      await saveHallTicketDesignToBackend(design);
+      setSaved(true);
+      toast.success("Hall ticket design saved!");
+      setTimeout(() => setSaved(false), 3000);
+    } catch (_e) {
+      setError("Failed to save design. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (error) {
+    return (
+      <div className="p-8 text-center" data-ocid="hall-ticket.error_state">
+        <p className="text-destructive mb-4">{error}</p>
+        <Button onClick={() => setError(null)}>Try Again</Button>
+      </div>
+    );
+  }
+
+  const ticketBorderColor = design.headerBg;
+  const ticketBorder =
+    design.borderStyle === "double"
+      ? `6px double ${ticketBorderColor}`
+      : design.borderStyle === "dotted"
+        ? `3px dotted ${ticketBorderColor}`
+        : `3px solid ${ticketBorderColor}`;
+
+  return (
+    <div className="space-y-6" data-ocid="hall-ticket.panel">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">Hall Ticket Designer</h2>
+        <Button
+          onClick={handleSave}
+          disabled={saving}
+          data-ocid="hall-ticket.save_button"
+          className="gap-2"
+        >
+          {saving ? (
+            "Saving…"
+          ) : saved ? (
+            <>
+              <Check className="w-4 h-4" /> Saved
+            </>
+          ) : (
+            "Save Design"
+          )}
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Design Controls */}
+        <div className="space-y-4 bg-card border border-border rounded-xl p-5">
+          <h3 className="font-semibold text-lg">Design Settings</h3>
+
+          <div className="space-y-2">
+            <Label>Institution Name</Label>
+            <Input
+              value={design.institutionName}
+              onChange={(e) =>
+                setDesign((d) => ({ ...d, institutionName: e.target.value }))
+              }
+              data-ocid="hall-ticket.input"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Tagline / Sub-heading</Label>
+            <Input
+              value={design.tagline}
+              onChange={(e) =>
+                setDesign((d) => ({ ...d, tagline: e.target.value }))
+              }
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Exam Name</Label>
+              <Input
+                value={design.examName}
+                onChange={(e) =>
+                  setDesign((d) => ({ ...d, examName: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Year</Label>
+              <Input
+                value={design.examYear}
+                onChange={(e) =>
+                  setDesign((d) => ({ ...d, examYear: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Header Color</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={design.headerBg}
+                  onChange={(e) =>
+                    setDesign((d) => ({ ...d, headerBg: e.target.value }))
+                  }
+                  className="w-10 h-10 rounded cursor-pointer border border-border"
+                />
+                <Input
+                  value={design.headerBg}
+                  onChange={(e) =>
+                    setDesign((d) => ({ ...d, headerBg: e.target.value }))
+                  }
+                  className="font-mono text-sm"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Border Style</Label>
+              <Select
+                value={design.borderStyle}
+                onValueChange={(v) =>
+                  setDesign((d) => ({
+                    ...d,
+                    borderStyle: v as "solid" | "double" | "dotted",
+                  }))
+                }
+              >
+                <SelectTrigger data-ocid="hall-ticket.select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="solid">Solid</SelectItem>
+                  <SelectItem value="double">Double</SelectItem>
+                  <SelectItem value="dotted">Dotted</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex gap-6">
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={design.showLogo}
+                onCheckedChange={(v) =>
+                  setDesign((d) => ({ ...d, showLogo: v }))
+                }
+                data-ocid="hall-ticket.switch"
+              />
+              <Label>Show Logo</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={design.showPrincipalSign}
+                onCheckedChange={(v) =>
+                  setDesign((d) => ({ ...d, showPrincipalSign: v }))
+                }
+              />
+              <Label>Principal Sign</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={design.showClassTeacherSign}
+                onCheckedChange={(v) =>
+                  setDesign((d) => ({ ...d, showClassTeacherSign: v }))
+                }
+              />
+              <Label>Class Teacher Sign</Label>
+            </div>
+          </div>
+
+          {/* Subject Schedule */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Subject Schedule</Label>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={addSubject}
+                data-ocid="hall-ticket.primary_button"
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" /> Add Subject
+              </Button>
+            </div>
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+              {subjects.map((s, idx) => (
+                <div
+                  key={s.id}
+                  className="flex gap-2 items-start"
+                  data-ocid={`hall-ticket.item.${idx + 1}`}
+                >
+                  <Input
+                    placeholder="Subject"
+                    value={s.name}
+                    onChange={(e) => updateSubject(idx, "name", e.target.value)}
+                    className="flex-1 text-sm"
+                  />
+                  <Input
+                    placeholder="Date"
+                    value={s.date}
+                    onChange={(e) => updateSubject(idx, "date", e.target.value)}
+                    className="w-28 text-sm"
+                  />
+                  <Input
+                    placeholder="Time"
+                    value={s.time}
+                    onChange={(e) => updateSubject(idx, "time", e.target.value)}
+                    className="w-36 text-sm"
+                  />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => removeSubject(idx)}
+                    className="shrink-0 text-destructive hover:text-destructive"
+                    data-ocid={`hall-ticket.delete_button.${idx + 1}`}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Live Preview */}
+        <div className="space-y-3">
+          <h3 className="font-semibold text-lg">Live Preview</h3>
+          <div
+            className="bg-white rounded-lg overflow-hidden shadow-lg"
+            style={{
+              border: ticketBorder,
+              fontFamily: "'Times New Roman', Times, serif",
+              color: "#111",
+            }}
+          >
+            {/* Header */}
+            <div
+              className="px-5 py-4 flex items-center gap-4"
+              style={{ backgroundColor: design.headerBg }}
+            >
+              {design.showLogo && (
+                <img
+                  src={logoSrc}
+                  alt="Logo"
+                  className="w-14 h-14 object-contain rounded"
+                  style={{ background: "rgba(255,255,255,0.15)", padding: 3 }}
+                />
+              )}
+              <div className="flex-1 text-center">
+                <h1 className="text-lg font-bold" style={{ color: "white" }}>
+                  {design.institutionName}
+                </h1>
+                {design.tagline && (
+                  <p
+                    className="text-xs mt-0.5"
+                    style={{ color: "rgba(255,255,255,0.85)" }}
+                  >
+                    {design.tagline}
+                  </p>
+                )}
+              </div>
+              {design.showLogo && <div className="w-14 shrink-0" />}
+            </div>
+            <div
+              className="text-center py-2"
+              style={{
+                backgroundColor: `${design.headerBg}22`,
+                borderBottom: `2px solid ${design.headerBg}44`,
+              }}
+            >
+              <p
+                className="text-sm font-bold tracking-widest uppercase"
+                style={{ color: design.headerBg }}
+              >
+                Hall Ticket
+              </p>
+              <p className="text-xs font-medium text-gray-600">
+                {design.examName} — {design.examYear}
+              </p>
+            </div>
+            <div className="px-5 py-3">
+              <div className="border border-gray-200 rounded p-2 mb-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                <div>
+                  <span className="text-gray-500">Student:</span>{" "}
+                  <span className="font-semibold">Sample Student</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Class:</span>{" "}
+                  <span className="font-semibold">5th</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Roll No:</span>{" "}
+                  <span className="font-semibold">01</span>
+                </div>
+              </div>
+              {subjects.length > 0 && (
+                <table className="w-full text-xs border-collapse mb-2">
+                  <thead>
+                    <tr style={{ backgroundColor: `${design.headerBg}22` }}>
+                      <th className="border border-gray-200 px-2 py-1 text-left">
+                        Subject
+                      </th>
+                      <th className="border border-gray-200 px-2 py-1">Date</th>
+                      <th className="border border-gray-200 px-2 py-1">Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {subjects.map((s, i) => (
+                      <tr
+                        key={
+                          s.name ? `preview-${s.name}` : `preview-empty-${i}`
+                        }
+                      >
+                        <td className="border border-gray-200 px-2 py-1">
+                          {s.name || "—"}
+                        </td>
+                        <td className="border border-gray-200 px-2 py-1 text-center">
+                          {s.date || "—"}
+                        </td>
+                        <td className="border border-gray-200 px-2 py-1 text-center">
+                          {s.time || "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              {(design.showPrincipalSign || design.showClassTeacherSign) && (
+                <div className="flex justify-between mt-3 pt-2 border-t border-gray-200 text-xs text-gray-500">
+                  <div className="text-center">
+                    <div className="border-t border-gray-400 w-24 mx-auto mt-4 mb-0.5" />
+                    Invigilator
+                  </div>
+                  {design.showClassTeacherSign && (
+                    <div className="text-center">
+                      <div className="border-t border-gray-400 w-24 mx-auto mt-4 mb-0.5" />
+                      Class Teacher
+                    </div>
+                  )}
+                  {design.showPrincipalSign && (
+                    <div className="text-center">
+                      <div className="border-t border-gray-400 w-24 mx-auto mt-4 mb-0.5" />
+                      Principal
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Fee Reports (Principal)
+// ============================================================
+function FeeReports() {
+  const [error, setError] = useState<string | null>(null);
+  const [classFilter, setClassFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [period, setPeriod] = useState<
+    "daily" | "weekly" | "monthly" | "yearly"
+  >("monthly");
+
+  const [allFees] = useState<FeeRecord[]>(() => {
+    try {
+      return getFees();
+    } catch {
+      return [];
+    }
+  });
+  const [allStudents] = useState<Student[]>(() => {
+    try {
+      return getStudents();
+    } catch {
+      return [];
+    }
+  });
+
+  const studentMap = useMemo(() => {
+    const m: Record<string, Student> = {};
+    for (const s of allStudents) m[s.id] = s;
+    return m;
+  }, [allStudents]);
+  const classes = useMemo(() => {
+    const c = new Set(allStudents.map((s) => s.class));
+    return Array.from(c).sort();
+  }, [allStudents]);
+  const filtered = useMemo(() => {
+    return allFees.filter((f) => {
+      const student = studentMap[f.studentId];
+      const matchClass =
+        classFilter === "all" || student?.class === classFilter;
+      const matchStatus = statusFilter === "all" || f.status === statusFilter;
+      return matchClass && matchStatus;
+    });
+  }, [allFees, studentMap, classFilter, statusFilter]);
+  const periodFiltered = useMemo(() => {
+    const now = new Date();
+    return filtered.filter((f) => {
+      if (!f.date) return true;
+      const d = new Date(f.date);
+      if (period === "daily") {
+        return d.toDateString() === now.toDateString();
+      }
+      if (period === "weekly") {
+        const weekAgo = new Date(now);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        return d >= weekAgo;
+      }
+      if (period === "monthly") {
+        return (
+          d.getMonth() === now.getMonth() &&
+          d.getFullYear() === now.getFullYear()
+        );
+      }
+      if (period === "yearly") {
+        return d.getFullYear() === now.getFullYear();
+      }
+      return true;
+    });
+  }, [filtered, period]);
+
+  const totalCollected = periodFiltered
+    .filter((f) => f.status === "paid")
+    .reduce((a, f) => a + f.amount, 0);
+  const totalPending = periodFiltered
+    .filter((f) => f.status === "pending")
+    .reduce((a, f) => a + f.amount, 0);
+
+  const now = new Date();
+  const downloadCSV = () => {
+    const rows = [
+      ["Student Name", "Class", "Amount", "Status", "Receipt No", "Date"],
+      ...filtered.map((f) => {
+        const s = studentMap[f.studentId];
+        return [
+          s?.name ?? "Unknown",
+          s?.class ?? "—",
+          f.amount.toString(),
+          f.status,
+          f.receiptNumber,
+          f.date,
+        ];
+      }),
+    ];
+    const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "fee_report.csv";
+    a.click();
+  };
+
+  const downloadPDF = () => {
+    const content = `
+      <html><head><title>Fee Report</title>
+      <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; }
+        h1 { text-align: center; color: #1a5276; }
+        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+        th { background: #1a5276; color: white; padding: 8px; text-align: left; }
+        td { padding: 6px 8px; border-bottom: 1px solid #ddd; }
+        tr:nth-child(even) td { background: #f5f5f5; }
+        .summary { display: flex; gap: 24px; margin: 12px 0; }
+        .summary div { padding: 8px 16px; border-radius: 6px; background: #eef; }
+      </style></head><body>
+      <h1>Fee Report — ${now.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</h1>
+      <div class="summary">
+        <div>Total Collected: ₹${totalCollected.toLocaleString()}</div>
+        <div>Total Pending: ₹${totalPending.toLocaleString()}</div>
+        <div>Records: ${periodFiltered.length}</div>
+      </div>
+      <table>
+        <thead><tr><th>Student Name</th><th>Class</th><th>Amount</th><th>Status</th><th>Receipt No</th><th>Date</th></tr></thead>
+        <tbody>${filtered
+          .map((f) => {
+            const s = studentMap[f.studentId];
+            return `<tr><td>${s?.name ?? "Unknown"}</td><td>${s?.class ?? "—"}</td><td>₹${f.amount}</td><td>${f.status}</td><td>${f.receiptNumber}</td><td>${f.date}</td></tr>`;
+          })
+          .join("")}</tbody>
+      </table>
+      </body></html>
+    `;
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(content);
+      win.document.close();
+      win.print();
+    }
+  };
+
+  if (error) {
+    return (
+      <div className="p-8 text-center" data-ocid="fee-reports.error_state">
+        <p className="text-destructive mb-4">{error}</p>
+        <Button onClick={() => setError(null)}>Try Again</Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6" data-ocid="fee-reports.panel">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h2 className="text-2xl font-bold">Fee Reports</h2>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={downloadCSV}
+            data-ocid="fee-reports.secondary_button"
+          >
+            <Download className="w-4 h-4 mr-1.5" /> CSV
+          </Button>
+          <Button
+            size="sm"
+            onClick={downloadPDF}
+            data-ocid="fee-reports.primary_button"
+          >
+            <Printer className="w-4 h-4 mr-1.5" /> PDF
+          </Button>
+        </div>
+      </div>
+
+      {/* Period tabs */}
+      <Tabs value={period} onValueChange={(v) => setPeriod(v as typeof period)}>
+        <TabsList data-ocid="fee-reports.tab">
+          <TabsTrigger value="daily">Daily</TabsTrigger>
+          <TabsTrigger value="weekly">Weekly</TabsTrigger>
+          <TabsTrigger value="monthly">Monthly</TabsTrigger>
+          <TabsTrigger value="yearly">Yearly</TabsTrigger>
+        </TabsList>
+        <TabsContent value={period}>
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4">
+              <p className="text-xs text-green-600 dark:text-green-400 mb-1">
+                Collected
+              </p>
+              <p className="text-xl font-bold text-green-700 dark:text-green-300">
+                ₹{totalCollected.toLocaleString()}
+              </p>
+            </div>
+            <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+              <p className="text-xs text-yellow-600 dark:text-yellow-400 mb-1">
+                Pending
+              </p>
+              <p className="text-xl font-bold text-yellow-700 dark:text-yellow-300">
+                ₹{totalPending.toLocaleString()}
+              </p>
+            </div>
+            <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">
+                Records
+              </p>
+              <p className="text-xl font-bold text-blue-700 dark:text-blue-300">
+                {periodFiltered.length}
+              </p>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* Filters */}
+      <div className="flex gap-3 flex-wrap">
+        <Select value={classFilter} onValueChange={setClassFilter}>
+          <SelectTrigger className="w-36" data-ocid="fee-reports.select">
+            <SelectValue placeholder="All Classes" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Classes</SelectItem>
+            {classes.map((c) => (
+              <SelectItem key={c} value={c}>
+                {c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="All Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="paid">Paid</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Table */}
+      <div className="rounded-xl border border-border overflow-hidden">
+        <Table data-ocid="fee-reports.table">
+          <TableHeader>
+            <TableRow>
+              <TableHead>#</TableHead>
+              <TableHead>Student Name</TableHead>
+              <TableHead>Class</TableHead>
+              <TableHead>Amount</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Receipt No</TableHead>
+              <TableHead>Date</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={7}
+                  className="text-center py-8 text-muted-foreground"
+                  data-ocid="fee-reports.empty_state"
+                >
+                  No fee records found.
+                </TableCell>
+              </TableRow>
+            ) : (
+              filtered.map((f, idx) => {
+                const s = studentMap[f.studentId];
+                return (
+                  <TableRow key={f.id} data-ocid={`fee-reports.row.${idx + 1}`}>
+                    <TableCell className="text-muted-foreground">
+                      {idx + 1}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {s?.name ?? "Unknown"}
+                    </TableCell>
+                    <TableCell>{s?.class ?? "—"}</TableCell>
+                    <TableCell>₹{f.amount.toLocaleString()}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={f.status === "paid" ? "default" : "secondary"}
+                      >
+                        {f.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{f.receiptNumber || "—"}</TableCell>
+                    <TableCell>{f.date ? formatDate(f.date) : "—"}</TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Send Message to Parents (Principal)
+// ============================================================
+const MESSAGE_TEMPLATES: Record<string, string> = {
+  "Fee Reminder":
+    "Dear Parent of {studentName} (Class {class}), this is a reminder that the school fee is pending. Please clear the dues at the earliest. Regards, School Management.",
+  "Exam Notice":
+    "Dear Parent of {studentName} (Class {class}), the upcoming examination schedule has been announced. Please ensure your child is well-prepared. Regards, School Management.",
+  "General Announcement":
+    "Dear Parent of {studentName} (Class {class}), we have an important announcement from the school. Please check the school notice board for details. Regards, School Management.",
+  Custom: "",
+};
+
+function SendMessageToParents() {
+  const [error, setError] = useState<string | null>(null);
+  const [classFilter, setClassFilter] = useState("all");
+  const [template, setTemplate] = useState("Fee Reminder");
+  const [customMessage, setCustomMessage] = useState(
+    MESSAGE_TEMPLATES["Fee Reminder"],
+  );
+
+  const [allStudents] = useState<Student[]>(() => {
+    try {
+      return getStudents();
+    } catch {
+      return [];
+    }
+  });
+
+  const classes = useMemo(() => {
+    const c = new Set(allStudents.map((s) => s.class));
+    return Array.from(c).sort();
+  }, [allStudents]);
+  const filtered = useMemo(() => {
+    return classFilter === "all"
+      ? allStudents
+      : allStudents.filter((s) => s.class === classFilter);
+  }, [allStudents, classFilter]);
+
+  const buildMessage = (student: Student) => {
+    return customMessage
+      .replace(/\{studentName\}/g, student.name)
+      .replace(/\{class\}/g, student.class);
+  };
+
+  const openWhatsApp = (phone: string, message: string) => {
+    const cleaned = phone.replace(/\D/g, "");
+    const number = cleaned.startsWith("91") ? cleaned : `91${cleaned}`;
+    window.open(
+      `https://wa.me/${number}?text=${encodeURIComponent(message)}`,
+      "_blank",
+    );
+  };
+
+  const sendToAll = () => {
+    for (const student of filtered) {
+      if (student.parentPhone) {
+        openWhatsApp(student.parentPhone, buildMessage(student));
+      }
+    }
+  };
+
+  if (error) {
+    return (
+      <div className="p-8 text-center" data-ocid="send-message.error_state">
+        <p className="text-destructive mb-4">{error}</p>
+        <Button onClick={() => setError(null)}>Try Again</Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6" data-ocid="send-message.panel">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h2 className="text-2xl font-bold">Send Message to Parents</h2>
+        <Button
+          onClick={sendToAll}
+          className="gap-2"
+          data-ocid="send-message.primary_button"
+        >
+          <Send className="w-4 h-4" />
+          Send to All {classFilter !== "all" ? `(${classFilter})` : ""}
+        </Button>
+      </div>
+
+      {/* Template & Filter */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Message Template</Label>
+          <Select
+            value={template}
+            onValueChange={(v) => {
+              setTemplate(v);
+              if (v !== "Custom") setCustomMessage(MESSAGE_TEMPLATES[v] ?? "");
+            }}
+          >
+            <SelectTrigger data-ocid="send-message.select">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.keys(MESSAGE_TEMPLATES).map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Filter by Class</Label>
+          <Select value={classFilter} onValueChange={setClassFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Classes" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Classes</SelectItem>
+              {classes.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Message compose */}
+      <div className="space-y-2">
+        <Label>
+          Message (use {"{"}studentName{"}"} and {"{"}class{"}"} for
+          personalization)
+        </Label>
+        <Textarea
+          rows={4}
+          value={customMessage}
+          onChange={(e) => {
+            setCustomMessage(e.target.value);
+            setTemplate("Custom");
+          }}
+          className="font-mono text-sm"
+          data-ocid="send-message.textarea"
+          placeholder="Type your message here..."
+        />
+      </div>
+
+      {/* Student list */}
+      <div className="rounded-xl border border-border overflow-hidden">
+        <Table data-ocid="send-message.table">
+          <TableHeader>
+            <TableRow>
+              <TableHead>#</TableHead>
+              <TableHead>Student Name</TableHead>
+              <TableHead>Class</TableHead>
+              <TableHead>Parent Phone</TableHead>
+              <TableHead>Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filtered.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={5}
+                  className="text-center py-8 text-muted-foreground"
+                  data-ocid="send-message.empty_state"
+                >
+                  No students found.
+                </TableCell>
+              </TableRow>
+            ) : (
+              filtered.map((student, idx) => (
+                <TableRow
+                  key={student.id}
+                  data-ocid={`send-message.row.${idx + 1}`}
+                >
+                  <TableCell className="text-muted-foreground">
+                    {idx + 1}
+                  </TableCell>
+                  <TableCell className="font-medium">{student.name}</TableCell>
+                  <TableCell>{student.class}</TableCell>
+                  <TableCell>
+                    {student.parentPhone || (
+                      <span className="text-muted-foreground text-xs">
+                        No phone
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {student.parentPhone ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5 text-green-700 border-green-300 hover:bg-green-50"
+                        onClick={() =>
+                          openWhatsApp(
+                            student.parentPhone,
+                            buildMessage(student),
+                          )
+                        }
+                        data-ocid={`send-message.secondary_button.${idx + 1}`}
+                      >
+                        <Send className="w-3 h-3" /> WhatsApp
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // Principal Dashboard
 // ============================================================
 export default function PrincipalDashboard({ user, onLogout }: Props) {
@@ -4184,6 +5120,21 @@ export default function PrincipalDashboard({ user, onLogout }: Props) {
       icon: <TrendingUp className="w-4 h-4" />,
     },
     {
+      id: "hall-ticket",
+      label: "Hall Ticket Design",
+      icon: <FileText className="w-4 h-4" />,
+    },
+    {
+      id: "fee-reports",
+      label: "Fee Reports",
+      icon: <DollarSign className="w-4 h-4" />,
+    },
+    {
+      id: "send-message",
+      label: "Send to Parents",
+      icon: <Send className="w-4 h-4" />,
+    },
+    {
       id: "profile",
       label: "My Profile",
       icon: <User className="w-4 h-4" />,
@@ -4214,6 +5165,12 @@ export default function PrincipalDashboard({ user, onLogout }: Props) {
         return <TimetableApproval user={currentUser} />;
       case "expenses-income":
         return <ExpensesIncome />;
+      case "hall-ticket":
+        return <HallTicketDesigner />;
+      case "fee-reports":
+        return <FeeReports />;
+      case "send-message":
+        return <SendMessageToParents />;
       case "profile":
         return (
           <MyProfile

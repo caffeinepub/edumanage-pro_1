@@ -1,28 +1,27 @@
 # EduR
 
 ## Current State
-The app is EduManage Pro, a school management system with Principal, Teacher, and Student portals. It has PWA support and a mobile-friendly layout, but branding is "EduManage Pro" / "Rahmaniyya Public School" with the old logo. The app name in index.html, manifest.json, DashboardLayout, and LoginPage all reference the old names.
+Principal dashboard has tabs: Overview, Manage Teachers, Manage Students, Post Notifications, Academic Calendar, Publish Results, Leave Approvals, Teacher Attendance, Student Suggestions, Timetable Approval, Expenses & Income, My Profile.
+
+The Hall Ticket, Fee Reports, and Send Message to Parents tabs were previously removed from the principal sidebar.
 
 ## Requested Changes (Diff)
 
 ### Add
-- New logo `/assets/uploads/logo-rah-2-1.png` replacing the old `/assets/uploads/logo-rah-1-1.png` as the default logo everywhere in the UI
-- App name "EduR" in all branding locations
+- **Hall Ticket** tab in principal sidebar: Principal can design hall tickets (institution name, header color, exam details, subject schedule with dates/times, signatures). Uses `saveHallTicketDesign`/`getHallTicketDesign` from backend bindings. Full design form + preview.
+- **Fee Reports** tab in principal sidebar: Shows all fee records with filters by class/status, period summaries (daily/weekly/monthly/yearly), PDF/CSV download, add/delete fee entries.
+- **Send Message to Parents** tab in principal sidebar: Bulk WhatsApp messaging with templates, personalization per student (wa.me links), and ability to reply/compose messages for parents.
 
 ### Modify
-- `index.html`: update `<title>`, `apple-mobile-web-app-title`, `application-name`, and `description` to use "EduR"
-- `manifest.json`: update `name`, `short_name`, `description` to "EduR" / "Rahmaniyya Public School - EduR"
-- `LoginPage.tsx`: replace old logo path with new logo path; update school name display to keep "Rahmaniyya Public School" but app branding as "EduR"
-- `DashboardLayout.tsx`: replace old logo path fallback with new logo path; update sidebar app/school name reference
-- `App.tsx`: update loading screen to show new logo
+- `navItems` array in PrincipalDashboard: add hall-ticket, fee-reports, send-message entries.
+- `renderSection` switch: add cases for the three new tabs.
 
 ### Remove
-- References to old logo path `/assets/uploads/logo-rah-1-1.png` as default (new logo becomes the default)
+- Nothing.
 
 ## Implementation Plan
-1. Update index.html title and meta tags to "EduR"
-2. Update manifest.json branding to "EduR"
-3. Update LoginPage.tsx: swap logo fallback path, add "EduR" app name label
-4. Update DashboardLayout.tsx: swap logo fallback path
-5. Generate PWA icons using the new logo
-6. Validate and deploy
+1. Add `HallTicketDesign` (principal version with full design controls) component function to PrincipalDashboard.tsx.
+2. Add `FeeReports` component function with fee listing, filters, summaries, PDF/CSV export.
+3. Add `SendMessageToParents` component function with WhatsApp message templates and per-student wa.me links.
+4. Add the three nav items to `navItems` array.
+5. Add the three cases to `renderSection` switch.
