@@ -124,7 +124,7 @@ import {
   User,
   X,
 } from "lucide-react";
-import type React from "react";
+import React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -4525,20 +4525,20 @@ function FeeReports() {
     "daily" | "weekly" | "monthly" | "yearly"
   >("monthly");
 
-  const [allFees] = useState<FeeRecord[]>(() => {
+  const [allFees, setAllFees] = useState<FeeRecord[]>([]);
+  const [allStudents, setAllStudents] = useState<Student[]>([]);
+  useEffect(() => {
     try {
-      return getFees();
+      setAllFees(getFees());
     } catch {
-      return [];
+      setAllFees([]);
     }
-  });
-  const [allStudents] = useState<Student[]>(() => {
     try {
-      return getStudents();
+      setAllStudents(getStudents());
     } catch {
-      return [];
+      setAllStudents([]);
     }
-  });
+  }, []);
 
   const studentMap = useMemo(() => {
     const m: Record<string, Student> = {};
@@ -4602,7 +4602,7 @@ function FeeReports() {
           s?.class ?? "—",
           f.amount.toString(),
           f.status,
-          f.receiptNumber,
+          f.receiptNumber ?? "",
           f.date,
         ];
       }),
@@ -4639,7 +4639,7 @@ function FeeReports() {
         <tbody>${filtered
           .map((f) => {
             const s = studentMap[f.studentId];
-            return `<tr><td>${s?.name ?? "Unknown"}</td><td>${s?.class ?? "—"}</td><td>₹${f.amount}</td><td>${f.status}</td><td>${f.receiptNumber}</td><td>${f.date}</td></tr>`;
+            return `<tr><td>${s?.name ?? "Unknown"}</td><td>${s?.class ?? "—"}</td><td>₹${f.amount}</td><td>${f.status}</td><td>${f.receiptNumber ?? "—"}</td><td>${f.date}</td></tr>`;
           })
           .join("")}</tbody>
       </table>
@@ -4693,7 +4693,91 @@ function FeeReports() {
           <TabsTrigger value="monthly">Monthly</TabsTrigger>
           <TabsTrigger value="yearly">Yearly</TabsTrigger>
         </TabsList>
-        <TabsContent value={period}>
+        <TabsContent value="daily">
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4">
+              <p className="text-xs text-green-600 dark:text-green-400 mb-1">
+                Collected
+              </p>
+              <p className="text-xl font-bold text-green-700 dark:text-green-300">
+                ₹{totalCollected.toLocaleString()}
+              </p>
+            </div>
+            <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+              <p className="text-xs text-yellow-600 dark:text-yellow-400 mb-1">
+                Pending
+              </p>
+              <p className="text-xl font-bold text-yellow-700 dark:text-yellow-300">
+                ₹{totalPending.toLocaleString()}
+              </p>
+            </div>
+            <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">
+                Records
+              </p>
+              <p className="text-xl font-bold text-blue-700 dark:text-blue-300">
+                {periodFiltered.length}
+              </p>
+            </div>
+          </div>
+        </TabsContent>
+        <TabsContent value="weekly">
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4">
+              <p className="text-xs text-green-600 dark:text-green-400 mb-1">
+                Collected
+              </p>
+              <p className="text-xl font-bold text-green-700 dark:text-green-300">
+                ₹{totalCollected.toLocaleString()}
+              </p>
+            </div>
+            <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+              <p className="text-xs text-yellow-600 dark:text-yellow-400 mb-1">
+                Pending
+              </p>
+              <p className="text-xl font-bold text-yellow-700 dark:text-yellow-300">
+                ₹{totalPending.toLocaleString()}
+              </p>
+            </div>
+            <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">
+                Records
+              </p>
+              <p className="text-xl font-bold text-blue-700 dark:text-blue-300">
+                {periodFiltered.length}
+              </p>
+            </div>
+          </div>
+        </TabsContent>
+        <TabsContent value="monthly">
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4">
+              <p className="text-xs text-green-600 dark:text-green-400 mb-1">
+                Collected
+              </p>
+              <p className="text-xl font-bold text-green-700 dark:text-green-300">
+                ₹{totalCollected.toLocaleString()}
+              </p>
+            </div>
+            <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+              <p className="text-xs text-yellow-600 dark:text-yellow-400 mb-1">
+                Pending
+              </p>
+              <p className="text-xl font-bold text-yellow-700 dark:text-yellow-300">
+                ₹{totalPending.toLocaleString()}
+              </p>
+            </div>
+            <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">
+                Records
+              </p>
+              <p className="text-xl font-bold text-blue-700 dark:text-blue-300">
+                {periodFiltered.length}
+              </p>
+            </div>
+          </div>
+        </TabsContent>
+        <TabsContent value="yearly">
           <div className="grid grid-cols-3 gap-4 mb-4">
             <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4">
               <p className="text-xs text-green-600 dark:text-green-400 mb-1">
@@ -4829,13 +4913,14 @@ function SendMessageToParents() {
     MESSAGE_TEMPLATES["Fee Reminder"],
   );
 
-  const [allStudents] = useState<Student[]>(() => {
+  const [allStudents, setAllStudents] = useState<Student[]>([]);
+  useEffect(() => {
     try {
-      return getStudents();
+      setAllStudents(getStudents());
     } catch {
-      return [];
+      setAllStudents([]);
     }
-  });
+  }, []);
 
   const classes = useMemo(() => {
     const c = new Set(allStudents.map((s) => s.class));
@@ -5027,6 +5112,41 @@ function SendMessageToParents() {
 // ============================================================
 // Principal Dashboard
 // ============================================================
+class SectionErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: string }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: "" };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error.message };
+  }
+  componentDidCatch(error: Error) {
+    console.error("Section error:", error);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 text-center">
+          <p className="text-destructive mb-4">
+            Something went wrong loading this section.
+          </p>
+          <button
+            type="button"
+            onClick={() => this.setState({ hasError: false, error: "" })}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded"
+          >
+            Try Again
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function PrincipalDashboard({ user, onLogout }: Props) {
   const [section, setSection] = useState("overview");
   const [currentUser, setCurrentUserState] = useState(user);
@@ -5193,7 +5313,7 @@ export default function PrincipalDashboard({ user, onLogout }: Props) {
       onSectionChange={setSection}
       onLogout={onLogout}
     >
-      {renderSection()}
+      <SectionErrorBoundary>{renderSection()}</SectionErrorBoundary>
     </DashboardLayout>
   );
 }
