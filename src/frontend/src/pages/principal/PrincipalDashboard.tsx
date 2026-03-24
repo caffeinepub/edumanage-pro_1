@@ -116,6 +116,7 @@ import {
   LayoutGrid,
   MessageSquare,
   Paperclip,
+  Phone,
   Plus,
   Printer,
   Send,
@@ -4947,10 +4948,24 @@ function SendMessageToParents() {
     );
   };
 
+  const openSMS = (phone: string, message: string) => {
+    const cleaned = phone.replace(/\D/g, "");
+    const number = cleaned.startsWith("91") ? cleaned : `91${cleaned}`;
+    window.open(`sms:+${number}?body=${encodeURIComponent(message)}`, "_self");
+  };
+
   const sendToAll = () => {
     for (const student of filtered) {
       if (student.parentPhone) {
         openWhatsApp(student.parentPhone, buildMessage(student));
+      }
+    }
+  };
+
+  const sendSMSToAll = () => {
+    for (const student of filtered) {
+      if (student.parentPhone) {
+        openSMS(student.parentPhone, buildMessage(student));
       }
     }
   };
@@ -4968,14 +4983,25 @@ function SendMessageToParents() {
     <div className="space-y-6" data-ocid="send-message.panel">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-2xl font-bold">Send Message to Parents</h2>
-        <Button
-          onClick={sendToAll}
-          className="gap-2"
-          data-ocid="send-message.primary_button"
-        >
-          <Send className="w-4 h-4" />
-          Send to All {classFilter !== "all" ? `(${classFilter})` : ""}
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            onClick={sendToAll}
+            className="gap-2 bg-green-600 hover:bg-green-700"
+            data-ocid="send-message.primary_button"
+          >
+            <Send className="w-4 h-4" />
+            WhatsApp to All {classFilter !== "all" ? `(${classFilter})` : ""}
+          </Button>
+          <Button
+            onClick={sendSMSToAll}
+            variant="outline"
+            className="gap-2 text-blue-700 border-blue-300 hover:bg-blue-50"
+            data-ocid="send-message.secondary_button"
+          >
+            <Phone className="w-4 h-4" />
+            SMS to All {classFilter !== "all" ? `(${classFilter})` : ""}
+          </Button>
+        </div>
       </div>
 
       {/* Template & Filter */}
@@ -5081,20 +5107,33 @@ function SendMessageToParents() {
                   </TableCell>
                   <TableCell>
                     {student.parentPhone ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-1.5 text-green-700 border-green-300 hover:bg-green-50"
-                        onClick={() =>
-                          openWhatsApp(
-                            student.parentPhone,
-                            buildMessage(student),
-                          )
-                        }
-                        data-ocid={`send-message.secondary_button.${idx + 1}`}
-                      >
-                        <Send className="w-3 h-3" /> WhatsApp
-                      </Button>
+                      <div className="flex gap-1.5 flex-wrap">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 text-green-700 border-green-300 hover:bg-green-50"
+                          onClick={() =>
+                            openWhatsApp(
+                              student.parentPhone,
+                              buildMessage(student),
+                            )
+                          }
+                          data-ocid={`send-message.secondary_button.${idx + 1}`}
+                        >
+                          <Send className="w-3 h-3" /> WhatsApp
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 text-blue-700 border-blue-300 hover:bg-blue-50"
+                          onClick={() =>
+                            openSMS(student.parentPhone, buildMessage(student))
+                          }
+                          data-ocid={`send-message.toggle.${idx + 1}`}
+                        >
+                          <Phone className="w-3 h-3" /> SMS
+                        </Button>
+                      </div>
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>
                     )}

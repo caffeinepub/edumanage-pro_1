@@ -39,7 +39,11 @@ type GameId =
   | "sentence-scramble"
   | "color-match"
   | "rhyming-words"
-  | "times-table";
+  | "times-table"
+  | "speak-the-word"
+  | "listen-and-spell"
+  | "picture-pronounce"
+  | "story-arrange";
 type Subject = "English" | "Maths";
 type GameScreen = "start" | "play" | "end";
 
@@ -201,6 +205,50 @@ const GAMES: GameMeta[] = [
     description: "Answer the times tables as fast as you can!",
     instructions:
       "Solve the multiplication questions before time runs out! Pick the right answer. ⏱️",
+    ageRange: "Class 2 – 4",
+  },
+  {
+    id: "speak-the-word",
+    name: "Speak the Word",
+    subject: "English",
+    levels: ["UKG", "1", "2"],
+    emoji: "🎤",
+    description: "Listen to the word and say it out loud!",
+    instructions:
+      "A word will be shown and spoken. Press the microphone button and say the word clearly. Try to match the pronunciation! 🎤",
+    ageRange: "UKG – Class 2",
+  },
+  {
+    id: "listen-and-spell",
+    name: "Listen & Spell",
+    subject: "English",
+    levels: ["1", "2", "3"],
+    emoji: "👂",
+    description: "Listen carefully and type the spelling!",
+    instructions:
+      "You will hear a word spoken out loud. Type the correct spelling of the word in the box. Listen carefully! 👂",
+    ageRange: "Class 1 – 3",
+  },
+  {
+    id: "picture-pronounce",
+    name: "Picture Pronunciation",
+    subject: "English",
+    levels: ["LKG", "UKG", "1"],
+    emoji: "🖼️",
+    description: "See the picture and say the word!",
+    instructions:
+      "Look at the emoji picture. Press the microphone and say the name of what you see. Speak clearly! 🖼️",
+    ageRange: "LKG – Class 1",
+  },
+  {
+    id: "story-arrange",
+    name: "Story Builder",
+    subject: "English",
+    levels: ["2", "3", "4"],
+    emoji: "📖",
+    description: "Put the story sentences in the right order!",
+    instructions:
+      "The sentences of a short story are mixed up! Tap them in the correct order to build the story from start to finish. 📖",
     ageRange: "Class 2 – 4",
   },
 ];
@@ -2713,6 +2761,925 @@ function GamesHub({
 // ─────────────────────────────────────────────────────────────
 // Main Export
 // ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Speak the Word Game
+// ─────────────────────────────────────────────────────────────
+const SPEAK_WORDS: Record<string, string[]> = {
+  UKG: ["cat", "dog", "sun", "hat", "red", "big", "run", "sit"],
+  "1": ["apple", "ball", "cake", "fish", "girl", "hand", "jump", "kite"],
+  "2": ["water", "light", "cloud", "grass", "sweet", "bread", "stone", "table"],
+};
+const SPEAK_WORD_EMOJIS: Record<string, string> = {
+  cat: "🐱",
+  dog: "🐶",
+  sun: "☀️",
+  hat: "🎩",
+  red: "🔴",
+  big: "🐘",
+  run: "🏃",
+  sit: "🪑",
+  apple: "🍎",
+  ball: "⚽",
+  cake: "🎂",
+  fish: "🐟",
+  girl: "👧",
+  hand: "✋",
+  jump: "🦘",
+  kite: "🪁",
+  water: "💧",
+  light: "💡",
+  cloud: "☁️",
+  grass: "🌿",
+  sweet: "🍬",
+  bread: "🍞",
+  stone: "🪨",
+  table: "🪑",
+};
+
+function speakWord(word: string) {
+  if (!("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(word);
+  utter.rate = 0.85;
+  utter.lang = "en-US";
+  window.speechSynthesis.speak(utter);
+}
+
+const hasSpeechRecognition =
+  typeof window !== "undefined" &&
+  ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+
+function SpeakTheWordGame({
+  studentId,
+  level,
+  onBack,
+  onDone,
+}: {
+  studentId: string;
+  level: Level;
+  onBack: () => void;
+  onDone: (stars: number, score: number, total: number) => void;
+}) {
+  const meta = GAMES[9];
+  const wordList = SPEAK_WORDS[level] ?? SPEAK_WORDS["1"];
+  const TOTAL = wordList.length;
+  const [screen, setScreen] = useState<GameScreen>("start");
+  const [round, setRound] = useState(0);
+  const [score, setScore] = useState(0);
+  const [stars, setStars] = useState(0);
+  const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
+  const [recognized, setRecognized] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const recRef = useRef<any>(null);
+
+  const currentWord = wordList[round] ?? wordList[0];
+
+  const init = useCallback(() => {
+    setRound(0);
+    setScore(0);
+    setStars(0);
+    setFeedback(null);
+    setRecognized("");
+    setIsListening(false);
+  }, []);
+
+  const finishGame = useCallback(
+    (finalScore: number) => {
+      const s = calcStars(finalScore, TOTAL);
+      setStars(s);
+      saveScore(meta.id, studentId, s);
+      setScreen("end");
+      onDone(s, finalScore, TOTAL);
+    },
+    [TOTAL, meta.id, studentId, onDone],
+  );
+
+  const advance = useCallback(
+    (correct: boolean) => {
+      const newScore = correct ? score + 1 : score;
+      if (correct) setScore((s) => s + 1);
+      const nextRound = round + 1;
+      if (nextRound >= TOTAL) {
+        setTimeout(() => finishGame(newScore), 1200);
+      } else {
+        setTimeout(() => {
+          setRound(nextRound);
+          setFeedback(null);
+          setRecognized("");
+        }, 1200);
+      }
+    },
+    [round, score, TOTAL, finishGame],
+  );
+
+  const startListening = () => {
+    if (!hasSpeechRecognition || feedback !== null) return;
+    try {
+      const SR =
+        (window as any).SpeechRecognition ||
+        (window as any).webkitSpeechRecognition;
+      const rec = new SR();
+      recRef.current = rec;
+      rec.lang = "en-US";
+      rec.interimResults = false;
+      rec.maxAlternatives = 3;
+      setIsListening(true);
+      rec.onresult = (e: any) => {
+        setIsListening(false);
+        const heard = Array.from(e.results[0])
+          .map((r: any) => r.transcript.toLowerCase().trim())
+          .join(" ");
+        setRecognized(heard);
+        const correct = heard.includes(currentWord.toLowerCase());
+        setFeedback(correct ? "correct" : "wrong");
+        advance(correct);
+      };
+      rec.onerror = () => {
+        setIsListening(false);
+        setRecognized("(Could not hear – try again)");
+      };
+      rec.onend = () => setIsListening(false);
+      rec.start();
+    } catch {
+      setIsListening(false);
+    }
+  };
+
+  const manualCorrect = () => {
+    if (feedback !== null) return;
+    setFeedback("correct");
+    setRecognized("✓ Marked as correct");
+    advance(true);
+  };
+
+  return (
+    <GameShell
+      meta={meta}
+      screen={screen}
+      stars={stars}
+      score={score}
+      total={TOTAL}
+      onStart={() => {
+        init();
+        setScreen("play");
+      }}
+      onPlayAgain={() => {
+        init();
+        setScreen("play");
+      }}
+      onBack={onBack}
+    >
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            data-ocid="games.back_button"
+          >
+            <ArrowLeft className="w-4 h-4" /> Games
+          </button>
+          <span className="text-sm font-semibold">
+            Word {round + 1}/{TOTAL} · ✅ {score}
+          </span>
+        </div>
+
+        <h2 className="text-xl font-extrabold text-center mb-6">
+          {meta.emoji} {meta.name}
+        </h2>
+
+        <div className="flex flex-col items-center gap-4 max-w-sm mx-auto">
+          <div
+            className="w-full bg-card border-2 rounded-3xl p-8 flex flex-col items-center gap-3 shadow-md"
+            style={{
+              borderColor:
+                feedback === "correct"
+                  ? "oklch(0.65 0.18 150)"
+                  : feedback === "wrong"
+                    ? "oklch(0.55 0.2 25)"
+                    : "oklch(0.55 0.15 264)",
+            }}
+          >
+            <div className="text-6xl">
+              {SPEAK_WORD_EMOJIS[currentWord] ?? "📝"}
+            </div>
+            <p className="text-4xl font-extrabold tracking-wider">
+              {currentWord}
+            </p>
+            {feedback && (
+              <div className="text-center">
+                <span className="text-2xl">
+                  {feedback === "correct" ? "✅" : "❌"}
+                </span>
+                {recognized && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Heard: "{recognized}"
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 flex-wrap justify-center w-full">
+            <Button
+              variant="outline"
+              size="lg"
+              className="rounded-2xl gap-2 font-bold"
+              onClick={() => speakWord(currentWord)}
+              data-ocid="games.listen_button"
+            >
+              🔊 Listen
+            </Button>
+            {hasSpeechRecognition ? (
+              <Button
+                size="lg"
+                disabled={feedback !== null}
+                onClick={startListening}
+                data-ocid="games.speak_button"
+                className={`rounded-2xl gap-2 font-bold transition-all ${
+                  isListening
+                    ? "animate-pulse bg-red-500 text-white hover:bg-red-600"
+                    : ""
+                }`}
+                style={
+                  !isListening
+                    ? { background: "oklch(0.55 0.18 264)", color: "#fff" }
+                    : {}
+                }
+              >
+                🎤 {isListening ? "Listening…" : "Speak"}
+              </Button>
+            ) : (
+              <Button
+                size="lg"
+                disabled={feedback !== null}
+                onClick={manualCorrect}
+                data-ocid="games.isaid_button"
+                className="rounded-2xl gap-2 font-bold"
+                style={{ background: "oklch(0.55 0.18 150)", color: "#fff" }}
+              >
+                ✅ I Said It!
+              </Button>
+            )}
+          </div>
+          {!hasSpeechRecognition && (
+            <p className="text-xs text-muted-foreground text-center px-4">
+              🎙️ Microphone not supported in this browser. Press "I Said It!"
+              after speaking.
+            </p>
+          )}
+        </div>
+      </div>
+    </GameShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Listen & Spell Game
+// ─────────────────────────────────────────────────────────────
+const SPELL_WORDS: Record<string, string[]> = {
+  "1": ["ball", "cat", "dog", "fish", "jump", "kite", "lamp", "moon"],
+  "2": ["chair", "bread", "cloud", "dream", "fruit", "green", "house", "juice"],
+  "3": [
+    "below",
+    "catch",
+    "dance",
+    "eagle",
+    "flame",
+    "grade",
+    "happy",
+    "island",
+  ],
+};
+
+function ListenAndSpellGame({
+  studentId,
+  level,
+  onBack,
+  onDone,
+}: {
+  studentId: string;
+  level: Level;
+  onBack: () => void;
+  onDone: (stars: number, score: number, total: number) => void;
+}) {
+  const meta = GAMES[10];
+  const wordList = SPELL_WORDS[level] ?? SPELL_WORDS["2"];
+  const TOTAL = wordList.length;
+  const [screen, setScreen] = useState<GameScreen>("start");
+  const [round, setRound] = useState(0);
+  const [score, setScore] = useState(0);
+  const [stars, setStars] = useState(0);
+  const [typed, setTyped] = useState("");
+  const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
+
+  const currentWord = wordList[round] ?? wordList[0];
+
+  const init = useCallback(() => {
+    setRound(0);
+    setScore(0);
+    setStars(0);
+    setTyped("");
+    setFeedback(null);
+  }, []);
+
+  const submit = () => {
+    if (feedback !== null || typed.trim() === "") return;
+    const correct = typed.trim().toLowerCase() === currentWord.toLowerCase();
+    setFeedback(correct ? "correct" : "wrong");
+    const newScore = correct ? score + 1 : score;
+    if (correct) setScore((s) => s + 1);
+    setTimeout(() => {
+      const nextRound = round + 1;
+      if (nextRound >= TOTAL) {
+        const s = calcStars(newScore, TOTAL);
+        setStars(s);
+        saveScore(meta.id, studentId, s);
+        setScreen("end");
+        onDone(s, newScore, TOTAL);
+      } else {
+        setRound(nextRound);
+        setTyped("");
+        setFeedback(null);
+      }
+    }, 1500);
+  };
+
+  return (
+    <GameShell
+      meta={meta}
+      screen={screen}
+      stars={stars}
+      score={score}
+      total={TOTAL}
+      onStart={() => {
+        init();
+        setScreen("play");
+      }}
+      onPlayAgain={() => {
+        init();
+        setScreen("play");
+      }}
+      onBack={onBack}
+    >
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            data-ocid="games.back_button"
+          >
+            <ArrowLeft className="w-4 h-4" /> Games
+          </button>
+          <span className="text-sm font-semibold">
+            Word {round + 1}/{TOTAL} · ✅ {score}
+          </span>
+        </div>
+
+        <h2 className="text-xl font-extrabold text-center mb-6">
+          {meta.emoji} {meta.name}
+        </h2>
+
+        <div className="flex flex-col items-center gap-4 max-w-sm mx-auto">
+          <p className="text-muted-foreground text-center text-sm">
+            Press the button to hear the word, then type its spelling.
+          </p>
+
+          <div className="flex gap-3">
+            <Button
+              size="lg"
+              className="rounded-2xl gap-2 font-bold"
+              style={{ background: "oklch(0.55 0.18 264)", color: "#fff" }}
+              onClick={() => speakWord(currentWord)}
+              data-ocid="games.hear_button"
+            >
+              🔊 Hear the Word
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              className="rounded-2xl gap-2 font-bold"
+              onClick={() => speakWord(currentWord)}
+              data-ocid="games.hear_again_button"
+            >
+              🔁 Again
+            </Button>
+          </div>
+
+          <div
+            className="w-full bg-card border-2 rounded-3xl p-6 flex flex-col items-center gap-4 shadow-md"
+            style={{
+              borderColor:
+                feedback === "correct"
+                  ? "oklch(0.65 0.18 150)"
+                  : feedback === "wrong"
+                    ? "oklch(0.55 0.2 25)"
+                    : "oklch(0.55 0.15 264)",
+            }}
+          >
+            <input
+              type="text"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+              disabled={feedback !== null}
+              placeholder="Type the word here…"
+              className="w-full text-center text-2xl font-bold bg-transparent border-b-2 border-border outline-none py-2 tracking-wider disabled:opacity-60"
+              data-ocid="games.spell_input"
+            />
+            {feedback && (
+              <div className="text-center">
+                <span className="text-3xl">
+                  {feedback === "correct" ? "✅" : "❌"}
+                </span>
+                {feedback === "wrong" && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Correct spelling: <strong>{currentWord}</strong>
+                  </p>
+                )}
+              </div>
+            )}
+            <Button
+              size="lg"
+              disabled={feedback !== null || typed.trim() === ""}
+              onClick={submit}
+              data-ocid="games.submit_button"
+              className="rounded-2xl font-bold px-8"
+              style={{ background: "oklch(0.55 0.18 150)", color: "#fff" }}
+            >
+              ✔ Check Answer
+            </Button>
+          </div>
+        </div>
+      </div>
+    </GameShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Picture Pronunciation Game
+// ─────────────────────────────────────────────────────────────
+const PICTURE_WORDS = [
+  { word: "cat", emoji: "🐱" },
+  { word: "dog", emoji: "🐶" },
+  { word: "sun", emoji: "☀️" },
+  { word: "fish", emoji: "🐟" },
+  { word: "tree", emoji: "🌳" },
+  { word: "book", emoji: "📚" },
+  { word: "ball", emoji: "⚽" },
+  { word: "bird", emoji: "🐦" },
+];
+
+function PicturePronounceGame({
+  studentId,
+  onBack,
+  onDone,
+}: {
+  studentId: string;
+  onBack: () => void;
+  onDone: (stars: number, score: number, total: number) => void;
+}) {
+  const meta = GAMES[11];
+  const TOTAL = PICTURE_WORDS.length;
+  const [screen, setScreen] = useState<GameScreen>("start");
+  const [round, setRound] = useState(0);
+  const [score, setScore] = useState(0);
+  const [stars, setStars] = useState(0);
+  const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
+  const [recognized, setRecognized] = useState("");
+  const [isListening, setIsListening] = useState(false);
+
+  const current = PICTURE_WORDS[round];
+
+  const init = useCallback(() => {
+    setRound(0);
+    setScore(0);
+    setStars(0);
+    setFeedback(null);
+    setRecognized("");
+    setIsListening(false);
+  }, []);
+
+  const finishGame = useCallback(
+    (finalScore: number) => {
+      const s = calcStars(finalScore, TOTAL);
+      setStars(s);
+      saveScore(meta.id, studentId, s);
+      setScreen("end");
+      onDone(s, finalScore, TOTAL);
+    },
+    [TOTAL, meta.id, studentId, onDone],
+  );
+
+  const advance = useCallback(
+    (correct: boolean) => {
+      const newScore = correct ? score + 1 : score;
+      if (correct) setScore((s) => s + 1);
+      const nextRound = round + 1;
+      if (nextRound >= TOTAL) {
+        setTimeout(() => finishGame(newScore), 1200);
+      } else {
+        setTimeout(() => {
+          setRound(nextRound);
+          setFeedback(null);
+          setRecognized("");
+        }, 1200);
+      }
+    },
+    [round, score, TOTAL, finishGame],
+  );
+
+  const startListening = () => {
+    if (!hasSpeechRecognition || feedback !== null) return;
+    try {
+      const SR =
+        (window as any).SpeechRecognition ||
+        (window as any).webkitSpeechRecognition;
+      const rec = new SR();
+      rec.lang = "en-US";
+      rec.interimResults = false;
+      rec.maxAlternatives = 3;
+      setIsListening(true);
+      rec.onresult = (e: any) => {
+        setIsListening(false);
+        const heard = Array.from(e.results[0])
+          .map((r: any) => r.transcript.toLowerCase().trim())
+          .join(" ");
+        setRecognized(heard);
+        const correct = heard.includes(current.word.toLowerCase());
+        setFeedback(correct ? "correct" : "wrong");
+        advance(correct);
+      };
+      rec.onerror = () => {
+        setIsListening(false);
+        setRecognized("(Could not hear – try again)");
+      };
+      rec.onend = () => setIsListening(false);
+      rec.start();
+    } catch {
+      setIsListening(false);
+    }
+  };
+
+  const manualCorrect = () => {
+    if (feedback !== null) return;
+    setFeedback("correct");
+    setRecognized("✓ Marked as correct");
+    advance(true);
+  };
+
+  return (
+    <GameShell
+      meta={meta}
+      screen={screen}
+      stars={stars}
+      score={score}
+      total={TOTAL}
+      onStart={() => {
+        init();
+        setScreen("play");
+      }}
+      onPlayAgain={() => {
+        init();
+        setScreen("play");
+      }}
+      onBack={onBack}
+    >
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            data-ocid="games.back_button"
+          >
+            <ArrowLeft className="w-4 h-4" /> Games
+          </button>
+          <span className="text-sm font-semibold">
+            Picture {round + 1}/{TOTAL} · ✅ {score}
+          </span>
+        </div>
+
+        <h2 className="text-xl font-extrabold text-center mb-6">
+          {meta.emoji} {meta.name}
+        </h2>
+
+        <div className="flex flex-col items-center gap-4 max-w-sm mx-auto">
+          <div
+            className="w-full bg-card border-2 rounded-3xl p-8 flex flex-col items-center gap-4 shadow-md"
+            style={{
+              borderColor:
+                feedback === "correct"
+                  ? "oklch(0.65 0.18 150)"
+                  : feedback === "wrong"
+                    ? "oklch(0.55 0.2 25)"
+                    : "oklch(0.55 0.15 264)",
+            }}
+          >
+            <div className="text-8xl">{current.emoji}</div>
+            <p className="text-2xl font-bold text-muted-foreground">
+              What is this?
+            </p>
+            {feedback && (
+              <div className="text-center">
+                <span className="text-3xl">
+                  {feedback === "correct" ? "✅" : "❌"}
+                </span>
+                {feedback === "wrong" && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    It&apos;s a <strong>{current.word}</strong>!
+                  </p>
+                )}
+                {recognized && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Heard: "{recognized}"
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 flex-wrap justify-center">
+            <Button
+              variant="outline"
+              size="lg"
+              className="rounded-2xl gap-2 font-bold"
+              onClick={() => speakWord(current.word)}
+              data-ocid="games.example_button"
+            >
+              🔊 Example
+            </Button>
+            {hasSpeechRecognition ? (
+              <Button
+                size="lg"
+                disabled={feedback !== null}
+                onClick={startListening}
+                data-ocid="games.say_button"
+                className={`rounded-2xl gap-2 font-bold transition-all ${
+                  isListening
+                    ? "animate-pulse bg-red-500 text-white hover:bg-red-600"
+                    : ""
+                }`}
+                style={
+                  !isListening
+                    ? { background: "oklch(0.55 0.18 264)", color: "#fff" }
+                    : {}
+                }
+              >
+                🎤 {isListening ? "Listening…" : "Say the Word"}
+              </Button>
+            ) : (
+              <Button
+                size="lg"
+                disabled={feedback !== null}
+                onClick={manualCorrect}
+                data-ocid="games.isaid_button"
+                className="rounded-2xl gap-2 font-bold"
+                style={{ background: "oklch(0.55 0.18 150)", color: "#fff" }}
+              >
+                ✅ I Said It!
+              </Button>
+            )}
+          </div>
+          {!hasSpeechRecognition && (
+            <p className="text-xs text-muted-foreground text-center px-4">
+              🎙️ Microphone not supported in this browser. Press "I Said It!"
+              after speaking.
+            </p>
+          )}
+        </div>
+      </div>
+    </GameShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Story Builder Game
+// ─────────────────────────────────────────────────────────────
+const STORIES = [
+  {
+    title: "The Lost Kitten",
+    sentences: [
+      "A little kitten got lost in the park.",
+      "She cried loudly for her mother.",
+      "A kind boy heard her crying.",
+      "He picked her up gently and looked for her home.",
+      "Finally, the kitten was back with her family.",
+    ],
+  },
+  {
+    title: "The Magic Seed",
+    sentences: [
+      "A farmer planted a tiny seed in the ground.",
+      "Every day he watered it with care.",
+      "After a week, a small green shoot appeared.",
+      "The shoot grew taller and taller.",
+      "One morning, a beautiful flower bloomed.",
+    ],
+  },
+  {
+    title: "Rainy Day",
+    sentences: [
+      "Dark clouds filled the sky.",
+      "Thunder rumbled and lightning flashed.",
+      "Rain began to pour down heavily.",
+      "The children ran inside the school.",
+      "They watched the rain through the window happily.",
+    ],
+  },
+  {
+    title: "The Helpful Robot",
+    sentences: [
+      "A small robot lived in a big city.",
+      "Every morning it woke up early.",
+      "It helped old people cross the road.",
+      "It picked up litter from the streets.",
+      "Everyone in the city loved the little robot.",
+    ],
+  },
+  {
+    title: "The Big Race",
+    sentences: [
+      "All the animals gathered for a big race.",
+      "The rabbit ran very fast at the start.",
+      "The tortoise walked slowly but steadily.",
+      "The rabbit took a nap under a tree.",
+      "The tortoise crossed the finish line first and won.",
+    ],
+  },
+];
+
+function StoryArrangeGame({
+  studentId,
+  onBack,
+  onDone,
+}: {
+  studentId: string;
+  onBack: () => void;
+  onDone: (stars: number, score: number, total: number) => void;
+}) {
+  const meta = GAMES[12];
+  const TOTAL = STORIES.length;
+  const [screen, setScreen] = useState<GameScreen>("start");
+  const [round, setRound] = useState(0);
+  const [score, setScore] = useState(0);
+  const [stars, setStars] = useState(0);
+  const [shuffled, setShuffled] = useState<string[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
+
+  const story = STORIES[round];
+
+  const buildRound = useCallback((r: number) => {
+    setShuffled(shuffleArray(STORIES[r].sentences));
+    setSelected([]);
+    setFeedback(null);
+  }, []);
+
+  const init = useCallback(() => {
+    setRound(0);
+    setScore(0);
+    setStars(0);
+    buildRound(0);
+  }, [buildRound]);
+
+  const tapSentence = (sentence: string) => {
+    if (feedback !== null) return;
+    const alreadyIdx = selected.indexOf(sentence);
+    if (alreadyIdx >= 0) {
+      setSelected((s) => s.filter((_, i) => i !== alreadyIdx));
+      return;
+    }
+    const newSelected = [...selected, sentence];
+    setSelected(newSelected);
+
+    if (newSelected.length === story.sentences.length) {
+      const correct = newSelected.join("|") === story.sentences.join("|");
+      setFeedback(correct ? "correct" : "wrong");
+      const newScore = correct ? score + 1 : score;
+      if (correct) setScore((s) => s + 1);
+      setTimeout(() => {
+        const nextRound = round + 1;
+        if (nextRound >= TOTAL) {
+          const s = calcStars(newScore, TOTAL);
+          setStars(s);
+          saveScore(meta.id, studentId, s);
+          setScreen("end");
+          onDone(s, newScore, TOTAL);
+        } else {
+          setRound(nextRound);
+          buildRound(nextRound);
+        }
+      }, 1500);
+    }
+  };
+
+  const remaining = shuffled.filter((s) => !selected.includes(s));
+
+  return (
+    <GameShell
+      meta={meta}
+      screen={screen}
+      stars={stars}
+      score={score}
+      total={TOTAL}
+      onStart={() => {
+        init();
+        setScreen("play");
+      }}
+      onPlayAgain={() => {
+        init();
+        setScreen("play");
+      }}
+      onBack={onBack}
+    >
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            data-ocid="games.back_button"
+          >
+            <ArrowLeft className="w-4 h-4" /> Games
+          </button>
+          <span className="text-sm font-semibold">
+            Story {round + 1}/{TOTAL} · ✅ {score}
+          </span>
+        </div>
+
+        <h2 className="text-xl font-extrabold text-center mb-1">
+          {meta.emoji} {meta.name}
+        </h2>
+        <p className="text-center text-base font-semibold text-muted-foreground mb-4">
+          📖 {story.title}
+        </p>
+
+        {/* Selected sentences (built story) */}
+        <div
+          className="bg-card border-2 rounded-2xl p-3 mb-4 min-h-[80px] max-w-lg mx-auto"
+          style={{
+            borderColor:
+              feedback === "correct"
+                ? "oklch(0.65 0.18 150)"
+                : feedback === "wrong"
+                  ? "oklch(0.55 0.2 25)"
+                  : "oklch(0.55 0.15 264)",
+          }}
+        >
+          {selected.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic text-center py-2">
+              Tap sentences below to build the story…
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {selected.map((s, idx) => (
+                <button
+                  key={`sel-${s.slice(0, 20)}`}
+                  type="button"
+                  onClick={() => tapSentence(s)}
+                  disabled={feedback !== null}
+                  className="text-left text-sm bg-primary/10 hover:bg-primary/20 rounded-xl px-3 py-2 font-medium transition-colors"
+                  data-ocid={`games.story_selected.${idx + 1}`}
+                >
+                  <span className="text-muted-foreground mr-2">{idx + 1}.</span>
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+          {feedback && (
+            <div className="text-center mt-2">
+              <span className="text-2xl">
+                {feedback === "correct"
+                  ? "✅ Perfect order!"
+                  : "❌ Not quite – try again next story!"}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Remaining sentence tiles */}
+        <div className="flex flex-col gap-2 max-w-lg mx-auto">
+          {remaining.map((s, idx) => (
+            <button
+              key={`tile-${s.slice(0, 20)}`}
+              type="button"
+              onClick={() => tapSentence(s)}
+              disabled={feedback !== null}
+              className="text-left text-sm bg-card border-2 border-border hover:border-primary rounded-xl px-3 py-2 font-medium transition-colors disabled:opacity-50"
+              data-ocid={`games.story_tile.${idx + 1}`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
+    </GameShell>
+  );
+}
+
 export default function LearningGames({
   studentId,
   studentName,
@@ -2892,6 +3859,45 @@ export default function LearningGames({
         level={level}
         onBack={handleBack}
         onDone={(s, sc, t) => handleDone("times-table", s, sc, t)}
+      />
+    );
+  }
+
+  if (activeGame === "speak-the-word") {
+    return (
+      <SpeakTheWordGame
+        studentId={studentId}
+        level={level}
+        onBack={handleBack}
+        onDone={(s, sc, t) => handleDone("speak-the-word", s, sc, t)}
+      />
+    );
+  }
+  if (activeGame === "listen-and-spell") {
+    return (
+      <ListenAndSpellGame
+        studentId={studentId}
+        level={level}
+        onBack={handleBack}
+        onDone={(s, sc, t) => handleDone("listen-and-spell", s, sc, t)}
+      />
+    );
+  }
+  if (activeGame === "picture-pronounce") {
+    return (
+      <PicturePronounceGame
+        studentId={studentId}
+        onBack={handleBack}
+        onDone={(s, sc, t) => handleDone("picture-pronounce", s, sc, t)}
+      />
+    );
+  }
+  if (activeGame === "story-arrange") {
+    return (
+      <StoryArrangeGame
+        studentId={studentId}
+        onBack={handleBack}
+        onDone={(s, sc, t) => handleDone("story-arrange", s, sc, t)}
       />
     );
   }
