@@ -4898,7 +4898,11 @@ function FeeReports() {
 // ============================================================
 const MESSAGE_TEMPLATES: Record<string, string> = {
   "Fee Reminder":
-    "Dear Parent of {studentName} (Class {class}), this is a reminder that the school fee is pending. Please clear the dues at the earliest. Regards, School Management.",
+    "Dear Parent of {studentName} (Class {class}), this is a reminder that the school fee is {feeStatus}. Amount: ₹{feeAmount}. Please clear the dues at the earliest. Regards, School Management.",
+  "Results Update":
+    "Dear Parent of {studentName} (Class {class}), your child's result for {examName}: Total Marks {totalMarks}, Percentage {percentage}%, Class Rank {rank}. Regards, School Management.",
+  "Fee Status":
+    "Dear Parent of {studentName} (Class {class}), current fee status: {feeStatus}, Amount: ₹{feeAmount}. Regards, School Management.",
   "Exam Notice":
     "Dear Parent of {studentName} (Class {class}), the upcoming examination schedule has been announced. Please ensure your child is well-prepared. Regards, School Management.",
   "General Announcement":
@@ -4915,13 +4919,74 @@ function SendMessageToParents() {
   );
 
   const [allStudents, setAllStudents] = useState<Student[]>([]);
+  const [allFees, setAllFees] = useState<FeeRecord[]>([]);
+  const [allResults, setAllResults] = useState<ExamResult[]>([]);
+
   useEffect(() => {
     try {
       setAllStudents(getStudents());
     } catch {
       setAllStudents([]);
     }
+    try {
+      setAllFees(getFees());
+    } catch {
+      setAllFees([]);
+    }
+    try {
+      setAllResults(getResults());
+    } catch {
+      setAllResults([]);
+    }
   }, []);
+
+  // Build per-student fee lookup (latest record)
+  const feeMap = useMemo(() => {
+    const map: Record<string, FeeRecord> = {};
+    for (const f of allFees) {
+      const existing = map[f.studentId];
+      if (!existing || new Date(f.date) >= new Date(existing.date)) {
+        map[f.studentId] = f;
+      }
+    }
+    return map;
+  }, [allFees]);
+
+  // Build per-student result lookup (latest approved) + rank per class
+  const resultMap = useMemo(() => {
+    const map: Record<string, ExamResult> = {};
+    const approved = allResults.filter((r) => r.status === "approved");
+    for (const r of approved) {
+      const existing = map[r.studentId];
+      if (
+        !existing ||
+        new Date(r.submittedAt) >= new Date(existing.submittedAt)
+      ) {
+        map[r.studentId] = r;
+      }
+    }
+    return map;
+  }, [allResults]);
+
+  const rankMap = useMemo(() => {
+    // Group students by class, calculate rank by percentage in their latest exam
+    const byClass: Record<string, { studentId: string; pct: number }[]> = {};
+    for (const [sid, result] of Object.entries(resultMap)) {
+      const total = result.subjects.reduce((s, x) => s + x.marks, 0);
+      const max = result.subjects.reduce((s, x) => s + x.maxMarks, 0);
+      const pct = max > 0 ? (total / max) * 100 : 0;
+      if (!byClass[result.class]) byClass[result.class] = [];
+      byClass[result.class].push({ studentId: sid, pct });
+    }
+    const ranks: Record<string, number> = {};
+    for (const group of Object.values(byClass)) {
+      group.sort((a, b) => b.pct - a.pct);
+      group.forEach((item, i) => {
+        ranks[item.studentId] = i + 1;
+      });
+    }
+    return ranks;
+  }, [resultMap]);
 
   const classes = useMemo(() => {
     const c = new Set(allStudents.map((s) => s.class));
@@ -4934,9 +4999,35 @@ function SendMessageToParents() {
   }, [allStudents, classFilter]);
 
   const buildMessage = (student: Student) => {
+    const fee = feeMap[student.id];
+    const result = resultMap[student.id];
+    const rank = rankMap[student.id];
+
+    const feeStatus = fee
+      ? fee.status.charAt(0).toUpperCase() + fee.status.slice(1)
+      : "N/A";
+    const feeAmount = fee ? fee.amount.toString() : "N/A";
+
+    let totalMarks = "N/A";
+    let percentage = "N/A";
+    let examName = "N/A";
+    if (result) {
+      const total = result.subjects.reduce((s, x) => s + x.marks, 0);
+      const max = result.subjects.reduce((s, x) => s + x.maxMarks, 0);
+      totalMarks = `${total}/${max}`;
+      percentage = max > 0 ? ((total / max) * 100).toFixed(1) : "N/A";
+      examName = result.examName;
+    }
+
     return customMessage
       .replace(/\{studentName\}/g, student.name)
-      .replace(/\{class\}/g, student.class);
+      .replace(/\{class\}/g, student.class)
+      .replace(/\{feeStatus\}/g, feeStatus)
+      .replace(/\{feeAmount\}/g, feeAmount)
+      .replace(/\{totalMarks\}/g, totalMarks)
+      .replace(/\{percentage\}/g, percentage)
+      .replace(/\{rank\}/g, rank ? rank.toString() : "N/A")
+      .replace(/\{examName\}/g, examName);
   };
 
   const openWhatsApp = (phone: string, message: string) => {
@@ -5073,6 +5164,7 @@ function SendMessageToParents() {
               <TableHead>Student Name</TableHead>
               <TableHead>Class</TableHead>
               <TableHead>Parent Phone</TableHead>
+              <TableHead>Message Preview</TableHead>
               <TableHead>Action</TableHead>
             </TableRow>
           </TableHeader>
@@ -5080,7 +5172,7 @@ function SendMessageToParents() {
             {filtered.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="text-center py-8 text-muted-foreground"
                   data-ocid="send-message.empty_state"
                 >
@@ -5104,6 +5196,15 @@ function SendMessageToParents() {
                         No phone
                       </span>
                     )}
+                  </TableCell>
+                  <TableCell className="max-w-[200px]">
+                    <span
+                      className="text-xs text-muted-foreground line-clamp-2"
+                      title={buildMessage(student)}
+                    >
+                      {buildMessage(student).slice(0, 80)}
+                      {buildMessage(student).length > 80 ? "…" : ""}
+                    </span>
                   </TableCell>
                   <TableCell>
                     {student.parentPhone ? (

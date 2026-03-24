@@ -1,27 +1,28 @@
 # EduR
 
 ## Current State
-PrincipalDashboard.tsx contains FeeReports and SendMessageToParents components that appear blank when opened. Both components read data from localStorage via a one-shot `useState` initializer that only fires at mount time. There is no `useEffect` to refresh data, no error boundary around `renderSection()`, and the Tabs/TabsContent pattern in FeeReports can cause invisible content on re-renders.
+The principal's "Send Message to Parents" section has message templates with only `{studentName}` and `{class}` placeholders. When sending to multiple parents, the message is the same for everyone with only the name substituted.
 
 ## Requested Changes (Diff)
 
 ### Add
-- `useEffect` in `FeeReports` to re-read `getFees()` and `getStudents()` after mount (and when section becomes active), so data loads even if backend sync hasn't completed before mount
-- `useEffect` in `SendMessageToParents` to re-read `getStudents()` after mount
-- A simple functional error boundary wrapper around `renderSection()` to prevent whole-dashboard blank screens from component crashes
+- New personalized placeholders in templates: `{feeStatus}`, `{feeAmount}`, `{totalMarks}`, `{percentage}`, `{rank}`, `{examName}`
+- Auto-fill logic: for each student, look up their latest fee record and latest approved exam result, calculate rank within their class, and substitute all placeholders before sending
+- New templates: "Results Update" (includes marks, rank, percentage) and "Fee Status" (includes fee status and amount)
+- Preview column in the student table showing a truncated personalized message per student before sending
 
 ### Modify
-- `FeeReports`: Convert `allFees` and `allStudents` from one-shot `useState` initializer to updatable state with `useEffect` refresh
-- `FeeReports`: Fix `Tabs`/`TabsContent` pattern — use four separate `<TabsContent>` elements (one per period value) instead of a single dynamic one, to avoid invisible content race condition
-- `FeeReports`: Fix `f.receiptNumber` in PDF template string and CSV export to use `?? "—"` guard
-- `SendMessageToParents`: Convert `allStudents` from one-shot initializer to updatable state with `useEffect` refresh
+- `MESSAGE_TEMPLATES` constants to include new placeholders and new template entries
+- `buildMessage` function to accept fee and result data and resolve all placeholders per student
+- `SendMessageToParents` component to load fees and results alongside students and pass them to `buildMessage`
 
 ### Remove
 - Nothing removed
 
 ## Implementation Plan
-1. In `FeeReports`: change `useState<FeeRecord[]>(() => getFees())` to `useState<FeeRecord[]>([])` and add `useEffect(() => { setAllFees(getFees()); setAllStudents(getStudents()); }, [])` to load data after mount
-2. In `FeeReports`: replace single `<TabsContent value={period}>` with four `<TabsContent value="daily">`, `<TabsContent value="weekly">`, etc. each rendering the summary cards and filtering the correct period
-3. In `FeeReports` PDF/CSV: replace `f.receiptNumber` with `f.receiptNumber ?? "—"` (PDF) and `f.receiptNumber ?? ""` (CSV)
-4. In `SendMessageToParents`: change `useState<Student[]>(() => getStudents())` to `useState<Student[]>([])` and add `useEffect(() => { setAllStudents(getStudents()); }, [])` 
-5. Wrap `{renderSection()}` in the main return with a simple try/catch error boundary component that shows a fallback instead of blanking the whole dashboard
+1. Add new template strings with all placeholders
+2. In `SendMessageToParents`, load `getFees()` and `getResults()` on mount
+3. Build per-student lookup maps: latest fee record and latest approved exam result
+4. Calculate class ranks from approved results
+5. Update `buildMessage` to resolve `{feeStatus}`, `{feeAmount}`, `{totalMarks}`, `{percentage}`, `{rank}`, `{examName}`
+6. Add a "Preview" column in the student rows showing a 60-char preview of the personalized message
