@@ -1,28 +1,29 @@
 # EduR
 
 ## Current State
-The principal's "Send Message to Parents" section has message templates with only `{studentName}` and `{class}` placeholders. When sending to multiple parents, the message is the same for everyone with only the name substituted.
+The Learning Games section (`src/frontend/src/pages/student/LearningGames.tsx`, ~3914 lines) has 13 games with star tracking and leaderboard. There is no audio/music in the games section.
 
 ## Requested Changes (Diff)
 
 ### Add
-- New personalized placeholders in templates: `{feeStatus}`, `{feeAmount}`, `{totalMarks}`, `{percentage}`, `{rank}`, `{examName}`
-- Auto-fill logic: for each student, look up their latest fee record and latest approved exam result, calculate rank within their class, and substitute all placeholders before sending
-- New templates: "Results Update" (includes marks, rank, percentage) and "Fee Status" (includes fee status and amount)
-- Preview column in the student table showing a truncated personalized message per student before sending
+- Background music system using Web Audio API (no external files needed) that plays a cheerful looping melody when the games section is open
+- A music toggle button (on/off) in the games section header so students can control the music
+- Sound effects for game events: correct answer chime, wrong answer buzz, game win fanfare, game over sound
+- Remember the music preference in localStorage (so if a student turns it off, it stays off)
 
 ### Modify
-- `MESSAGE_TEMPLATES` constants to include new placeholders and new template entries
-- `buildMessage` function to accept fee and result data and resolve all placeholders per student
-- `SendMessageToParents` component to load fees and results alongside students and pass them to `buildMessage`
+- `LearningGames.tsx`: add a `useGameAudio` hook at the top of the file that manages background music and sound effects using the Web Audio API. Wire the toggle button into the games header. Call sound effect functions at correct/wrong/win moments in each game.
 
 ### Remove
 - Nothing removed
 
 ## Implementation Plan
-1. Add new template strings with all placeholders
-2. In `SendMessageToParents`, load `getFees()` and `getResults()` on mount
-3. Build per-student lookup maps: latest fee record and latest approved exam result
-4. Calculate class ranks from approved results
-5. Update `buildMessage` to resolve `{feeStatus}`, `{feeAmount}`, `{totalMarks}`, `{percentage}`, `{rank}`, `{examName}`
-6. Add a "Preview" column in the student rows showing a 60-char preview of the personalized message
+1. Create a `useGameAudio` hook (inline in LearningGames.tsx or as a small helper) using Web Audio API that:
+   - Generates a cheerful looping background melody (simple pentatonic notes, ~8-bar loop)
+   - Provides functions: `playCorrect()`, `playWrong()`, `playWin()`, `playGameOver()`
+   - Exposes `musicOn`, `toggleMusic()` state
+   - Persists music preference in localStorage
+   - Starts/stops background music when the component mounts/unmounts
+2. Add a music toggle button (🎵/🔇 icon) in the games hub header area
+3. Wire `playCorrect()` and `playWrong()` into answer handling in each game
+4. Wire `playWin()` / `playGameOver()` into game end screens

@@ -15,6 +15,7 @@ import {
   MessageSquare,
   TrendingUp,
 } from "@/components/DashboardLayout";
+import StudentWelcomeScreen from "@/components/StudentWelcomeScreen";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1888,6 +1889,10 @@ function AIAssistant({ user, studentClass }: AIAssistantProps) {
 export default function StudentDashboard({ user, onLogout }: Props) {
   const [section, setSection] = useState("overview");
   const [hasVisitedAssistant, setHasVisitedAssistant] = useState(false);
+  const welcomeKey = `edur_welcomed_${user.id}`;
+  const [showWelcome, setShowWelcome] = useState(
+    () => !sessionStorage.getItem(welcomeKey),
+  );
   const student = getStudentById(user.id);
   const studentClass = student?.class ?? user.class ?? "10A";
 
@@ -2004,33 +2009,43 @@ export default function StudentDashboard({ user, onLogout }: Props) {
   };
 
   return (
-    <DashboardLayout
-      user={user}
-      navItems={navItems}
-      activeSection={section}
-      onSectionChange={(s) => {
-        if (s === "assistant") setHasVisitedAssistant(true);
-        setSection(s);
-      }}
-      onLogout={onLogout}
-    >
-      {renderSection()}
-
-      {/* Floating AI Assistant button */}
-      {section !== "assistant" && (
-        <button
-          type="button"
-          onClick={openAssistant}
-          data-ocid="ai_assistant.floating_button"
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center"
-          title="Open AI Assistant"
-        >
-          <Bot className="w-6 h-6" />
-          {!hasVisitedAssistant && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive rounded-full animate-pulse" />
-          )}
-        </button>
+    <>
+      {showWelcome && (
+        <StudentWelcomeScreen
+          studentName={user.name}
+          studentId={user.id}
+          photoUrl={student?.photo}
+          onDismiss={() => setShowWelcome(false)}
+        />
       )}
-    </DashboardLayout>
+      <DashboardLayout
+        user={user}
+        navItems={navItems}
+        activeSection={section}
+        onSectionChange={(s) => {
+          if (s === "assistant") setHasVisitedAssistant(true);
+          setSection(s);
+        }}
+        onLogout={onLogout}
+      >
+        {renderSection()}
+
+        {/* Floating AI Assistant button */}
+        {section !== "assistant" && (
+          <button
+            type="button"
+            onClick={openAssistant}
+            data-ocid="ai_assistant.floating_button"
+            className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center"
+            title="Open AI Assistant"
+          >
+            <Bot className="w-6 h-6" />
+            {!hasVisitedAssistant && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive rounded-full animate-pulse" />
+            )}
+          </button>
+        )}
+      </DashboardLayout>
+    </>
   );
 }

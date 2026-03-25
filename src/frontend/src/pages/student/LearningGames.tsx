@@ -27,6 +27,242 @@ import { ArrowLeft, Star, Trophy } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // ─────────────────────────────────────────────────────────────
+// Game Audio (Web Audio API)
+// ─────────────────────────────────────────────────────────────
+interface GameAudioFunctions {
+  playCorrect: () => void;
+  playWrong: () => void;
+  playWin: () => void;
+  playGameOver: () => void;
+  musicOn: boolean;
+  toggleMusic: () => void;
+}
+
+// Module-level ref so all game sub-components can call audio without prop drilling
+const gameAudioRef: { current: GameAudioFunctions | null } = { current: null };
+
+function useGameAudio(): GameAudioFunctions {
+  const [musicOn, setMusicOn] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("edur_games_music") !== "false";
+    } catch {
+      return true;
+    }
+  });
+
+  const ctxRef = useRef<AudioContext | null>(null);
+  const gainRef = useRef<GainNode | null>(null);
+  const loopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const musicOnRef = useRef(musicOn);
+  useEffect(() => {
+    musicOnRef.current = musicOn;
+  }, [musicOn]);
+
+  const getCtx = useCallback((): AudioContext => {
+    if (!ctxRef.current || ctxRef.current.state === "closed") {
+      ctxRef.current = new AudioContext();
+    }
+    if (ctxRef.current.state === "suspended") {
+      ctxRef.current.resume().catch(() => {});
+    }
+    return ctxRef.current;
+  }, []);
+
+  // Pentatonic melody: C5, E5, G5, A5, G5, E5, C5, rest
+  const MELODY_NOTES = [
+    523.25, 659.25, 783.99, 880.0, 783.99, 659.25, 523.25, 0,
+  ];
+  const NOTE_DURATION = 0.5; // seconds (120 BPM ≈ 0.5s per beat)
+
+  const playMelodyLoop = useCallback(() => {
+    if (!musicOnRef.current) return;
+    const ctx = getCtx();
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.15, ctx.currentTime);
+    masterGain.connect(ctx.destination);
+    gainRef.current = masterGain;
+
+    let t = ctx.currentTime;
+    for (const freq of MELODY_NOTES) {
+      if (freq > 0) {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, t);
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(1, t + 0.05);
+        g.gain.linearRampToValueAtTime(0, t + NOTE_DURATION - 0.05);
+        osc.connect(g);
+        g.connect(masterGain);
+        osc.start(t);
+        osc.stop(t + NOTE_DURATION);
+      }
+      t += NOTE_DURATION;
+    }
+
+    const totalDuration = MELODY_NOTES.length * NOTE_DURATION * 1000;
+    loopTimeoutRef.current = setTimeout(() => {
+      if (musicOnRef.current) playMelodyLoop();
+    }, totalDuration - 50);
+  }, [getCtx]);
+
+  const stopMelody = useCallback(() => {
+    if (loopTimeoutRef.current) clearTimeout(loopTimeoutRef.current);
+    if (gainRef.current) {
+      try {
+        gainRef.current.gain.setValueAtTime(
+          0,
+          gainRef.current.context.currentTime,
+        );
+      } catch {
+        /* ignore */
+      }
+      gainRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (musicOn) {
+      playMelodyLoop();
+    } else {
+      stopMelody();
+    }
+    return stopMelody;
+  }, [musicOn, playMelodyLoop, stopMelody]);
+
+  const playCorrect = useCallback(() => {
+    try {
+      const ctx = getCtx();
+      const notes = [523.25, 659.25];
+      let t = ctx.currentTime;
+      for (const freq of notes) {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, t);
+        g.gain.setValueAtTime(0.3, t);
+        g.gain.linearRampToValueAtTime(0, t + 0.08);
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.08);
+        t += 0.08;
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [getCtx]);
+
+  const playWrong = useCallback(() => {
+    try {
+      const ctx = getCtx();
+      const notes = [220.0, 196.0];
+      let t = ctx.currentTime;
+      for (const freq of notes) {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(freq, t);
+        g.gain.setValueAtTime(0.2, t);
+        g.gain.linearRampToValueAtTime(0, t + 0.1);
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.1);
+        t += 0.1;
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [getCtx]);
+
+  const playWin = useCallback(() => {
+    try {
+      const ctx = getCtx();
+      const notes = [523.25, 659.25, 783.99, 1046.5];
+      let t = ctx.currentTime;
+      for (const freq of notes) {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, t);
+        g.gain.setValueAtTime(0.4, t);
+        g.gain.linearRampToValueAtTime(0, t + 0.1);
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.1);
+        t += 0.1;
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [getCtx]);
+
+  const playGameOver = useCallback(() => {
+    try {
+      const ctx = getCtx();
+      const notes = [392.0, 329.63, 261.63];
+      let t = ctx.currentTime;
+      for (const freq of notes) {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(freq, t);
+        g.gain.setValueAtTime(0.3, t);
+        g.gain.linearRampToValueAtTime(0, t + 0.15);
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.15);
+        t += 0.15;
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [getCtx]);
+
+  const toggleMusic = useCallback(() => {
+    setMusicOn((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("edur_games_music", String(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
+
+  const audio: GameAudioFunctions = {
+    playCorrect,
+    playWrong,
+    playWin,
+    playGameOver,
+    musicOn,
+    toggleMusic,
+  };
+
+  // Update module-level ref so sub-components can access without prop drilling
+  gameAudioRef.current = audio;
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopMelody();
+      gameAudioRef.current = null;
+      try {
+        ctxRef.current?.close();
+      } catch {
+        /* ignore */
+      }
+    };
+  }, [stopMelody]);
+
+  return audio;
+}
+
+// ─────────────────────────────────────────────────────────────
 // Types & Helpers
 // ─────────────────────────────────────────────────────────────
 type Level = "LKG" | "UKG" | "1" | "2" | "3" | "4";
@@ -544,6 +780,7 @@ function AlphabetMatchGame({
       if (!ca || !cb) return prev;
       const isMatch = ca.pairKey === cb.pairKey && ca.isUpper !== cb.isUpper;
       if (isMatch) {
+        gameAudioRef.current?.playCorrect();
         setTimeout(() => {
           setCards((p) =>
             p.map((c) =>
@@ -554,6 +791,7 @@ function AlphabetMatchGame({
           lockRef.current = false;
         }, 700);
       } else {
+        gameAudioRef.current?.playWrong();
         setTimeout(() => {
           setMistakes((m) => m + 1);
           setCards((p) =>
@@ -577,6 +815,8 @@ function AlphabetMatchGame({
       setStars(finalStars);
       saveScore(meta.id, studentId, finalStars);
       setTimeout(() => {
+        if (finalStars >= 2) gameAudioRef.current?.playWin();
+        else gameAudioRef.current?.playGameOver();
         setScreen("end");
         onDone(finalStars, matched, LETTER_PAIRS.length);
       }, 400);
@@ -739,6 +979,8 @@ function NumberCountingGame({
     setChosen(n);
     const correct = n === question.count;
     setFeedback(correct ? "correct" : "wrong");
+    if (correct) gameAudioRef.current?.playCorrect();
+    else gameAudioRef.current?.playWrong();
     if (correct) setScore((s) => s + 1);
     setTimeout(() => {
       const nextRound = round + 1;
@@ -747,6 +989,8 @@ function NumberCountingGame({
         const s = calcStars(newScore, ROUNDS);
         setStars(s);
         saveScore(meta.id, studentId, s);
+        if (s >= 2) gameAudioRef.current?.playWin();
+        else gameAudioRef.current?.playGameOver();
         setScreen("end");
         onDone(s, newScore, ROUNDS);
       } else {
@@ -929,6 +1173,8 @@ function WordBuilderGame({
     if (newTyped.length === question.word.length) {
       const correct = newTyped.join("") === question.word;
       setFeedback(correct ? "correct" : "wrong");
+      if (correct) gameAudioRef.current?.playCorrect();
+      else gameAudioRef.current?.playWrong();
       if (correct) setScore((s) => s + 1);
       setTimeout(() => {
         const nextRound = round + 1;
@@ -937,6 +1183,8 @@ function WordBuilderGame({
           const s = calcStars(newScore, TOTAL);
           setStars(s);
           saveScore(meta.id, studentId, s);
+          if (s >= 2) gameAudioRef.current?.playWin();
+          else gameAudioRef.current?.playGameOver();
           setScreen("end");
           onDone(s, newScore, TOTAL);
         } else {
@@ -1179,6 +1427,8 @@ function SpellWordGame({
     setChosen(opt);
     const correct = opt === q.correct;
     setFeedback(correct ? "correct" : "wrong");
+    if (correct) gameAudioRef.current?.playCorrect();
+    else gameAudioRef.current?.playWrong();
     if (correct) setScore((s) => s + 1);
     setTimeout(() => {
       const nextRound = round + 1;
@@ -1187,6 +1437,8 @@ function SpellWordGame({
         const s = calcStars(newScore, TOTAL);
         setStars(s);
         saveScore(meta.id, studentId, s);
+        if (s >= 2) gameAudioRef.current?.playWin();
+        else gameAudioRef.current?.playGameOver();
         setScreen("end");
         onDone(s, newScore, TOTAL);
       } else {
@@ -1393,6 +1645,8 @@ function MathsChallengeGame({
         finalTotal === 0 ? 1 : calcStars(finalScore, Math.max(finalTotal, 1));
       setStars(s);
       saveScore(meta.id, studentId, s);
+      if (s >= 2) gameAudioRef.current?.playWin();
+      else gameAudioRef.current?.playGameOver();
       setScreen("end");
       onDone(s, finalScore, finalTotal);
     },
@@ -1441,6 +1695,8 @@ function MathsChallengeGame({
     setChosen(opt);
     const correct = opt === question.answer;
     setFeedback(correct ? "correct" : "wrong");
+    if (correct) gameAudioRef.current?.playCorrect();
+    else gameAudioRef.current?.playWrong();
     if (correct) {
       setScore((s) => {
         scoreRef.current = s + 1;
@@ -1641,6 +1897,8 @@ function SentenceScrambleGame({
       const formed = newSelected.map((s) => s.word).join(" ");
       const correct = formed === question.sentence;
       setFeedback(correct ? "correct" : "wrong");
+      if (correct) gameAudioRef.current?.playCorrect();
+      else gameAudioRef.current?.playWrong();
       if (correct) setScore((s) => s + 1);
       setTimeout(() => {
         const nextRound = round + 1;
@@ -1649,6 +1907,8 @@ function SentenceScrambleGame({
           const s = calcStars(newScore, TOTAL);
           setStars(s);
           saveScore(meta.id, studentId, s);
+          if (s >= 2) gameAudioRef.current?.playWin();
+          else gameAudioRef.current?.playGameOver();
           setScreen("end");
           onDone(s, newScore, TOTAL);
         } else {
@@ -1856,6 +2116,8 @@ function ColorMatchGame({
     setChosen(colorName);
     const correct = colorName === question.colorName;
     setFeedback(correct ? "correct" : "wrong");
+    if (correct) gameAudioRef.current?.playCorrect();
+    else gameAudioRef.current?.playWrong();
     if (correct) setScore((s) => s + 1);
     setTimeout(() => {
       const nextRound = round + 1;
@@ -1864,6 +2126,8 @@ function ColorMatchGame({
         const s = calcStars(newScore, ROUNDS);
         setStars(s);
         saveScore(meta.id, studentId, s);
+        if (s >= 2) gameAudioRef.current?.playWin();
+        else gameAudioRef.current?.playGameOver();
         setScreen("end");
         onDone(s, newScore, ROUNDS);
       } else {
@@ -2032,6 +2296,8 @@ function RhymingWordsGame({
     setChosen(opt);
     const correct = opt === question.correctRhyme;
     setFeedback(correct ? "correct" : "wrong");
+    if (correct) gameAudioRef.current?.playCorrect();
+    else gameAudioRef.current?.playWrong();
     if (correct) setScore((s) => s + 1);
     setTimeout(() => {
       const nextRound = round + 1;
@@ -2040,6 +2306,8 @@ function RhymingWordsGame({
         const s = calcStars(newScore, TOTAL);
         setStars(s);
         saveScore(meta.id, studentId, s);
+        if (s >= 2) gameAudioRef.current?.playWin();
+        else gameAudioRef.current?.playGameOver();
         setScreen("end");
         onDone(s, newScore, TOTAL);
       } else {
@@ -2217,6 +2485,8 @@ function TimesTableGame({
         finalTotal === 0 ? 1 : calcStars(finalScore, Math.max(finalTotal, 1));
       setStars(s);
       saveScore(meta.id, studentId, s);
+      if (s >= 2) gameAudioRef.current?.playWin();
+      else gameAudioRef.current?.playGameOver();
       setScreen("end");
       onDone(s, finalScore, finalTotal);
     },
@@ -2265,6 +2535,8 @@ function TimesTableGame({
     setChosen(opt);
     const correct = opt === question.answer;
     setFeedback(correct ? "correct" : "wrong");
+    if (correct) gameAudioRef.current?.playCorrect();
+    else gameAudioRef.current?.playWrong();
     if (correct) {
       setScore((s) => {
         scoreRef.current = s + 1;
@@ -2618,7 +2890,22 @@ function GamesHub({
 
   return (
     <div data-ocid="games.section">
-      <h2 className="section-title">🎮 Learning Games</h2>
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="section-title" style={{ marginBottom: 0 }}>
+          🎮 Learning Games
+        </h2>
+        <button
+          type="button"
+          data-ocid="games.music.toggle"
+          onClick={() => gameAudioRef.current?.toggleMusic()}
+          className="text-2xl p-2 rounded-full hover:bg-muted transition-colors"
+          title={
+            gameAudioRef.current?.musicOn ? "Turn off music" : "Turn on music"
+          }
+        >
+          {gameAudioRef.current?.musicOn !== false ? "🎵" : "🔇"}
+        </button>
+      </div>
       <p className="section-subtitle">
         Fun games for Class {level} students — learn English &amp; Maths while
         playing!
@@ -2848,6 +3135,8 @@ function SpeakTheWordGame({
       const s = calcStars(finalScore, TOTAL);
       setStars(s);
       saveScore(meta.id, studentId, s);
+      if (s >= 2) gameAudioRef.current?.playWin();
+      else gameAudioRef.current?.playGameOver();
       setScreen("end");
       onDone(s, finalScore, TOTAL);
     },
@@ -2892,6 +3181,8 @@ function SpeakTheWordGame({
         setRecognized(heard);
         const correct = heard.includes(currentWord.toLowerCase());
         setFeedback(correct ? "correct" : "wrong");
+        if (correct) gameAudioRef.current?.playCorrect();
+        else gameAudioRef.current?.playWrong();
         advance(correct);
       };
       rec.onerror = () => {
@@ -3087,6 +3378,8 @@ function ListenAndSpellGame({
     if (feedback !== null || typed.trim() === "") return;
     const correct = typed.trim().toLowerCase() === currentWord.toLowerCase();
     setFeedback(correct ? "correct" : "wrong");
+    if (correct) gameAudioRef.current?.playCorrect();
+    else gameAudioRef.current?.playWrong();
     const newScore = correct ? score + 1 : score;
     if (correct) setScore((s) => s + 1);
     setTimeout(() => {
@@ -3095,6 +3388,8 @@ function ListenAndSpellGame({
         const s = calcStars(newScore, TOTAL);
         setStars(s);
         saveScore(meta.id, studentId, s);
+        if (s >= 2) gameAudioRef.current?.playWin();
+        else gameAudioRef.current?.playGameOver();
         setScreen("end");
         onDone(s, newScore, TOTAL);
       } else {
@@ -3266,6 +3561,8 @@ function PicturePronounceGame({
       const s = calcStars(finalScore, TOTAL);
       setStars(s);
       saveScore(meta.id, studentId, s);
+      if (s >= 2) gameAudioRef.current?.playWin();
+      else gameAudioRef.current?.playGameOver();
       setScreen("end");
       onDone(s, finalScore, TOTAL);
     },
@@ -3309,6 +3606,8 @@ function PicturePronounceGame({
         setRecognized(heard);
         const correct = heard.includes(current.word.toLowerCase());
         setFeedback(correct ? "correct" : "wrong");
+        if (correct) gameAudioRef.current?.playCorrect();
+        else gameAudioRef.current?.playWrong();
         advance(correct);
       };
       rec.onerror = () => {
@@ -3557,6 +3856,8 @@ function StoryArrangeGame({
     if (newSelected.length === story.sentences.length) {
       const correct = newSelected.join("|") === story.sentences.join("|");
       setFeedback(correct ? "correct" : "wrong");
+      if (correct) gameAudioRef.current?.playCorrect();
+      else gameAudioRef.current?.playWrong();
       const newScore = correct ? score + 1 : score;
       if (correct) setScore((s) => s + 1);
       setTimeout(() => {
@@ -3565,6 +3866,8 @@ function StoryArrangeGame({
           const s = calcStars(newScore, TOTAL);
           setStars(s);
           saveScore(meta.id, studentId, s);
+          if (s >= 2) gameAudioRef.current?.playWin();
+          else gameAudioRef.current?.playGameOver();
           setScreen("end");
           onDone(s, newScore, TOTAL);
         } else {
@@ -3690,6 +3993,7 @@ export default function LearningGames({
   studentClass: string;
 }) {
   const level = parseLevel(studentClass);
+  useGameAudio(); // initializes gameAudioRef + background music
   const [activeGame, setActiveGame] = useState<GameId | null>(null);
 
   // Backend scores (personal best per game)
