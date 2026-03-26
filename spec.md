@@ -1,29 +1,34 @@
-# EduR
+# EduR – LKG Learning Games Hub
 
 ## Current State
-The Learning Games section (`src/frontend/src/pages/student/LearningGames.tsx`, ~3914 lines) has 13 games with star tracking and leaderboard. There is no audio/music in the games section.
+The `LearningGames.tsx` (4243 lines) contains 13 games for LKG–Class 4. The `GamesHub` component renders available/locked games filtered by student class level using a flat `GAMES` array. LKG students currently only see Alphabet Match, Number Counting, and Color Match.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Background music system using Web Audio API (no external files needed) that plays a cheerful looping melody when the games section is open
-- A music toggle button (on/off) in the games section header so students can control the music
-- Sound effects for game events: correct answer chime, wrong answer buzz, game win fanfare, game over sound
-- Remember the music preference in localStorage (so if a student turns it off, it stays off)
+- A new **LKG Learning Hub** component in a separate file `LKGGames.tsx` that renders when `level === 'LKG'`
+- Three top-level categories for LKG:
+  1. **Phonics & Literacy Skills** – Strokes, Fun with Letters, Vowels & Consonants, Read Aloud
+  2. **Numeracy Skills** – Pre-number concepts (many subtopics), Number practice, Fun with shapes, Fun with colours, Backward counting, Before/Between/After, Number names, Ordinals, One more/One less
+  3. **General Awareness** – 40+ topics: This is me, My body, My family, My house, My school, Animals, Food, Transport, Safety, Weather, Festivals, etc.
+- Each topic is an interactive mini-game/activity with visuals, taps, and feedback
+- Stars per topic saved using existing `saveGameScoreToBackend`
+- Navigation: LKG Hub → Category → Topic activity → Back
 
 ### Modify
-- `LearningGames.tsx`: add a `useGameAudio` hook at the top of the file that manages background music and sound effects using the Web Audio API. Wire the toggle button into the games header. Call sound effect functions at correct/wrong/win moments in each game.
+- `GamesHub` in `LearningGames.tsx`: when `level === 'LKG'`, render `<LKGGamesHub>` instead of (or alongside) the existing games grid
+- LKG students see the new hub as their primary experience, with the existing games still accessible
 
 ### Remove
-- Nothing removed
+Nothing removed.
 
 ## Implementation Plan
-1. Create a `useGameAudio` hook (inline in LearningGames.tsx or as a small helper) using Web Audio API that:
-   - Generates a cheerful looping background melody (simple pentatonic notes, ~8-bar loop)
-   - Provides functions: `playCorrect()`, `playWrong()`, `playWin()`, `playGameOver()`
-   - Exposes `musicOn`, `toggleMusic()` state
-   - Persists music preference in localStorage
-   - Starts/stops background music when the component mounts/unmounts
-2. Add a music toggle button (🎵/🔇 icon) in the games hub header area
-3. Wire `playCorrect()` and `playWrong()` into answer handling in each game
-4. Wire `playWin()` / `playGameOver()` into game end screens
+1. Create `src/frontend/src/pages/student/LKGGames.tsx` with:
+   - `LKGGamesHub` as default export
+   - Category cards grid (3 categories with emoji, color, count)
+   - On category click → topic list grid
+   - On topic click → inline activity panel (MCQ, tap-to-match, trace hint, image tap, etc.)
+   - Lightweight interactive activities for each of the 50+ topics using SVG/emoji visuals
+   - Each activity: question/prompt → tap answer → feedback → score → back
+   - Stars computed from score, saved via `saveGameScoreToBackend`
+2. Import and use `LKGGamesHub` in `LearningGames.tsx` inside `GamesHub` when `level === 'LKG'`, rendered as a new tab or section above existing games

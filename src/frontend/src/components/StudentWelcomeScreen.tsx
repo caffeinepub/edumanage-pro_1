@@ -8,11 +8,14 @@ interface Props {
   onDismiss: () => void;
 }
 
-function playWelcomeChime() {
+async function playWelcomeChime() {
   try {
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
+    if (ctx.state === "suspended") {
+      await ctx.resume().catch(() => {});
+    }
     const notes = [523, 659, 784]; // C, E, G
     notes.forEach((freq, i) => {
       const osc = ctx.createOscillator();
@@ -77,7 +80,7 @@ export default function StudentWelcomeScreen({
     requestAnimationFrame(() => setMounted(true));
 
     // Sound
-    playWelcomeChime();
+    playWelcomeChime().catch(() => {});
     setTimeout(() => speakWelcome(studentName), 400);
 
     // Show button after 1s

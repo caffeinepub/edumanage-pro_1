@@ -25,6 +25,7 @@ import {
 } from "@/store/data";
 import { ArrowLeft, Star, Trophy } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import LKGGamesHub from "./LKGGames";
 
 // ─────────────────────────────────────────────────────────────
 // Game Audio (Web Audio API)
@@ -54,16 +55,19 @@ function useGameAudio(): GameAudioFunctions {
   const gainRef = useRef<GainNode | null>(null);
   const loopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const musicOnRef = useRef(musicOn);
+  const hasInteractedRef = useRef(false);
   useEffect(() => {
     musicOnRef.current = musicOn;
   }, [musicOn]);
 
-  const getCtx = useCallback((): AudioContext => {
+  const getCtx = useCallback(async (): Promise<AudioContext> => {
     if (!ctxRef.current || ctxRef.current.state === "closed") {
-      ctxRef.current = new AudioContext();
+      ctxRef.current = new (
+        window.AudioContext || (window as any).webkitAudioContext
+      )();
     }
     if (ctxRef.current.state === "suspended") {
-      ctxRef.current.resume().catch(() => {});
+      await ctxRef.current.resume();
     }
     return ctxRef.current;
   }, []);
@@ -74,9 +78,10 @@ function useGameAudio(): GameAudioFunctions {
   ];
   const NOTE_DURATION = 0.5; // seconds (120 BPM ≈ 0.5s per beat)
 
-  const playMelodyLoop = useCallback(() => {
+  const playMelodyLoop = useCallback(async () => {
     if (!musicOnRef.current) return;
-    const ctx = getCtx();
+    if (!hasInteractedRef.current) return;
+    const ctx = await getCtx();
     const masterGain = ctx.createGain();
     masterGain.gain.setValueAtTime(0.15, ctx.currentTime);
     masterGain.connect(ctx.destination);
@@ -102,7 +107,7 @@ function useGameAudio(): GameAudioFunctions {
 
     const totalDuration = MELODY_NOTES.length * NOTE_DURATION * 1000;
     loopTimeoutRef.current = setTimeout(() => {
-      if (musicOnRef.current) playMelodyLoop();
+      if (musicOnRef.current) playMelodyLoop().catch(() => {});
     }, totalDuration - 50);
   }, [getCtx]);
 
@@ -121,18 +126,39 @@ function useGameAudio(): GameAudioFunctions {
     }
   }, []);
 
+  // First interaction listener: unlock audio and start music
+  useEffect(() => {
+    const handleInteraction = () => {
+      hasInteractedRef.current = true;
+      if (ctxRef.current && ctxRef.current.state === "suspended") {
+        ctxRef.current.resume().catch(() => {});
+      }
+      if (musicOnRef.current) {
+        playMelodyLoop().catch(() => {});
+      }
+      document.removeEventListener("click", handleInteraction);
+      document.removeEventListener("touchstart", handleInteraction);
+    };
+    document.addEventListener("click", handleInteraction);
+    document.addEventListener("touchstart", handleInteraction);
+    return () => {
+      document.removeEventListener("click", handleInteraction);
+      document.removeEventListener("touchstart", handleInteraction);
+    };
+  }, [playMelodyLoop]);
+
   useEffect(() => {
     if (musicOn) {
-      playMelodyLoop();
+      if (hasInteractedRef.current) playMelodyLoop().catch(() => {});
     } else {
       stopMelody();
     }
     return stopMelody;
   }, [musicOn, playMelodyLoop, stopMelody]);
 
-  const playCorrect = useCallback(() => {
+  const playCorrect = useCallback(async () => {
     try {
-      const ctx = getCtx();
+      const ctx = await getCtx();
       const notes = [523.25, 659.25];
       let t = ctx.currentTime;
       for (const freq of notes) {
@@ -153,9 +179,9 @@ function useGameAudio(): GameAudioFunctions {
     }
   }, [getCtx]);
 
-  const playWrong = useCallback(() => {
+  const playWrong = useCallback(async () => {
     try {
-      const ctx = getCtx();
+      const ctx = await getCtx();
       const notes = [220.0, 196.0];
       let t = ctx.currentTime;
       for (const freq of notes) {
@@ -176,9 +202,9 @@ function useGameAudio(): GameAudioFunctions {
     }
   }, [getCtx]);
 
-  const playWin = useCallback(() => {
+  const playWin = useCallback(async () => {
     try {
-      const ctx = getCtx();
+      const ctx = await getCtx();
       const notes = [523.25, 659.25, 783.99, 1046.5];
       let t = ctx.currentTime;
       for (const freq of notes) {
@@ -199,9 +225,9 @@ function useGameAudio(): GameAudioFunctions {
     }
   }, [getCtx]);
 
-  const playGameOver = useCallback(() => {
+  const playGameOver = useCallback(async () => {
     try {
-      const ctx = getCtx();
+      const ctx = await getCtx();
       const notes = [392.0, 329.63, 261.63];
       let t = ctx.currentTime;
       for (const freq of notes) {
@@ -4206,6 +4232,29 @@ export default function LearningGames({
     );
   }
 
+  if (level === "LKG") {
+    return (
+      <div className="space-y-8">
+        <LKGGamesHub
+          studentId={studentId}
+          studentName={studentName}
+          studentClass={studentClass}
+        />
+        <div className="border-t border-border pt-6">
+          <p className="text-sm text-muted-foreground mb-4 font-semibold">
+            🎮 More Games
+          </p>
+          <GamesHub
+            level={level}
+            myScores={myScores}
+            studentId={studentId}
+            studentClass={studentClass}
+            onPlay={(gameId) => setActiveGame(gameId)}
+          />
+        </div>
+      </div>
+    );
+  }
   return (
     <GamesHub
       level={level}
