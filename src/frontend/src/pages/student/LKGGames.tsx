@@ -484,6 +484,246 @@ const phonicsTopics: LKGTopic[] = [
       },
     ],
   },
+  {
+    id: "letter-sounds",
+    name: "Letter Sounds",
+    emoji: "🔤",
+    category: "phonics",
+    questions: [
+      {
+        prompt: "Which word begins with the letter B?",
+        options: ["Ball", "Cat", "Dog", "Elephant"],
+        correct: 0,
+      },
+      {
+        prompt: "Which word begins with the letter C?",
+        options: ["Apple", "Car", "Dog", "Fan"],
+        correct: 1,
+      },
+      {
+        prompt: "Which word begins with the letter D?",
+        options: ["Mango", "Box", "Drum", "Hen"],
+        correct: 2,
+      },
+      {
+        prompt: "Which word begins with the letter F?",
+        options: ["Sun", "Rain", "Bird", "Fish"],
+        correct: 3,
+      },
+      {
+        prompt: "Which word begins with the letter G?",
+        options: ["Goat", "Horse", "Kite", "Lion"],
+        correct: 0,
+      },
+      {
+        prompt: "Which word begins with the letter H?",
+        options: ["Tree", "Hat", "Pen", "Bag"],
+        correct: 1,
+      },
+      {
+        prompt: "Which word begins with the letter M?",
+        options: ["Dog", "Cup", "Moon", "Sun"],
+        correct: 2,
+      },
+      {
+        prompt: "Which word begins with the letter P?",
+        options: ["Mango", "Banana", "Apple", "Plum"],
+        correct: 3,
+      },
+    ],
+  },
+  {
+    id: "cvc-words",
+    name: "CVC Words",
+    emoji: "📝",
+    category: "phonics",
+    questions: [
+      {
+        prompt: "Which word rhymes with CAT?",
+        options: ["Bat", "Dog", "Sun", "Cup"],
+        correct: 0,
+      },
+      {
+        prompt: "Complete the word: S_T — what is the missing letter?",
+        options: ["E", "I", "O", "A"],
+        correct: 1,
+      },
+      {
+        prompt: "Which word rhymes with HOP?",
+        options: ["Bag", "Cup", "Top", "Pin"],
+        correct: 2,
+      },
+      {
+        prompt: "Complete the word: C_P (you drink from it) — missing letter?",
+        options: ["I", "A", "E", "U"],
+        correct: 3,
+      },
+      {
+        prompt: "Which word rhymes with RED?",
+        options: ["Bed", "Cup", "Pin", "Hop"],
+        correct: 0,
+      },
+      {
+        prompt: "Complete the word: B_G (very large) — missing letter?",
+        options: ["A", "I", "E", "O"],
+        correct: 1,
+      },
+      {
+        prompt: "Which word rhymes with LOG?",
+        options: ["Cat", "Hen", "Dog", "Pin"],
+        correct: 2,
+      },
+      {
+        prompt: "Complete the word: F_N (having fun) — missing letter?",
+        options: ["A", "I", "E", "U"],
+        correct: 3,
+      },
+    ],
+  },
+  {
+    id: "sight-words",
+    name: "Sight Words",
+    emoji: "👀",
+    category: "phonics",
+    questions: [
+      {
+        prompt: "Which is the most common word in English?",
+        options: ["the", "cat", "run", "big"],
+        correct: 0,
+      },
+      {
+        prompt: "Which word means together with?",
+        options: ["is", "and", "in", "at"],
+        correct: 1,
+      },
+      {
+        prompt: "Which word shows something is happening now?",
+        options: ["on", "at", "is", "it"],
+        correct: 2,
+      },
+      {
+        prompt: "Which word is used for a thing (not a person)?",
+        options: ["the", "and", "is", "it"],
+        correct: 3,
+      },
+      {
+        prompt: "Which word tells where something is inside?",
+        options: ["in", "on", "at", "can"],
+        correct: 0,
+      },
+      {
+        prompt: "Which word tells on top of something?",
+        options: ["in", "on", "at", "it"],
+        correct: 1,
+      },
+      {
+        prompt: "Which word tells where you are (at school)?",
+        options: ["in", "on", "at", "is"],
+        correct: 2,
+      },
+      {
+        prompt: "Which word means is able to?",
+        options: ["it", "in", "on", "can"],
+        correct: 3,
+      },
+    ],
+  },
+  {
+    id: "rhyming-words",
+    name: "Rhyming Words",
+    emoji: "🎵",
+    category: "phonics",
+    questions: [
+      {
+        prompt: "Which word RHYMES with CAT?",
+        options: ["Bat", "Dog", "Sun", "Cup"],
+        correct: 0,
+      },
+      {
+        prompt: "Which word RHYMES with SUN?",
+        options: ["Dog", "Run", "Cat", "Hop"],
+        correct: 1,
+      },
+      {
+        prompt: "Which word RHYMES with BIG?",
+        options: ["Dog", "Sun", "Pig", "Cat"],
+        correct: 2,
+      },
+      {
+        prompt: "Which word RHYMES with RED?",
+        options: ["Sun", "Dog", "Cat", "Bed"],
+        correct: 3,
+      },
+      {
+        prompt: "Which word RHYMES with HOP?",
+        options: ["Top", "Cat", "Sun", "Big"],
+        correct: 0,
+      },
+      {
+        prompt: "Which word RHYMES with CUP?",
+        options: ["Cat", "Pup", "Sun", "Hop"],
+        correct: 1,
+      },
+      {
+        prompt: "Which word RHYMES with DAY?",
+        options: ["Sun", "Cat", "Play", "Dog"],
+        correct: 2,
+      },
+      {
+        prompt: "Which word RHYMES with TREE?",
+        options: ["Dog", "Cat", "Sun", "Bee"],
+        correct: 3,
+      },
+    ],
+  },
+  {
+    id: "beginning-sounds",
+    name: "Beginning Sounds",
+    emoji: "🔊",
+    category: "phonics",
+    questions: [
+      {
+        prompt: "What sound does SUN begin with?",
+        options: ["S", "T", "R", "P"],
+        correct: 0,
+      },
+      {
+        prompt: "What sound does BALL begin with?",
+        options: ["D", "B", "P", "M"],
+        correct: 1,
+      },
+      {
+        prompt: "What sound does CAT begin with?",
+        options: ["D", "G", "C", "K"],
+        correct: 2,
+      },
+      {
+        prompt: "What sound does DOG begin with?",
+        options: ["B", "G", "T", "D"],
+        correct: 3,
+      },
+      {
+        prompt: "What sound does FISH begin with?",
+        options: ["F", "V", "P", "B"],
+        correct: 0,
+      },
+      {
+        prompt: "What sound does HAT begin with?",
+        options: ["J", "H", "K", "W"],
+        correct: 1,
+      },
+      {
+        prompt: "What sound does MOUSE begin with?",
+        options: ["N", "B", "M", "P"],
+        correct: 2,
+      },
+      {
+        prompt: "What sound does PEN begin with?",
+        options: ["B", "D", "F", "P"],
+        correct: 3,
+      },
+    ],
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -1480,6 +1720,246 @@ const numeracyTopics: LKGTopic[] = [
         prompt: "One LESS than 2 is ___",
         options: ["0", "1", "2", "3"],
         correct: 1,
+      },
+    ],
+  },
+  {
+    id: "counting-objects",
+    name: "Counting Objects",
+    emoji: "🔢",
+    category: "numeracy",
+    questions: [
+      {
+        prompt: "How many apples are there? 🍎🍎",
+        options: ["1", "2", "3", "4"],
+        correct: 1,
+      },
+      {
+        prompt: "How many stars are there? ⭐⭐⭐",
+        options: ["2", "3", "4", "5"],
+        correct: 1,
+      },
+      {
+        prompt: "How many balls are there? 🏀🏀🏀🏀",
+        options: ["3", "4", "5", "6"],
+        correct: 1,
+      },
+      {
+        prompt: "How many flowers are there? 🌸🌸🌸🌸🌸",
+        options: ["4", "5", "6", "7"],
+        correct: 1,
+      },
+      {
+        prompt: "How many birds are there? 🐦🐦🐦🐦🐦🐦",
+        options: ["5", "6", "7", "8"],
+        correct: 1,
+      },
+      {
+        prompt: "How many cars are there? 🚗🚗🚗🚗🚗🚗🚗",
+        options: ["6", "7", "8", "9"],
+        correct: 1,
+      },
+      {
+        prompt: "How many fish are there? 🐟🐟🐟🐟🐟🐟🐟🐟",
+        options: ["7", "8", "9", "10"],
+        correct: 1,
+      },
+      {
+        prompt: "How many hearts are there? ❤️❤️❤️❤️❤️❤️❤️❤️❤️",
+        options: ["8", "9", "10", "11"],
+        correct: 1,
+      },
+    ],
+  },
+  {
+    id: "number-matching",
+    name: "Number Matching",
+    emoji: "🔗",
+    category: "numeracy",
+    questions: [
+      {
+        prompt: "Which number matches the word ONE?",
+        options: ["1", "2", "3", "4"],
+        correct: 0,
+      },
+      {
+        prompt: "Which number matches the word TWO?",
+        options: ["1", "2", "3", "4"],
+        correct: 1,
+      },
+      {
+        prompt: "Which number matches the word THREE?",
+        options: ["1", "2", "3", "4"],
+        correct: 2,
+      },
+      {
+        prompt: "Which number matches the word FOUR?",
+        options: ["2", "3", "5", "4"],
+        correct: 3,
+      },
+      {
+        prompt: "Which number matches the word FIVE?",
+        options: ["5", "6", "7", "8"],
+        correct: 0,
+      },
+      {
+        prompt: "Which number matches the word SIX?",
+        options: ["5", "6", "7", "8"],
+        correct: 1,
+      },
+      {
+        prompt: "Which number matches the word SEVEN?",
+        options: ["5", "6", "7", "8"],
+        correct: 2,
+      },
+      {
+        prompt: "Which number matches the word EIGHT?",
+        options: ["5", "6", "7", "8"],
+        correct: 3,
+      },
+    ],
+  },
+  {
+    id: "simple-addition",
+    name: "Simple Addition",
+    emoji: "➕",
+    category: "numeracy",
+    questions: [
+      {
+        prompt: "1 + 1 = ?",
+        options: ["2", "3", "4", "1"],
+        correct: 0,
+      },
+      {
+        prompt: "2 + 1 = ?",
+        options: ["2", "3", "4", "5"],
+        correct: 1,
+      },
+      {
+        prompt: "2 + 2 = ?",
+        options: ["3", "5", "4", "6"],
+        correct: 2,
+      },
+      {
+        prompt: "3 + 1 = ?",
+        options: ["3", "5", "6", "4"],
+        correct: 3,
+      },
+      {
+        prompt: "3 + 2 = ?",
+        options: ["5", "6", "4", "7"],
+        correct: 0,
+      },
+      {
+        prompt: "4 + 1 = ?",
+        options: ["4", "5", "6", "7"],
+        correct: 1,
+      },
+      {
+        prompt: "2 + 3 = ?",
+        options: ["4", "6", "5", "7"],
+        correct: 2,
+      },
+      {
+        prompt: "5 + 1 = ?",
+        options: ["5", "7", "8", "6"],
+        correct: 3,
+      },
+    ],
+  },
+  {
+    id: "patterns",
+    name: "Patterns",
+    emoji: "🔁",
+    category: "numeracy",
+    questions: [
+      {
+        prompt: "What comes next? Red Blue Red Blue ___",
+        options: ["Red", "Blue", "Green", "Yellow"],
+        correct: 0,
+      },
+      {
+        prompt: "What comes next? Big Small Big Small ___",
+        options: ["Big", "Small", "Medium", "Tiny"],
+        correct: 1,
+      },
+      {
+        prompt: "What comes next? Circle Square Circle Square ___",
+        options: ["Square", "Circle", "Triangle", "Star"],
+        correct: 1,
+      },
+      {
+        prompt: "What comes next? Apple Orange Apple Orange ___",
+        options: ["Orange", "Banana", "Apple", "Mango"],
+        correct: 2,
+      },
+      {
+        prompt: "What comes next? Cat Dog Cat Dog ___",
+        options: ["Rabbit", "Dog", "Cat", "Bird"],
+        correct: 2,
+      },
+      {
+        prompt: "What comes next? 1 2 1 2 ___",
+        options: ["3", "2", "4", "1"],
+        correct: 3,
+      },
+      {
+        prompt: "What comes next? Red Blue Green Red Blue ___",
+        options: ["Red", "Blue", "Green", "Yellow"],
+        correct: 2,
+      },
+      {
+        prompt: "What comes next? Up Down Up Down ___",
+        options: ["Down", "Up", "Left", "Right"],
+        correct: 1,
+      },
+    ],
+  },
+  {
+    id: "days-of-week",
+    name: "Days of the Week",
+    emoji: "📅",
+    category: "numeracy",
+    questions: [
+      {
+        prompt: "What day comes after Monday?",
+        options: ["Tuesday", "Wednesday", "Sunday", "Thursday"],
+        correct: 0,
+      },
+      {
+        prompt: "What is the first day of the week?",
+        options: ["Monday", "Sunday", "Saturday", "Friday"],
+        correct: 1,
+      },
+      {
+        prompt: "How many days are in a week?",
+        options: ["5", "6", "7", "8"],
+        correct: 2,
+      },
+      {
+        prompt: "Which day comes before Sunday?",
+        options: ["Monday", "Friday", "Thursday", "Saturday"],
+        correct: 3,
+      },
+      {
+        prompt: "What day comes after Friday?",
+        options: ["Saturday", "Sunday", "Monday", "Tuesday"],
+        correct: 0,
+      },
+      {
+        prompt: "What day comes after Wednesday?",
+        options: ["Friday", "Thursday", "Tuesday", "Monday"],
+        correct: 1,
+      },
+      {
+        prompt: "Which day comes between Tuesday and Thursday?",
+        options: ["Monday", "Friday", "Wednesday", "Saturday"],
+        correct: 2,
+      },
+      {
+        prompt: "What is the last day of the school week?",
+        options: ["Thursday", "Saturday", "Sunday", "Friday"],
+        correct: 3,
       },
     ],
   },
@@ -3307,6 +3787,348 @@ const awarenessTopics: LKGTopic[] = [
           "Stay up all night",
         ],
         correct: 1,
+      },
+    ],
+  },
+  {
+    id: "my-senses",
+    name: "My Five Senses",
+    emoji: "👂",
+    category: "awareness",
+    questions: [
+      {
+        prompt: "Which body part do we use to SEE?",
+        options: ["Eyes", "Ears", "Nose", "Mouth"],
+        correct: 0,
+      },
+      {
+        prompt: "Which body part do we use to HEAR?",
+        options: ["Eyes", "Ears", "Nose", "Tongue"],
+        correct: 1,
+      },
+      {
+        prompt: "Which body part do we use to SMELL?",
+        options: ["Eyes", "Ears", "Nose", "Skin"],
+        correct: 2,
+      },
+      {
+        prompt: "Which body part do we use to TASTE?",
+        options: ["Eyes", "Ears", "Nose", "Tongue"],
+        correct: 3,
+      },
+      {
+        prompt: "How many senses do we have?",
+        options: ["5", "4", "6", "3"],
+        correct: 0,
+      },
+      {
+        prompt: "Which sense helps us feel HOT and COLD?",
+        options: ["Sight", "Touch", "Smell", "Hearing"],
+        correct: 1,
+      },
+      {
+        prompt: "We use our EYES to ___",
+        options: ["Hear", "Smell", "See", "Taste"],
+        correct: 2,
+      },
+      {
+        prompt: "Which body part do we use to TOUCH?",
+        options: ["Eyes", "Ears", "Nose", "Skin"],
+        correct: 3,
+      },
+    ],
+  },
+  {
+    id: "seasons",
+    name: "Seasons",
+    emoji: "🌸",
+    category: "awareness",
+    questions: [
+      {
+        prompt: "How many seasons are there in a year?",
+        options: ["4", "3", "5", "2"],
+        correct: 0,
+      },
+      {
+        prompt: "What do we wear in Winter to keep warm?",
+        options: ["T-shirt", "Woollen clothes", "Raincoat", "Shorts"],
+        correct: 1,
+      },
+      {
+        prompt: "In which season do flowers bloom beautifully?",
+        options: ["Winter", "Monsoon", "Spring", "Summer"],
+        correct: 2,
+      },
+      {
+        prompt: "Which season is the hottest?",
+        options: ["Spring", "Winter", "Autumn", "Summer"],
+        correct: 3,
+      },
+      {
+        prompt: "We use an umbrella during which season?",
+        options: ["Monsoon", "Winter", "Summer", "Spring"],
+        correct: 0,
+      },
+      {
+        prompt: "In which season do leaves fall from trees?",
+        options: ["Spring", "Autumn", "Summer", "Winter"],
+        correct: 1,
+      },
+      {
+        prompt: "Which season comes after Summer in India?",
+        options: ["Winter", "Spring", "Monsoon", "Autumn"],
+        correct: 2,
+      },
+      {
+        prompt: "What is the cold season called?",
+        options: ["Summer", "Spring", "Monsoon", "Winter"],
+        correct: 3,
+      },
+    ],
+  },
+  {
+    id: "plants-and-trees",
+    name: "Plants and Trees",
+    emoji: "🌱",
+    category: "awareness",
+    questions: [
+      {
+        prompt: "Which part of a plant is under the ground?",
+        options: ["Root", "Stem", "Leaf", "Flower"],
+        correct: 0,
+      },
+      {
+        prompt: "Which part of the plant holds it upright?",
+        options: ["Root", "Stem", "Leaf", "Fruit"],
+        correct: 1,
+      },
+      {
+        prompt: "Which part of the plant makes food using sunlight?",
+        options: ["Root", "Stem", "Leaf", "Flower"],
+        correct: 2,
+      },
+      {
+        prompt: "Which part of the plant is colourful and attracts bees?",
+        options: ["Root", "Stem", "Leaf", "Flower"],
+        correct: 3,
+      },
+      {
+        prompt: "What do plants need to grow?",
+        options: [
+          "Water and sunlight",
+          "Milk and juice",
+          "Sand and stones",
+          "Ice and snow",
+        ],
+        correct: 0,
+      },
+      {
+        prompt: "Which of these is a big plant?",
+        options: ["Grass", "Tree", "Flower", "Cactus"],
+        correct: 1,
+      },
+      {
+        prompt: "Plants give us fresh ___",
+        options: ["Water", "Sand", "Air", "Soil"],
+        correct: 2,
+      },
+      {
+        prompt: "Which of these grows from a seed?",
+        options: ["Stone", "Water", "Soil", "Plant"],
+        correct: 3,
+      },
+    ],
+  },
+  {
+    id: "birds-and-insects",
+    name: "Birds and Insects",
+    emoji: "🦋",
+    category: "awareness",
+    questions: [
+      {
+        prompt: "Can a crow fly?",
+        options: ["Yes", "No", "Sometimes", "Only at night"],
+        correct: 0,
+      },
+      {
+        prompt: "How many legs does an insect have?",
+        options: ["4", "6", "8", "2"],
+        correct: 1,
+      },
+      {
+        prompt: "Which bird is known as the bird of peace?",
+        options: ["Crow", "Sparrow", "Dove", "Eagle"],
+        correct: 2,
+      },
+      {
+        prompt: "Which insect makes honey?",
+        options: ["Ant", "Butterfly", "Mosquito", "Bee"],
+        correct: 3,
+      },
+      {
+        prompt: "Which bird is the national bird of India?",
+        options: ["Peacock", "Sparrow", "Parrot", "Crow"],
+        correct: 0,
+      },
+      {
+        prompt: "Which insect has colourful wings?",
+        options: ["Ant", "Butterfly", "Mosquito", "Bee"],
+        correct: 1,
+      },
+      {
+        prompt: "Which bird cannot fly?",
+        options: ["Eagle", "Parrot", "Penguin", "Sparrow"],
+        correct: 2,
+      },
+      {
+        prompt: "Which insect glows in the dark?",
+        options: ["Ant", "Bee", "Mosquito", "Firefly"],
+        correct: 3,
+      },
+    ],
+  },
+  {
+    id: "sports-and-games",
+    name: "Sports and Games",
+    emoji: "⚽",
+    category: "awareness",
+    questions: [
+      {
+        prompt: "Which sport uses a bat and a ball?",
+        options: ["Cricket", "Football", "Swimming", "Running"],
+        correct: 0,
+      },
+      {
+        prompt: "In which sport do we kick a ball?",
+        options: ["Cricket", "Football", "Basketball", "Tennis"],
+        correct: 1,
+      },
+      {
+        prompt: "In which sport do we move in water?",
+        options: ["Running", "Cycling", "Swimming", "Jumping"],
+        correct: 2,
+      },
+      {
+        prompt: "Which sport is a running race on a track?",
+        options: ["Cricket", "Football", "Swimming", "Athletics"],
+        correct: 3,
+      },
+      {
+        prompt: "How many players are in a cricket team?",
+        options: ["11", "9", "7", "5"],
+        correct: 0,
+      },
+      {
+        prompt: "In basketball, the ball is put into a ___",
+        options: ["Bat", "Basket", "Net", "Goal"],
+        correct: 1,
+      },
+      {
+        prompt: "Which sport uses a racket?",
+        options: ["Cricket", "Football", "Badminton", "Swimming"],
+        correct: 2,
+      },
+      {
+        prompt: "What do we wear to protect our head while cycling?",
+        options: ["Cap", "Scarf", "Gloves", "Helmet"],
+        correct: 3,
+      },
+    ],
+  },
+  {
+    id: "musical-instruments",
+    name: "Musical Instruments",
+    emoji: "🎵",
+    category: "awareness",
+    questions: [
+      {
+        prompt: "Which instrument has strings that we pluck?",
+        options: ["Guitar", "Flute", "Drum", "Trumpet"],
+        correct: 0,
+      },
+      {
+        prompt: "Which instrument do we blow into to make music?",
+        options: ["Guitar", "Flute", "Drum", "Violin"],
+        correct: 1,
+      },
+      {
+        prompt: "Which instrument do we beat with sticks?",
+        options: ["Guitar", "Flute", "Drum", "Piano"],
+        correct: 2,
+      },
+      {
+        prompt: "Which instrument has black and white keys?",
+        options: ["Guitar", "Flute", "Drum", "Piano"],
+        correct: 3,
+      },
+      {
+        prompt: "The tabla is a ___ instrument",
+        options: ["String", "Wind", "Percussion", "Keyboard"],
+        correct: 2,
+      },
+      {
+        prompt: "How many strings does a basic guitar have?",
+        options: ["6", "4", "8", "2"],
+        correct: 0,
+      },
+      {
+        prompt:
+          "Which instrument is used in Indian classical music and has many strings?",
+        options: ["Drum", "Sitar", "Flute", "Piano"],
+        correct: 1,
+      },
+      {
+        prompt: "Which instrument produces sound when we blow air into it?",
+        options: ["Guitar", "Tabla", "Drum", "Trumpet"],
+        correct: 3,
+      },
+    ],
+  },
+  {
+    id: "months-of-year",
+    name: "Months of the Year",
+    emoji: "📆",
+    category: "awareness",
+    questions: [
+      {
+        prompt: "How many months are there in a year?",
+        options: ["12", "10", "11", "13"],
+        correct: 0,
+      },
+      {
+        prompt: "Which is the first month of the year?",
+        options: ["December", "January", "February", "March"],
+        correct: 1,
+      },
+      {
+        prompt: "Which month has Christmas?",
+        options: ["November", "January", "December", "October"],
+        correct: 2,
+      },
+      {
+        prompt: "Which is the last month of the year?",
+        options: ["November", "January", "March", "December"],
+        correct: 3,
+      },
+      {
+        prompt: "Which is the second month of the year?",
+        options: ["February", "March", "April", "May"],
+        correct: 0,
+      },
+      {
+        prompt: "Which month comes after January?",
+        options: ["March", "February", "April", "May"],
+        correct: 1,
+      },
+      {
+        prompt: "In which month does India celebrate Republic Day?",
+        options: ["March", "November", "January", "August"],
+        correct: 2,
+      },
+      {
+        prompt: "Which month comes before December?",
+        options: ["October", "January", "March", "November"],
+        correct: 3,
       },
     ],
   },
