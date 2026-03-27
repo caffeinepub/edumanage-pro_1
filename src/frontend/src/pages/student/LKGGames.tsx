@@ -2047,29 +2047,246 @@ const awarenessTopics: LKGTopic[] = [
     category: "awareness",
     questions: [
       {
-        prompt: "Which body part helps you SMELL?",
+        prompt: "👁️ My EYES help me to...",
+        options: ["Hear sounds", "See things", "Smell flowers", "Taste food"],
+        correct: 1,
+      },
+      {
+        prompt: "👂 My EARS help me to...",
+        options: ["See colours", "Touch things", "Hear sounds", "Taste food"],
+        correct: 2,
+      },
+      {
+        prompt: "👃 My NOSE helps me to...",
+        options: ["Hear music", "Smell flowers", "See pictures", "Walk fast"],
+        correct: 1,
+      },
+      {
+        prompt: "👄 My MOUTH helps me to...",
+        options: ["See things", "Hear things", "Eat and speak", "Smell things"],
+        correct: 2,
+      },
+      {
+        prompt: "✋ My HANDS help me to...",
+        options: [
+          "Run and jump",
+          "Write and hold things",
+          "See colours",
+          "Hear music",
+        ],
+        correct: 1,
+      },
+      {
+        prompt: "🦵 My LEGS help me to...",
+        options: ["Write letters", "Taste food", "Walk and run", "Hear sounds"],
+        correct: 2,
+      },
+      {
+        prompt: "🦷 My TEETH help me to...",
+        options: ["See clearly", "Chew food", "Hear well", "Smell nice things"],
+        correct: 1,
+      },
+      {
+        prompt: "Which body part helps you SMELL flowers? 🌸",
         options: ["Eyes", "Ears", "Nose", "Hands"],
         correct: 2,
       },
       {
-        prompt: "Which body part helps you WALK?",
-        options: ["Hands", "Ears", "Legs", "Eyes"],
+        prompt: "Which body part helps you SEE beautiful colours? 🌈",
+        options: ["Ears", "Nose", "Hands", "Eyes"],
+        correct: 3,
+      },
+      {
+        prompt: "Which body part helps you HEAR your teacher? 🎤",
+        options: ["Eyes", "Ears", "Nose", "Mouth"],
+        correct: 1,
+      },
+      {
+        prompt: "Which body part helps you WRITE in your notebook? ✏️",
+        options: ["Legs", "Ears", "Hands", "Eyes"],
         correct: 2,
       },
       {
-        prompt: "Which body part helps you WRITE?",
-        options: ["Legs", "Hands", "Eyes", "Ears"],
-        correct: 1,
-      },
-      {
-        prompt: "Which body part helps you HEAR MUSIC?",
-        options: ["Eyes", "Ears", "Nose", "Mouth"],
-        correct: 1,
-      },
-      {
-        prompt: "Which body part helps you EAT?",
-        options: ["Eyes", "Ears", "Nose", "Mouth"],
+        prompt: "Which body part helps you KICK a ball? ⚽",
+        options: ["Hands", "Ears", "Nose", "Legs"],
         correct: 3,
+      },
+      {
+        prompt: "Which body part helps you TASTE yummy food? 🍎",
+        options: ["Nose", "Ears", "Eyes", "Tongue"],
+        correct: 3,
+      },
+      {
+        prompt: "Which body part helps you HUG someone you love? 🤗",
+        options: ["Legs", "Arms", "Ears", "Nose"],
+        correct: 1,
+      },
+      {
+        prompt: "Which body part do you use to THINK? 🧠",
+        options: ["Hands", "Legs", "Brain", "Nose"],
+        correct: 2,
+      },
+      {
+        prompt: "My BRAIN helps me to...",
+        options: ["Run fast", "Think and learn", "Smell things", "Hear music"],
+        correct: 1,
+      },
+    ],
+  },
+  {
+    id: "human-body-explorer",
+    name: "Human Body Explorer",
+    emoji: "🫀",
+    category: "awareness",
+    questions: [
+      {
+        prompt: "🫀 What pumps blood all over your body?",
+        options: ["Lungs", "Brain", "Heart", "Stomach"],
+        correct: 2,
+      },
+      {
+        prompt: "🫁 What helps you BREATHE?",
+        options: ["Heart", "Lungs", "Stomach", "Eyes"],
+        correct: 1,
+      },
+      {
+        prompt: "🦴 What holds your body up and gives it shape?",
+        options: ["Muscles", "Skin", "Bones", "Heart"],
+        correct: 2,
+      },
+      {
+        prompt: "💪 What helps you lift and move things?",
+        options: ["Bones", "Muscles", "Brain", "Lungs"],
+        correct: 1,
+      },
+      {
+        prompt: "🧠 The BRAIN is inside your...",
+        options: ["Chest", "Tummy", "Head", "Arms"],
+        correct: 2,
+      },
+      {
+        prompt: "❤️ You can feel your HEART beat in your...",
+        options: ["Head", "Hands", "Chest", "Legs"],
+        correct: 2,
+      },
+      {
+        prompt: "🦷 We brush our TEETH to keep them...",
+        options: ["Yellow", "Clean and healthy", "Wet", "Cold"],
+        correct: 1,
+      },
+      {
+        prompt: "🌡️ Our body stays warm because of our...",
+        options: ["Bones", "Blood and heart", "Nose", "Ears"],
+        correct: 1,
+      },
+      {
+        prompt:
+          "👁️ We should NOT look directly at the SUN because it can hurt our...",
+        options: ["Ears", "Hands", "Eyes", "Legs"],
+        correct: 2,
+      },
+      {
+        prompt: "🍎 Food goes into your STOMACH when you...",
+        options: ["Sleep", "Run", "Eat", "Hear"],
+        correct: 2,
+      },
+      {
+        prompt: "🩺 We should visit a DOCTOR to keep our body...",
+        options: ["Tired", "Dirty", "Healthy", "Hungry"],
+        correct: 2,
+      },
+      {
+        prompt: "How many eyes does a person have?",
+        options: ["1", "2", "3", "4"],
+        correct: 1,
+      },
+      {
+        prompt: "How many ears does a person have?",
+        options: ["1", "2", "3", "4"],
+        correct: 1,
+      },
+      {
+        prompt: "What covers the outside of our body?",
+        options: ["Bones", "Muscles", "Skin", "Blood"],
+        correct: 2,
+      },
+      {
+        prompt: "🏃 We exercise to keep our BODY...",
+        options: ["Tired", "Strong and healthy", "Dirty", "Cold"],
+        correct: 1,
+      },
+    ],
+  },
+  {
+    id: "body-parts-quiz",
+    name: "Body Parts Quiz",
+    emoji: "🧍",
+    category: "awareness",
+    questions: [
+      {
+        prompt: "👆 Point to the TOP of your body. What is it?",
+        options: ["Feet", "Tummy", "Head", "Knees"],
+        correct: 2,
+      },
+      {
+        prompt: "What do we use to WALK on the ground?",
+        options: ["Hands", "Head", "Feet", "Ears"],
+        correct: 2,
+      },
+      {
+        prompt: "What body part connects your head to your chest?",
+        options: ["Arm", "Neck", "Leg", "Knee"],
+        correct: 1,
+      },
+      {
+        prompt: "What part of the leg bends when you sit down?",
+        options: ["Elbow", "Wrist", "Knee", "Ankle"],
+        correct: 2,
+      },
+      {
+        prompt: "What part of the arm bends when you lift something?",
+        options: ["Knee", "Ankle", "Elbow", "Wrist"],
+        correct: 2,
+      },
+      {
+        prompt: "🖐️ How many fingers are on ONE hand?",
+        options: ["3", "4", "5", "6"],
+        correct: 2,
+      },
+      {
+        prompt: "How many toes are on ONE foot?",
+        options: ["3", "4", "5", "6"],
+        correct: 2,
+      },
+      {
+        prompt: "Where are your SHOULDERS?",
+        options: [
+          "Below your knees",
+          "On your face",
+          "Top of your arms",
+          "On your feet",
+        ],
+        correct: 2,
+      },
+      {
+        prompt: "What body part is on your face that you BREATHE with?",
+        options: ["Eyes", "Ears", "Nose", "Forehead"],
+        correct: 2,
+      },
+      {
+        prompt: "What part of your face helps you SMILE?",
+        options: ["Nose", "Ears", "Eyes", "Mouth"],
+        correct: 3,
+      },
+      {
+        prompt: "🪥 We brush our teeth TWO times a day - morning and...",
+        options: ["Afternoon", "Lunchtime", "Night", "Evening"],
+        correct: 2,
+      },
+      {
+        prompt: "🚿 We WASH our hands before...",
+        options: ["Playing", "Sleeping", "Eating", "Running"],
+        correct: 2,
       },
     ],
   },
