@@ -3,6 +3,7 @@ import { Progress } from "@/components/ui/progress";
 import { type GameScoreRecord, saveGameScoreToBackend } from "@/store/data";
 import { ArrowLeft, Star } from "lucide-react";
 import { useState } from "react";
+import BodyLabelGame from "./BodyLabelGame";
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -4349,6 +4350,13 @@ const awarenessTopics: LKGTopic[] = [
       },
     ],
   },
+  {
+    id: "body-label-drag",
+    name: "Label My Body! D83eDec0",
+    emoji: "D83eDec0",
+    category: "awareness",
+    questions: [],
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -4668,6 +4676,23 @@ export default function LKGGamesHub({
     saveGameScoreToBackend(record).catch(() => {});
     setView("category");
     setSelectedTopic(null);
+  }
+
+  if (
+    view === "activity" &&
+    selectedTopic &&
+    selectedTopic.id === "body-label-drag"
+  ) {
+    return (
+      <BodyLabelGame
+        studentName={studentName}
+        onBack={() => {
+          setView("category");
+          setSelectedTopic(null);
+        }}
+        onComplete={handleComplete}
+      />
+    );
   }
 
   if (view === "activity" && selectedTopic) {
