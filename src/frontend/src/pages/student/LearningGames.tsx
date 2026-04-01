@@ -314,7 +314,7 @@ function parseLevel(cls: string): Level {
   if (upper === "LKG") return "LKG";
   if (upper === "UKG") return "UKG";
   const num = Number.parseInt(cls.trim(), 10);
-  if (!Number.isNaN(num) && num >= 1 && num <= 4) return String(num) as Level;
+  if (!Number.isNaN(num) && num >= 1) return String(Math.min(num, 4)) as Level;
   if (
     cls.trim().length > 0 &&
     !Number.isNaN(Number.parseInt(cls.charAt(0), 10))
@@ -322,7 +322,7 @@ function parseLevel(cls: string): Level {
     const n = Number.parseInt(cls.charAt(0), 10);
     if (n >= 1 && n <= 4) return String(n) as Level;
   }
-  return "1";
+  return "4";
 }
 
 function saveScore(gameId: GameId, studentId: string, stars: number) {

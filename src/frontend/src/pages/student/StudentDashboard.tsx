@@ -1908,6 +1908,11 @@ export default function StudentDashboard({ user, onLogout }: Props) {
       icon: <LayoutDashboard className="w-4 h-4" />,
     },
     {
+      id: "games",
+      label: "Learning Games",
+      icon: <Gamepad2 className="w-4 h-4" />,
+    },
+    {
       id: "results",
       label: "My Results",
       icon: <FileText className="w-4 h-4" />,
@@ -1961,11 +1966,6 @@ export default function StudentDashboard({ user, onLogout }: Props) {
       id: "assistant",
       label: "AI Assistant",
       icon: <Bot className="w-4 h-4" />,
-    },
-    {
-      id: "games",
-      label: "Learning Games",
-      icon: <Gamepad2 className="w-4 h-4" />,
     },
   ];
 
