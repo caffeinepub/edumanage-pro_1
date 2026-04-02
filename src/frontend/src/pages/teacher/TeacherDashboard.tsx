@@ -430,6 +430,33 @@ function ManageStudents({
                   </div>
                 </div>
               </div>
+              <div className="space-y-1">
+                <Label>Class</Label>
+                <Select
+                  value={form.class}
+                  onValueChange={(v) => setForm((f) => ({ ...f, class: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[
+                      "LKG A",
+                      "LKG B",
+                      "UKG A",
+                      "UKG B",
+                      "GRADE I",
+                      "GRADE II",
+                      "GRADE III",
+                      "GRADE IV",
+                    ].map((cls) => (
+                      <SelectItem key={cls} value={cls}>
+                        {cls}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               {(
                 [
                   ["name", "Full Name"],
