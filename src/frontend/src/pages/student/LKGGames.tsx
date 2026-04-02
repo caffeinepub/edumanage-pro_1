@@ -4352,8 +4352,8 @@ const awarenessTopics: LKGTopic[] = [
   },
   {
     id: "body-label-drag",
-    name: "Label My Body! D83eDec0",
-    emoji: "D83eDec0",
+    name: "Label My Body! 🫀",
+    emoji: "🫀",
     category: "awareness",
     questions: [],
   },
@@ -4725,6 +4725,30 @@ export default function LKGGamesHub({
     );
   }
 
+  // Recently added topic IDs in order
+  const recentlyAddedIds = [
+    "body-label-drag",
+    "body-parts-quiz",
+    "human-body-explorer",
+    "body-helps-me",
+    "months-of-year",
+    "musical-instruments",
+  ];
+
+  // Flatten all topics with their parent category
+  const allTopicsFlat = LKG_CATEGORIES.flatMap((cat) =>
+    cat.topics.map((t) => ({ topic: t, category: cat })),
+  );
+
+  const recentTopics = recentlyAddedIds
+    .map((id) => allTopicsFlat.find((x) => x.topic.id === id))
+    .filter(Boolean) as { topic: LKGTopic; category: LKGCategory }[];
+
+  function openRecentTopic(topic: LKGTopic) {
+    setSelectedTopic(topic);
+    setView("activity");
+  }
+
   // Hub view
   return (
     <div className="space-y-6">
@@ -4734,6 +4758,42 @@ export default function LKGGamesHub({
           Choose a subject to start learning!
         </p>
       </div>
+
+      {/* Recently Added Section */}
+      {recentTopics.length > 0 && (
+        <div className="rounded-2xl bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-lg">✨</span>
+            <h3 className="font-bold text-amber-800 text-base">
+              Recently Added
+            </h3>
+            <span className="bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+              NEW
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {recentTopics.map(({ topic, category }) => (
+              <button
+                key={topic.id}
+                type="button"
+                onClick={() => openRecentTopic(topic)}
+                className="flex items-center gap-2 bg-white rounded-xl px-3 py-2.5 text-left shadow-sm border border-amber-100 hover:border-amber-300 hover:shadow-md transition-all active:scale-95 group"
+                data-ocid="lkg.recent.item"
+              >
+                <span className="text-xl shrink-0">{topic.emoji}</span>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-gray-800 truncate leading-tight">
+                    {topic.name}
+                  </p>
+                  <p className="text-[10px] text-amber-600 truncate">
+                    {category.name}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {LKG_CATEGORIES.map((cat, i) => {
